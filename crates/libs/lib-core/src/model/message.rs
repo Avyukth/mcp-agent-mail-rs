@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 use chrono::NaiveDateTime;
 use std::path::PathBuf;
 use uuid::Uuid;
+use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
@@ -18,7 +19,8 @@ pub struct Message {
     pub importance: String,
     pub ack_required: bool,
     pub created_ts: NaiveDateTime,
-    // attachments is JSON
+    pub attachments: Vec<Value>, // Use Vec<Value> for attachments
+    pub sender_name: String, // Added sender_name for inbox display
 }
 
 #[derive(Deserialize, Serialize)]
@@ -86,7 +88,7 @@ impl MessageBmc {
         let project_slug: String = if let Some(row) = rows.next().await? {
             row.get(0)?
         } else {
-            return Err(crate::Error::ProjectNotFound(msg_c.project_id));
+            return Err(crate::Error::ProjectNotFound(format!("ID: {}", msg_c.project_id)));
         };
 
         // Need Sender Name
@@ -95,7 +97,7 @@ impl MessageBmc {
         let sender_name: String = if let Some(row) = rows.next().await? {
             row.get(0)?
         } else {
-            return Err(crate::Error::AgentNotFound(msg_c.sender_id));
+            return Err(crate::Error::AgentNotFound(format!("ID: {}", msg_c.sender_id)));
         };
 
         // Need Recipient Names
@@ -164,17 +166,125 @@ impl MessageBmc {
         }
 
         // Collect all paths to commit
-        let mut all_paths = vec![canonical_path, outbox_path];
-        all_paths.extend(inbox_paths);
+        let mut all_paths = vec![canonical_path.clone()]; // Canonical path for commit
+        all_paths.push(outbox_path.clone());
+        all_paths.extend(inbox_paths.clone());
+
+        // Convert PathBuf to AsRef<Path>
+        let all_paths_as_ref: Vec<&std::path::Path> = all_paths.iter().map(|p| p.as_path()).collect();
 
         git_store::commit_paths(
             &repo,
-            &all_paths,
+            &all_paths_as_ref,
             &commit_msg,
             "mcp-bot",
             "mcp-bot@localhost",
         )?;
 
         Ok(id)
+    }
+
+    pub async fn list_inbox_for_agent(_ctx: &Ctx, mm: &ModelManager, project_id: i64, agent_id: i64, limit: i64) -> Result<Vec<Message>> {
+        let db = mm.db();
+        let mut stmt = db.prepare(
+            r#"
+            SELECT 
+                m.id, m.project_id, m.sender_id, ag.name as sender_name, m.thread_id, m.subject, m.body_md, 
+                m.importance, m.ack_required, m.created_ts, m.attachments
+            FROM messages AS m
+            JOIN message_recipients AS mr ON m.id = mr.message_id
+            JOIN agents AS ag ON m.sender_id = ag.id
+            WHERE mr.agent_id = ? AND m.project_id = ?
+            ORDER BY m.created_ts DESC
+            LIMIT ?
+            "#
+        ).await?;
+
+        let mut rows = stmt.query((agent_id, project_id, limit)).await?;
+        let mut messages = Vec::new();
+
+        while let Some(row) = rows.next().await? {
+            let id: i64 = row.get(0)?;
+            let project_id: i64 = row.get(1)?;
+            let sender_id: i64 = row.get(2)?;
+            let sender_name: String = row.get(3)?; // Get sender name
+            let thread_id: Option<String> = row.get(4)?;
+            let subject: String = row.get(5)?;
+            let body_md: String = row.get(6)?;
+            let importance: String = row.get(7)?;
+            let ack_required: bool = row.get(8)?;
+            let created_ts_str: String = row.get(9)?;
+            let created_ts = NaiveDateTime::parse_from_str(&created_ts_str, "%Y-%m-%d %H:%M:%S")
+                .unwrap_or_else(|_| NaiveDateTime::from_timestamp(0, 0)); // Use from_timestamp directly
+            
+            let attachments_str: String = row.get(10)?;
+            let attachments: Vec<Value> = serde_json::from_str(&attachments_str)?;
+
+
+            messages.push(Message {
+                id,
+                project_id,
+                sender_id,
+                sender_name, // Assign sender_name
+                thread_id,
+                subject,
+                body_md,
+                importance,
+                ack_required,
+                created_ts,
+                attachments,
+            });
+        }
+        Ok(messages)
+    }
+
+    pub async fn get(_ctx: &Ctx, mm: &ModelManager, message_id: i64) -> Result<Message> {
+        let db = mm.db();
+        let mut stmt = db.prepare(
+            r#"
+            SELECT 
+                m.id, m.project_id, m.sender_id, ag.name as sender_name, m.thread_id, m.subject, m.body_md, 
+                m.importance, m.ack_required, m.created_ts, m.attachments
+            FROM messages AS m
+            JOIN agents AS ag ON m.sender_id = ag.id
+            WHERE m.id = ?
+            "#
+        ).await?;
+
+        let mut rows = stmt.query([message_id]).await?;
+
+        if let Some(row) = rows.next().await? {
+            let id: i64 = row.get(0)?;
+            let project_id: i64 = row.get(1)?;
+            let sender_id: i64 = row.get(2)?;
+            let sender_name: String = row.get(3)?;
+            let thread_id: Option<String> = row.get(4)?;
+            let subject: String = row.get(5)?;
+            let body_md: String = row.get(6)?;
+            let importance: String = row.get(7)?;
+            let ack_required: bool = row.get(8)?;
+            let created_ts_str: String = row.get(9)?;
+            let created_ts = NaiveDateTime::parse_from_str(&created_ts_str, "%Y-%m-%d %H:%M:%S")
+                .unwrap_or_else(|_| NaiveDateTime::from_timestamp(0, 0));
+            
+            let attachments_str: String = row.get(10)?;
+            let attachments: Vec<Value> = serde_json::from_str(&attachments_str)?;
+
+            Ok(Message {
+                id,
+                project_id,
+                sender_id,
+                sender_name,
+                thread_id,
+                subject,
+                body_md,
+                importance,
+                ack_required,
+                created_ts,
+                attachments,
+            })
+        } else {
+            Err(crate::Error::MessageNotFound(message_id))
+        }
     }
 }

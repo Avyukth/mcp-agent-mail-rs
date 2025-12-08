@@ -3,6 +3,7 @@
 pub mod ctx;
 pub mod model;
 pub mod store;
+pub mod utils; // Added utils module
 pub mod error; // New error module
 
 // Re-export core types

@@ -35,6 +35,27 @@ impl ProjectBmc {
         Ok(id)
     }
 
+    pub async fn list_all(_ctx: &crate::Ctx, mm: &ModelManager) -> Result<Vec<Project>> {
+        let db = mm.db();
+        let mut stmt = db.prepare("SELECT id, slug, human_key, created_at FROM projects ORDER BY created_at DESC").await?;
+        let mut rows = stmt.query(()).await?;
+        
+        let mut projects = Vec::new();
+        while let Some(row) = rows.next().await? {
+            let created_at_str: String = row.get(3)?;
+            let created_at = NaiveDateTime::parse_from_str(&created_at_str, "%Y-%m-%d %H:%M:%S")
+                .unwrap_or_default();
+
+            projects.push(Project {
+                id: row.get(0)?,
+                slug: row.get(1)?,
+                human_key: row.get(2)?,
+                created_at,
+            });
+        }
+        Ok(projects)
+    }
+
     pub async fn get_by_slug(_ctx: &crate::Ctx, mm: &ModelManager, slug: &str) -> Result<Project> {
         let db = mm.db();
         // Note: We are mapping manually because libsql doesn't have FromRow like sqlx yet
@@ -56,7 +77,27 @@ impl ProjectBmc {
                 created_at,
             })
         } else {
-            Err(crate::Error::NotFound)
+            Err(crate::Error::ProjectNotFound(format!("Slug: {}", slug)))
+        }
+    }
+
+    pub async fn get_by_human_key(_ctx: &crate::Ctx, mm: &ModelManager, human_key: &str) -> Result<Project> {
+        let db = mm.db();
+        let mut stmt = db.prepare("SELECT id, slug, human_key, created_at FROM projects WHERE human_key = ?").await?;
+        let mut rows = stmt.query([human_key]).await?;
+        
+        if let Some(row) = rows.next().await? {
+            let created_at_str: String = row.get(3)?;
+            let created_at = NaiveDateTime::from_timestamp(0, 0);
+
+            Ok(Project {
+                id: row.get(0)?,
+                slug: row.get(1)?,
+                human_key: row.get(2)?,
+                created_at,
+            })
+        } else {
+            Err(crate::Error::ProjectNotFound(format!("Human Key: {}", human_key)))
         }
     }
 

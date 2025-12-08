@@ -8,11 +8,11 @@ members = [
 
 [workspace.dependencies]
 # Web Framework
-axum = "0.7"
+axum = "0.6"
 tokio = { version = "1", features = ["full"] }
 
 # Database
-libsql = { version = "0.3", features = [] } # Basic local file support for now
+libsql = { version = "0.9.29", features = [] }
 chrono = { version = "0.4", features = ["serde"] }
 
 # Git
@@ -23,8 +23,7 @@ minijinja = "1.0"
 pulldown-cmark = "0.10"
 
 # MCP Protocol SDK
-# Choosing mcp-protocol-sdk for claimed 100% schema compliance.
-mcp-protocol-sdk = "0.5.1" # Check latest version on crates.io
+mcp-protocol-sdk = "0.5.1"
 
 # Error Handling
 anyhow = "1.0"

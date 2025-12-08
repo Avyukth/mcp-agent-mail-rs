@@ -26,10 +26,10 @@ pub enum Error {
 
     // -- Model Specific
     #[error("Project not found: {0}")]
-    ProjectNotFound(i64),
+    ProjectNotFound(String),
 
     #[error("Agent not found: {0}")]
-    AgentNotFound(i64),
+    AgentNotFound(String),
 
     #[error("Message not found: {0}")]
     MessageNotFound(i64),

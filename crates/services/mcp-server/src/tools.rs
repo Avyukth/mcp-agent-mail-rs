@@ -1,0 +1,289 @@
+use axum::{
+    extract::State,
+    Json,
+    response::{IntoResponse, Response}, // Added Response import
+};
+use serde::{Deserialize, Serialize};
+use crate::AppState; // Use AppState from main.rs
+use lib_core::{self, Ctx};
+use crate::error::ServerError; // Added ServerError import
+use chrono::{Utc, NaiveDateTime};
+
+// --- health_check ---
+#[derive(Serialize)]
+pub struct HealthCheckResponse {
+    status: String,
+    timestamp: String,
+}
+
+pub async fn health_check(_state: State<AppState>) -> crate::error::Result<Response> {
+    Ok(Json(HealthCheckResponse {
+        status: "ok".to_string(),
+        timestamp: Utc::now().to_rfc3339(),
+    }).into_response())
+}
+
+// --- ensure_project ---
+#[derive(Deserialize)]
+pub struct EnsureProjectPayload {
+    pub human_key: String,
+}
+
+#[derive(Serialize)]
+pub struct EnsureProjectResponse {
+    pub project_id: i64,
+    pub slug: String,
+}
+
+pub async fn ensure_project(State(app_state): State<AppState>, Json(payload): Json<EnsureProjectPayload>) -> crate::error::Result<Response> {
+    let ctx = Ctx::root_ctx(); // For now, use a root context
+    let mm = &app_state.mm;
+
+    // Call lib-core ProjectBmc to ensure project exists
+    let project = match lib_core::model::project::ProjectBmc::get_by_human_key(&ctx, mm, &payload.human_key).await {
+        Ok(p) => p,
+        Err(e) => {
+            if let lib_core::Error::ProjectNotFound(_) = e {
+                // If not found, create it. Generate a slug here based on human_key.
+                let slug = lib_core::utils::slugify(&payload.human_key);
+                let _id = lib_core::model::project::ProjectBmc::create(&ctx, mm, &slug, &payload.human_key).await?;
+                lib_core::model::project::ProjectBmc::get_by_human_key(&ctx, mm, &payload.human_key).await?
+            } else {
+                return Err(e.into());
+            }
+        }
+    };
+
+    Ok(Json(EnsureProjectResponse {
+        project_id: project.id,
+        slug: project.slug,
+    }).into_response())
+}
+
+// --- register_agent ---
+#[derive(Deserialize)]
+pub struct RegisterAgentPayload {
+    pub project_slug: String,
+    pub name: String,
+    pub program: String,
+    pub model: String,
+    pub task_description: String,
+}
+
+#[derive(Serialize)]
+pub struct RegisterAgentResponse {
+    pub agent_id: i64,
+    pub name: String,
+}
+
+pub async fn register_agent(State(app_state): State<AppState>, Json(payload): Json<RegisterAgentPayload>) -> crate::error::Result<Response> {
+    let ctx = Ctx::root_ctx();
+    let mm = &app_state.mm;
+
+    let project = lib_core::model::project::ProjectBmc::get_by_slug(&ctx, mm, &payload.project_slug).await?;
+
+    let agent_c = lib_core::model::agent::AgentForCreate {
+        project_id: project.id,
+        name: payload.name.clone(),
+        program: payload.program,
+        model: payload.model,
+        task_description: payload.task_description,
+    };
+
+    let agent_id = lib_core::model::agent::AgentBmc::create(&ctx, mm, agent_c).await?;
+
+    Ok(Json(RegisterAgentResponse {
+        agent_id,
+        name: payload.name,
+    }).into_response())
+}
+
+// --- send_message ---
+#[derive(Deserialize)]
+pub struct SendMessagePayload {
+    pub project_slug: String,
+    pub from_agent_name: String,
+    pub to_agent_names: Vec<String>,
+    pub subject: String,
+    pub body_md: String,
+    pub thread_id: Option<String>,
+    pub importance: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct SendMessageResponse {
+    pub message_id: i64,
+}
+
+pub async fn send_message(State(app_state): State<AppState>, Json(payload): Json<SendMessagePayload>) -> crate::error::Result<Response> {
+    let ctx = Ctx::root_ctx();
+    let mm = &app_state.mm;
+
+    let project = lib_core::model::project::ProjectBmc::get_by_slug(&ctx, mm, &payload.project_slug).await?;
+    let sender = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.from_agent_name).await?;
+
+    let mut recipient_ids = Vec::new();
+    for name in payload.to_agent_names {
+        let agent = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &name).await?;
+        recipient_ids.push(agent.id);
+    }
+
+    let msg_c = lib_core::model::message::MessageForCreate {
+        project_id: project.id,
+        sender_id: sender.id,
+        recipient_ids,
+        subject: payload.subject,
+        body_md: payload.body_md,
+        thread_id: payload.thread_id,
+        importance: payload.importance,
+    };
+
+    let message_id = lib_core::model::message::MessageBmc::create(&ctx, mm, msg_c).await?;
+
+    Ok(Json(SendMessageResponse { message_id }).into_response())
+}
+
+
+// --- list_inbox ---
+#[derive(Deserialize)]
+pub struct ListInboxPayload {
+    pub project_slug: String,
+    pub agent_name: String,
+    #[serde(default = "default_limit")]
+    pub limit: i64,
+}
+
+fn default_limit() -> i64 {
+    20
+}
+
+#[derive(Serialize)]
+pub struct InboxMessage {
+    pub id: i64,
+    pub subject: String,
+    pub sender_name: String,
+    pub created_ts: chrono::NaiveDateTime,
+}
+
+pub async fn list_inbox(State(app_state): State<AppState>, Json(payload): Json<ListInboxPayload>) -> crate::error::Result<Response> {
+    let ctx = Ctx::root_ctx();
+    let mm = &app_state.mm;
+
+    let project = lib_core::model::project::ProjectBmc::get_by_slug(&ctx, mm, &payload.project_slug).await?;
+    let agent = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name).await?;
+
+    let messages = lib_core::model::message::MessageBmc::list_inbox_for_agent(&ctx, mm, project.id, agent.id, payload.limit).await?;
+
+    let inbox_msgs: Vec<InboxMessage> = messages.into_iter().map(|msg| InboxMessage {
+        id: msg.id,
+        subject: msg.subject,
+        sender_name: msg.sender_name,
+        created_ts: msg.created_ts,
+    }).collect();
+
+    Ok(Json(inbox_msgs).into_response())
+}
+
+// --- list_all_projects ---
+#[derive(Serialize)]
+pub struct ProjectResponse {
+    pub id: i64,
+    pub slug: String,
+    pub human_key: String,
+    pub created_at: chrono::NaiveDateTime,
+}
+
+pub async fn list_all_projects(State(app_state): State<AppState>) -> crate::error::Result<Response> {
+    let ctx = Ctx::root_ctx();
+    let mm = &app_state.mm;
+
+    let projects = lib_core::model::project::ProjectBmc::list_all(&ctx, mm).await?;
+
+    let project_responses: Vec<ProjectResponse> = projects.into_iter().map(|p| ProjectResponse {
+        id: p.id,
+        slug: p.slug,
+        human_key: p.human_key,
+        created_at: p.created_at,
+    }).collect();
+
+    Ok(Json(project_responses).into_response())
+}
+
+// --- list_all_agents_for_project ---
+#[derive(Deserialize)]
+pub struct ListAgentsPayload {
+    pub project_slug: String,
+}
+
+#[derive(Serialize)]
+pub struct AgentResponse {
+    pub id: i64,
+    pub name: String,
+    pub program: String,
+    pub model: String,
+    pub task_description: String,
+    pub inception_ts: chrono::NaiveDateTime,
+    pub last_active_ts: chrono::NaiveDateTime,
+}
+
+pub async fn list_all_agents_for_project(State(app_state): State<AppState>, Json(payload): Json<ListAgentsPayload>) -> crate::error::Result<Response> {
+    let ctx = Ctx::root_ctx();
+    let mm = &app_state.mm;
+
+    let project = lib_core::model::project::ProjectBmc::get_by_slug(&ctx, mm, &payload.project_slug).await?;
+    let agents = lib_core::model::agent::AgentBmc::list_all_for_project(&ctx, mm, project.id).await?;
+
+    let agent_responses: Vec<AgentResponse> = agents.into_iter().map(|a| AgentResponse {
+        id: a.id,
+        name: a.name,
+        program: a.program,
+        model: a.model,
+        task_description: a.task_description,
+        inception_ts: a.inception_ts,
+        last_active_ts: a.last_active_ts,
+    }).collect();
+
+    Ok(Json(agent_responses).into_response())
+}
+
+// --- get_message ---
+#[derive(Deserialize)]
+pub struct GetMessagePayload {
+    pub message_id: i64,
+}
+
+#[derive(Serialize)]
+pub struct MessageResponse {
+    pub id: i64,
+    pub project_id: i64,
+    pub sender_id: i64,
+    pub sender_name: String,
+    pub thread_id: Option<String>,
+    pub subject: String,
+    pub body_md: String,
+    pub importance: String,
+    pub ack_required: bool,
+    pub created_ts: chrono::NaiveDateTime,
+    pub attachments: Vec<serde_json::Value>,
+}
+
+pub async fn get_message(State(app_state): State<AppState>, Json(payload): Json<GetMessagePayload>) -> crate::error::Result<Response> {
+    let ctx = Ctx::root_ctx();
+    let mm = &app_state.mm;
+
+    let message = lib_core::model::message::MessageBmc::get(&ctx, mm, payload.message_id).await?;
+
+    Ok(Json(MessageResponse {
+        id: message.id,
+        project_id: message.project_id,
+        sender_id: message.sender_id,
+        sender_name: message.sender_name,
+        thread_id: message.thread_id,
+        subject: message.subject,
+        body_md: message.body_md,
+        importance: message.importance,
+        ack_required: message.ack_required,
+        created_ts: message.created_ts,
+        attachments: message.attachments,
+    }).into_response())
+}

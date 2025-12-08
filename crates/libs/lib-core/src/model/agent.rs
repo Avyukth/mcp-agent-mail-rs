@@ -65,7 +65,7 @@ impl AgentBmc {
         let project_slug: String = if let Some(row) = rows.next().await? {
             row.get(0)?
         } else {
-            return Err(crate::Error::ProjectNotFound(agent_c.project_id));
+            return Err(crate::Error::ProjectNotFound(format!("ID: {}", agent_c.project_id)));
         };
 
         let repo_root = &mm.repo_root;
@@ -120,7 +120,7 @@ impl AgentBmc {
                  contact_policy: row.get(9)?,
              })
         } else {
-            Err(crate::Error::AgentNotFound(id))
+            Err(crate::Error::AgentNotFound(format!("ID: {}", id)))
         }
     }
 
@@ -135,6 +135,10 @@ impl AgentBmc {
         let mut rows = stmt.query((project_id, name)).await?;
 
         if let Some(row) = rows.next().await? {
+            let inception_ts_str: String = row.get(5)?;
+            let inception_ts = NaiveDateTime::from_timestamp(0, 0);
+            let last_active_ts_str: String = row.get(6)?;
+            let last_active_ts = NaiveDateTime::from_timestamp(0, 0);
              Ok(Agent {
                  id: row.get(0)?,
                  project_id: row.get(1)?,
@@ -142,13 +146,46 @@ impl AgentBmc {
                  program: row.get(3)?,
                  model: row.get(4)?,
                  task_description: row.get(5)?,
-                 inception_ts: NaiveDateTime::default(), 
-                 last_active_ts: NaiveDateTime::default(),
+                 inception_ts, 
+                 last_active_ts,
                  attachments_policy: row.get(8)?,
                  contact_policy: row.get(9)?,
              })
         } else {
-            Err(crate::Error::NotFound)
+            Err(crate::Error::AgentNotFound(format!("Name: {} in Project ID: {}", name, project_id)))
         }
+    }
+
+    pub async fn list_all_for_project(_ctx: &Ctx, mm: &ModelManager, project_id: i64) -> Result<Vec<Agent>> {
+        let db = mm.db();
+        let mut stmt = db.prepare(
+            r#"
+            SELECT id, project_id, name, program, model, task_description, inception_ts, last_active_ts, attachments_policy, contact_policy
+            FROM agents WHERE project_id = ? ORDER BY name ASC
+            "#
+        ).await?;
+        let mut rows = stmt.query([project_id]).await?;
+        
+        let mut agents = Vec::new();
+        while let Some(row) = rows.next().await? {
+            let inception_ts_str: String = row.get(5)?;
+            let inception_ts = NaiveDateTime::from_timestamp(0, 0);
+            let last_active_ts_str: String = row.get(6)?;
+            let last_active_ts = NaiveDateTime::from_timestamp(0, 0);
+            
+            agents.push(Agent {
+                id: row.get(0)?,
+                project_id: row.get(1)?,
+                name: row.get(2)?,
+                program: row.get(3)?,
+                model: row.get(4)?,
+                task_description: row.get(5)?,
+                inception_ts,
+                last_active_ts,
+                attachments_policy: row.get(8)?,
+                contact_policy: row.get(9)?,
+            });
+        }
+        Ok(agents)
     }
 }

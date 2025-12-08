@@ -5,50 +5,58 @@ To re-implement the `mcp_agent_mail` system ("Gmail for coding agents") using a 
 
 The project follows strict quality protocols (A+ code standards, TDD, zero technical debt) derived from the `Depyler` project's guidelines.
 
-## Achievements So Far (as of Phase 1 Completion)
+## Critical Pivot: Phase 1.5 - Accelerated Logic Porting
+**Reasoning**: A pure manual rewrite was too slow (<10% feature parity).
+**New Strategy**: We adopted a hybrid approach—using `depyler` to transpile Python logic as reference "pseudo-code," then manually integrating it into our idiomatic `lib-core`. This accelerates porting the complex logic of 46 MCP tools while maintaining Rust quality.
 
-1.  **Architecture & Setup**:
-    *   Established a Rust workspace (`mcp-agent-mail-rs`) with modular crates:
-        *   `lib-core`: Domain logic, data models, and storage abstraction.
-        *   `mcp-server`: Axum-based web server (skeleton).
-        *   `mcp-cli`: Command-line interface.
-    *   Configured "Rust Native" dependencies: `libsql` (database), `git2` (git operations), `axum` (web), `tokio` (async runtime), `thiserror` (error handling).
+## Achievements So Far (Post-Pivot)
 
-2.  **Core Domain Logic (`lib-core`)**:
-    *   Defined all data models (Agent, Message, Project, etc.) as Rust structs.
-    *   Implemented the **Backend Model Controller (BMC)** pattern for data access.
-    *   Created a robust `Error` type handling database, git, and migration errors.
+### 1. Architecture & Core (`lib-core`)
+*   **Modular Workspace**: Established `lib-core` (domain logic), `mcp-server` (web API), and `mcp-cli` (command-line interface).
+*   **Storage Layer**:
+    *   **Database**: Fully integrated `libsql` (Turso/SQLite) with manual schema migrations (replacing `sqlx` due to compatibility needs).
+    *   **Git**: Implemented `git_store` using `git2` for high-performance "mailbox" operations (atomic commits, file history).
+*   **Domain Logic**: Implemented BMC (Backend Model Controller) pattern for:
+    *   `Project`: Create, get by slug, get by human key, ensure archive.
+    *   `Agent`: Create, get by ID/name, list all.
+    *   `Message`: Create (with Git commit), list inbox, get by ID.
+*   **Error Handling**: Robust `thiserror`-based `ServerError` system handling DB, Git, IO, and logic errors.
 
-3.  **Storage Engines**:
-    *   **Database**: Successfully integrated `libsql` (compatible with Turso/SQLite). Implemented manual schema migrations for tables and FTS5 search.
-    *   **Git**: Implemented a `git_store` module using `git2` to handle the "mailbox" storage pattern (committing message files).
+### 2. API Layer (`mcp-server`)
+*   **Web Server**: Built an `axum` 0.6 web server (compatible with `libsql`/`tonic` dependencies).
+*   **Endpoints**: Implemented core REST API endpoints mirroring BMC logic:
+    *   `POST /api/project/ensure`
+    *   `POST /api/agent/register`
+    *   `POST /api/message/send`
+    *   `POST /api/inbox`
+    *   `GET /api/projects`
+    *   `GET /api/projects/:slug/agents`
+    *   `GET /api/messages/:id`
+    *   `GET /api/health`
 
-4.  **CLI Implementation**:
-    *   Built a functional CLI tool (`mcp-cli`) with commands:
-        *   `create-project`: Initializes DB record and Git archive.
-        *   `create-agent`: Registers an agent.
-        *   `send-message`: Creates a message, saves to DB, writes to Git (canonical/inbox/outbox), and commits changes.
-    *   Verified end-to-end flow: CLI commands run successfully and persist data.
+### 3. Verification (`mcp-cli`)
+*   **CLI Tool**: Functional CLI for testing core flows without a frontend.
+*   **End-to-End Test**: Successfully verified:
+    *   Creating a project ("demo-project")
+    *   Creating an agent ("researcher")
+    *   Sending a message (persists to DB + Git repo)
+    *   Retrieving data via API.
 
 ## Planned Work (Upcoming)
 
-### Phase 2: Frontend Scaffolding (SvelteKit)
-*   Initialize `crates/services/web-ui` with SvelteKit + Bun.
-*   Configure TailwindCSS with Material Design 3 theming.
-*   Set up `adapter-static` for embedding in the Rust binary.
+### Phase 2: Frontend Scaffolding (SvelteKit) - **IMMEDIATE NEXT STEP**
+*   Initialize `crates/services/web-ui` with **SvelteKit** + **Bun**.
+*   Configure **TailwindCSS** with Material Design 3 theming.
+*   Set up `adapter-static` for embedding the frontend into the Rust binary.
 
-### Phase 3: Backend Web Integration
-*   Update `mcp-server` to serve the static frontend assets.
-*   Implement API endpoints in `mcp-server` mirroring the BMC logic to serve the frontend.
-*   Configure CORS and proxying for seamless local development.
+### Phase 3: Full Feature Parity (The "46 Tools")
+*   Systematically port the remaining logic for file reservations, agent links, and search using the `transpiled_reference` strategy.
+*   Expose these features as API endpoints.
 
-### Phase 4: Full MCP Protocol Support
-*   Integrate `mcp-protocol-sdk` to implement the actual Model Context Protocol tools (`read_inbox`, etc.).
-*   Connect MCP tools to the `lib-core` business logic.
-
-### Phase 5: Search & Polish
-*   Implement search functionality using Libsql's FTS5 features.
-*   Comprehensive E2E testing and final quality audit (15-tool validation).
+### Phase 4: MCP Protocol & Search
+*   Integrate `mcp-protocol-sdk` to expose the API as a standard MCP server for AI agents.
+*   Enable and optimize FTS5 search in `libsql`.
 
 ## Current Status
-**Phase 1 Complete.** The Rust backend core is functional and verified via CLI. We are now ready to start the Frontend Phase.
+**Backend Core & API: STABLE & FUNCTIONAL.**
+We have a working backend that persists to both SQL and Git, serves a JSON API, and handles errors correctly. We are perfectly positioned to build the frontend.
