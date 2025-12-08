@@ -7,16 +7,14 @@ edition = "2021"
 # Workspace dependencies
 anyhow.workspace = true
 axum.workspace = true
-chrono.workspace = true # Added direct chrono dependency
+chrono.workspace = true
 clap.workspace = true
 tokio.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true
 serde.workspace = true
 serde_json.workspace = true
-mcp-protocol-sdk.workspace = true # MCP SDK
-thiserror = "1.0" # Added thiserror
-hyper = "0.14" # Added hyper
+thiserror.workspace = true
 
 # Internal workspace dependency
 lib-core = { path = "../../libs/lib-core" }

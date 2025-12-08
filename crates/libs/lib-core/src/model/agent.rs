@@ -34,16 +34,16 @@ pub struct AgentBmc;
 impl AgentBmc {
     pub async fn create(_ctx: &Ctx, mm: &ModelManager, agent_c: AgentForCreate) -> Result<i64> {
         let db = mm.db();
-        
+
         // 1. Insert into DB
-        let mut stmt = db.prepare(
+        let stmt = db.prepare(
             r#"
             INSERT INTO agents (project_id, name, program, model, task_description)
             VALUES (?, ?, ?, ?, ?)
             RETURNING id
             "#
         ).await?;
-        
+
         let mut rows = stmt.query((
             agent_c.project_id,
             agent_c.name.as_str(),
@@ -59,7 +59,7 @@ impl AgentBmc {
         };
 
         // 2. Write profile to Git
-        let mut stmt = db.prepare("SELECT slug FROM projects WHERE id = ?").await?;
+        let stmt = db.prepare("SELECT slug FROM projects WHERE id = ?").await?;
         let mut rows = stmt.query([agent_c.project_id]).await?;
         
         let project_slug: String = if let Some(row) = rows.next().await? {
@@ -94,7 +94,7 @@ impl AgentBmc {
 
     pub async fn get(_ctx: &Ctx, mm: &ModelManager, id: i64) -> Result<Agent> {
         let db = mm.db();
-        let mut stmt = db.prepare(
+        let stmt = db.prepare(
             r#"
             SELECT id, project_id, name, program, model, task_description, inception_ts, last_active_ts, attachments_policy, contact_policy
             FROM agents WHERE id = ?
@@ -103,22 +103,28 @@ impl AgentBmc {
         let mut rows = stmt.query([id]).await?;
 
         if let Some(row) = rows.next().await? {
-             // Manual mapping again
-             // For now skipping full mapping logic for brevity in this turn
-             // Just return what we need or dummy for unmapped fields if needed to compile
-             // Assuming strings for datetimes
-             Ok(Agent {
-                 id: row.get(0)?,
-                 project_id: row.get(1)?,
-                 name: row.get(2)?,
-                 program: row.get(3)?,
-                 model: row.get(4)?,
-                 task_description: row.get(5)?,
-                 inception_ts: NaiveDateTime::default(), // Placeholder
-                 last_active_ts: NaiveDateTime::default(), // Placeholder
-                 attachments_policy: row.get(8)?,
-                 contact_policy: row.get(9)?,
-             })
+            // Column indices: 0=id, 1=project_id, 2=name, 3=program, 4=model,
+            //                 5=task_description, 6=inception_ts, 7=last_active_ts,
+            //                 8=attachments_policy, 9=contact_policy
+            let inception_ts_str: String = row.get(6)?;
+            let inception_ts = NaiveDateTime::parse_from_str(&inception_ts_str, "%Y-%m-%d %H:%M:%S")
+                .unwrap_or_default();
+            let last_active_ts_str: String = row.get(7)?;
+            let last_active_ts = NaiveDateTime::parse_from_str(&last_active_ts_str, "%Y-%m-%d %H:%M:%S")
+                .unwrap_or_default();
+
+            Ok(Agent {
+                id: row.get(0)?,
+                project_id: row.get(1)?,
+                name: row.get(2)?,
+                program: row.get(3)?,
+                model: row.get(4)?,
+                task_description: row.get(5)?,
+                inception_ts,
+                last_active_ts,
+                attachments_policy: row.get(8)?,
+                contact_policy: row.get(9)?,
+            })
         } else {
             Err(crate::Error::AgentNotFound(format!("ID: {}", id)))
         }
@@ -126,7 +132,7 @@ impl AgentBmc {
 
     pub async fn get_by_name(_ctx: &Ctx, mm: &ModelManager, project_id: i64, name: &str) -> Result<Agent> {
         let db = mm.db();
-        let mut stmt = db.prepare(
+        let stmt = db.prepare(
             r#"
             SELECT id, project_id, name, program, model, task_description, inception_ts, last_active_ts, attachments_policy, contact_policy
             FROM agents WHERE project_id = ? AND name = ?
@@ -135,22 +141,28 @@ impl AgentBmc {
         let mut rows = stmt.query((project_id, name)).await?;
 
         if let Some(row) = rows.next().await? {
-            let inception_ts_str: String = row.get(5)?;
-            let inception_ts = NaiveDateTime::from_timestamp(0, 0);
-            let last_active_ts_str: String = row.get(6)?;
-            let last_active_ts = NaiveDateTime::from_timestamp(0, 0);
-             Ok(Agent {
-                 id: row.get(0)?,
-                 project_id: row.get(1)?,
-                 name: row.get(2)?,
-                 program: row.get(3)?,
-                 model: row.get(4)?,
-                 task_description: row.get(5)?,
-                 inception_ts, 
-                 last_active_ts,
-                 attachments_policy: row.get(8)?,
-                 contact_policy: row.get(9)?,
-             })
+            // Column indices: 0=id, 1=project_id, 2=name, 3=program, 4=model,
+            //                 5=task_description, 6=inception_ts, 7=last_active_ts,
+            //                 8=attachments_policy, 9=contact_policy
+            let inception_ts_str: String = row.get(6)?;
+            let inception_ts = NaiveDateTime::parse_from_str(&inception_ts_str, "%Y-%m-%d %H:%M:%S")
+                .unwrap_or_default();
+            let last_active_ts_str: String = row.get(7)?;
+            let last_active_ts = NaiveDateTime::parse_from_str(&last_active_ts_str, "%Y-%m-%d %H:%M:%S")
+                .unwrap_or_default();
+
+            Ok(Agent {
+                id: row.get(0)?,
+                project_id: row.get(1)?,
+                name: row.get(2)?,
+                program: row.get(3)?,
+                model: row.get(4)?,
+                task_description: row.get(5)?,
+                inception_ts,
+                last_active_ts,
+                attachments_policy: row.get(8)?,
+                contact_policy: row.get(9)?,
+            })
         } else {
             Err(crate::Error::AgentNotFound(format!("Name: {} in Project ID: {}", name, project_id)))
         }
@@ -158,21 +170,26 @@ impl AgentBmc {
 
     pub async fn list_all_for_project(_ctx: &Ctx, mm: &ModelManager, project_id: i64) -> Result<Vec<Agent>> {
         let db = mm.db();
-        let mut stmt = db.prepare(
+        let stmt = db.prepare(
             r#"
             SELECT id, project_id, name, program, model, task_description, inception_ts, last_active_ts, attachments_policy, contact_policy
             FROM agents WHERE project_id = ? ORDER BY name ASC
             "#
         ).await?;
         let mut rows = stmt.query([project_id]).await?;
-        
+
         let mut agents = Vec::new();
         while let Some(row) = rows.next().await? {
-            let inception_ts_str: String = row.get(5)?;
-            let inception_ts = NaiveDateTime::from_timestamp(0, 0);
-            let last_active_ts_str: String = row.get(6)?;
-            let last_active_ts = NaiveDateTime::from_timestamp(0, 0);
-            
+            // Column indices: 0=id, 1=project_id, 2=name, 3=program, 4=model,
+            //                 5=task_description, 6=inception_ts, 7=last_active_ts,
+            //                 8=attachments_policy, 9=contact_policy
+            let inception_ts_str: String = row.get(6)?;
+            let inception_ts = NaiveDateTime::parse_from_str(&inception_ts_str, "%Y-%m-%d %H:%M:%S")
+                .unwrap_or_default();
+            let last_active_ts_str: String = row.get(7)?;
+            let last_active_ts = NaiveDateTime::parse_from_str(&last_active_ts_str, "%Y-%m-%d %H:%M:%S")
+                .unwrap_or_default();
+
             agents.push(Agent {
                 id: row.get(0)?,
                 project_id: row.get(1)?,

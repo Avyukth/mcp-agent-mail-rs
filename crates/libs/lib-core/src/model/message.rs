@@ -46,16 +46,16 @@ impl MessageBmc {
         let importance = msg_c.importance.unwrap_or("normal".to_string());
 
         // Helper to serialize attachments (empty for now)
-        let attachments_json = "[]"; 
+        let attachments_json = "[]";
 
-        let mut stmt = db.prepare(
+        let stmt = db.prepare(
             r#"
             INSERT INTO messages (project_id, sender_id, thread_id, subject, body_md, importance, attachments)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             RETURNING id
             "#
         ).await?;
-        
+
         let mut rows = stmt.query((
             msg_c.project_id,
             msg_c.sender_id,
@@ -83,7 +83,7 @@ impl MessageBmc {
 
         // 3. Git Operations
         // Need Project Slug
-        let mut stmt = db.prepare("SELECT slug FROM projects WHERE id = ?").await?;
+        let stmt = db.prepare("SELECT slug FROM projects WHERE id = ?").await?;
         let mut rows = stmt.query([msg_c.project_id]).await?;
         let project_slug: String = if let Some(row) = rows.next().await? {
             row.get(0)?
@@ -92,7 +92,7 @@ impl MessageBmc {
         };
 
         // Need Sender Name
-        let mut stmt = db.prepare("SELECT name FROM agents WHERE id = ?").await?;
+        let stmt = db.prepare("SELECT name FROM agents WHERE id = ?").await?;
         let mut rows = stmt.query([msg_c.sender_id]).await?;
         let sender_name: String = if let Some(row) = rows.next().await? {
             row.get(0)?
@@ -103,11 +103,11 @@ impl MessageBmc {
         // Need Recipient Names
         let mut recipient_names = Vec::new();
         for recipient_id in &msg_c.recipient_ids {
-             let mut stmt = db.prepare("SELECT name FROM agents WHERE id = ?").await?;
-             let mut rows = stmt.query([*recipient_id]).await?;
-             if let Some(row) = rows.next().await? {
-                 recipient_names.push(row.get::<String>(0)?);
-             }
+            let stmt = db.prepare("SELECT name FROM agents WHERE id = ?").await?;
+            let mut rows = stmt.query([*recipient_id]).await?;
+            if let Some(row) = rows.next().await? {
+                recipient_names.push(row.get::<String>(0)?);
+            }
         }
 
         // Construct paths
@@ -186,10 +186,10 @@ impl MessageBmc {
 
     pub async fn list_inbox_for_agent(_ctx: &Ctx, mm: &ModelManager, project_id: i64, agent_id: i64, limit: i64) -> Result<Vec<Message>> {
         let db = mm.db();
-        let mut stmt = db.prepare(
+        let stmt = db.prepare(
             r#"
-            SELECT 
-                m.id, m.project_id, m.sender_id, ag.name as sender_name, m.thread_id, m.subject, m.body_md, 
+            SELECT
+                m.id, m.project_id, m.sender_id, ag.name as sender_name, m.thread_id, m.subject, m.body_md,
                 m.importance, m.ack_required, m.created_ts, m.attachments
             FROM messages AS m
             JOIN message_recipients AS mr ON m.id = mr.message_id
@@ -207,7 +207,7 @@ impl MessageBmc {
             let id: i64 = row.get(0)?;
             let project_id: i64 = row.get(1)?;
             let sender_id: i64 = row.get(2)?;
-            let sender_name: String = row.get(3)?; // Get sender name
+            let sender_name: String = row.get(3)?;
             let thread_id: Option<String> = row.get(4)?;
             let subject: String = row.get(5)?;
             let body_md: String = row.get(6)?;
@@ -215,17 +215,16 @@ impl MessageBmc {
             let ack_required: bool = row.get(8)?;
             let created_ts_str: String = row.get(9)?;
             let created_ts = NaiveDateTime::parse_from_str(&created_ts_str, "%Y-%m-%d %H:%M:%S")
-                .unwrap_or_else(|_| NaiveDateTime::from_timestamp(0, 0)); // Use from_timestamp directly
-            
+                .unwrap_or_default();
+
             let attachments_str: String = row.get(10)?;
             let attachments: Vec<Value> = serde_json::from_str(&attachments_str)?;
-
 
             messages.push(Message {
                 id,
                 project_id,
                 sender_id,
-                sender_name, // Assign sender_name
+                sender_name,
                 thread_id,
                 subject,
                 body_md,
@@ -240,10 +239,10 @@ impl MessageBmc {
 
     pub async fn get(_ctx: &Ctx, mm: &ModelManager, message_id: i64) -> Result<Message> {
         let db = mm.db();
-        let mut stmt = db.prepare(
+        let stmt = db.prepare(
             r#"
-            SELECT 
-                m.id, m.project_id, m.sender_id, ag.name as sender_name, m.thread_id, m.subject, m.body_md, 
+            SELECT
+                m.id, m.project_id, m.sender_id, ag.name as sender_name, m.thread_id, m.subject, m.body_md,
                 m.importance, m.ack_required, m.created_ts, m.attachments
             FROM messages AS m
             JOIN agents AS ag ON m.sender_id = ag.id
@@ -265,8 +264,8 @@ impl MessageBmc {
             let ack_required: bool = row.get(8)?;
             let created_ts_str: String = row.get(9)?;
             let created_ts = NaiveDateTime::parse_from_str(&created_ts_str, "%Y-%m-%d %H:%M:%S")
-                .unwrap_or_else(|_| NaiveDateTime::from_timestamp(0, 0));
-            
+                .unwrap_or_default();
+
             let attachments_str: String = row.get(10)?;
             let attachments: Vec<Value> = serde_json::from_str(&attachments_str)?;
 

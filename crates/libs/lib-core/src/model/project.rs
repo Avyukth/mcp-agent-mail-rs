@@ -19,9 +19,9 @@ pub struct ProjectBmc;
 impl ProjectBmc {
     pub async fn create(_ctx: &crate::Ctx, mm: &ModelManager, slug: &str, human_key: &str) -> Result<i64> {
         let db = mm.db();
-        
+
         // Execute insert
-        let mut stmt = db.prepare("INSERT INTO projects (slug, human_key) VALUES (?, ?) RETURNING id").await?;
+        let stmt = db.prepare("INSERT INTO projects (slug, human_key) VALUES (?, ?) RETURNING id").await?;
         let mut rows = stmt.query([slug, human_key]).await?;
         
         let id = if let Some(row) = rows.next().await? {
@@ -37,7 +37,7 @@ impl ProjectBmc {
 
     pub async fn list_all(_ctx: &crate::Ctx, mm: &ModelManager) -> Result<Vec<Project>> {
         let db = mm.db();
-        let mut stmt = db.prepare("SELECT id, slug, human_key, created_at FROM projects ORDER BY created_at DESC").await?;
+        let stmt = db.prepare("SELECT id, slug, human_key, created_at FROM projects ORDER BY created_at DESC").await?;
         let mut rows = stmt.query(()).await?;
         
         let mut projects = Vec::new();
@@ -59,8 +59,7 @@ impl ProjectBmc {
     pub async fn get_by_slug(_ctx: &crate::Ctx, mm: &ModelManager, slug: &str) -> Result<Project> {
         let db = mm.db();
         // Note: We are mapping manually because libsql doesn't have FromRow like sqlx yet
-        // Or we can implement a helper trait. For MVP manual map.
-        let mut stmt = db.prepare("SELECT id, slug, human_key, created_at FROM projects WHERE slug = ?").await?;
+        let stmt = db.prepare("SELECT id, slug, human_key, created_at FROM projects WHERE slug = ?").await?;
         let mut rows = stmt.query([slug]).await?;
         
         if let Some(row) = rows.next().await? {
@@ -83,12 +82,13 @@ impl ProjectBmc {
 
     pub async fn get_by_human_key(_ctx: &crate::Ctx, mm: &ModelManager, human_key: &str) -> Result<Project> {
         let db = mm.db();
-        let mut stmt = db.prepare("SELECT id, slug, human_key, created_at FROM projects WHERE human_key = ?").await?;
+        let stmt = db.prepare("SELECT id, slug, human_key, created_at FROM projects WHERE human_key = ?").await?;
         let mut rows = stmt.query([human_key]).await?;
-        
+
         if let Some(row) = rows.next().await? {
             let created_at_str: String = row.get(3)?;
-            let created_at = NaiveDateTime::from_timestamp(0, 0);
+            let created_at = NaiveDateTime::parse_from_str(&created_at_str, "%Y-%m-%d %H:%M:%S")
+                .unwrap_or_default();
 
             Ok(Project {
                 id: row.get(0)?,

@@ -1,15 +1,10 @@
-use axum::{
-    extract::{State},
-    routing::{post, get},
-    Json, Router,
-    response::{IntoResponse, Response}, // Added Response import
-};
-use serde::{Deserialize, Serialize};
-use crate::AppState; // Use AppState from main.rs
-use crate::tools;
-use crate::error::ServerError; // Added ServerError import
+use axum::routing::{get, post};
+use axum::Router;
 
-pub fn routes() -> Router<AppState> { // State is generic type for Router in axum 0.6
+use crate::tools;
+use crate::AppState;
+
+pub fn routes() -> Router<AppState> {
     Router::new()
         .route("/api/health", get(tools::health_check))
         .route("/api/project/ensure", post(tools::ensure_project))
@@ -21,16 +16,3 @@ pub fn routes() -> Router<AppState> { // State is generic type for Router in axu
         .route("/api/messages/:message_id", get(tools::get_message))
         .route("/api/file_reservations/paths", post(tools::file_reservation_paths))
 }
-
-// Re-export common types
-pub use tools::EnsureProjectPayload;
-pub use tools::RegisterAgentPayload;
-pub use tools::SendMessagePayload;
-pub use tools::ListInboxPayload;
-pub use tools::ProjectResponse; // Added
-pub use tools::ListAgentsPayload; // Added
-pub use tools::AgentResponse; // Added
-pub use tools::GetMessagePayload; // Added
-pub use tools::MessageResponse; // Added
-pub use tools::FileReservationPathsPayload;
-pub use tools::FileReservationPathsResponse;

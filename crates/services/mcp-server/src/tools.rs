@@ -1,14 +1,14 @@
 use axum::{
-    extract::State,
+    extract::{Path, State},
+    response::{IntoResponse, Response},
     Json,
-    response::{IntoResponse, Response}, // Added Response import
 };
-use serde::{Deserialize, Serialize};
-use crate::AppState; // Use AppState from main.rs
+use chrono::Utc;
+use lib_core::model::file_reservation::{FileReservationBmc, FileReservationForCreate};
 use lib_core::{self, Ctx};
-use lib_core::model::file_reservation::{FileReservationForCreate, FileReservationBmc}; // Added import
-use crate::error::ServerError; // Added ServerError import
-use chrono::{Utc, NaiveDateTime};
+use serde::{Deserialize, Serialize};
+
+use crate::AppState;
 
 // --- health_check ---
 #[derive(Serialize)]
@@ -103,12 +103,17 @@ pub async fn register_agent(State(app_state): State<AppState>, Json(payload): Js
 #[derive(Deserialize)]
 pub struct SendMessagePayload {
     pub project_slug: String,
-    pub from_agent_name: String,
-    pub to_agent_names: Vec<String>,
+    // Support both naming conventions for compatibility
+    #[serde(alias = "from_agent_name")]
+    pub sender_name: String,
+    #[serde(alias = "to_agent_names")]
+    pub recipient_names: Vec<String>,
     pub subject: String,
     pub body_md: String,
     pub thread_id: Option<String>,
     pub importance: Option<String>,
+    #[serde(default)]
+    pub ack_required: bool,
 }
 
 #[derive(Serialize)]
@@ -121,10 +126,10 @@ pub async fn send_message(State(app_state): State<AppState>, Json(payload): Json
     let mm = &app_state.mm;
 
     let project = lib_core::model::project::ProjectBmc::get_by_slug(&ctx, mm, &payload.project_slug).await?;
-    let sender = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.from_agent_name).await?;
+    let sender = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.sender_name).await?;
 
     let mut recipient_ids = Vec::new();
-    for name in payload.to_agent_names {
+    for name in payload.recipient_names {
         let agent = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &name).await?;
         recipient_ids.push(agent.id);
     }
@@ -211,6 +216,7 @@ pub async fn list_all_projects(State(app_state): State<AppState>) -> crate::erro
 }
 
 // --- list_all_agents_for_project ---
+// Keep for backwards compatibility with JSON body requests
 #[derive(Deserialize)]
 pub struct ListAgentsPayload {
     pub project_slug: String,
@@ -227,11 +233,14 @@ pub struct AgentResponse {
     pub last_active_ts: chrono::NaiveDateTime,
 }
 
-pub async fn list_all_agents_for_project(State(app_state): State<AppState>, Json(payload): Json<ListAgentsPayload>) -> crate::error::Result<Response> {
+pub async fn list_all_agents_for_project(
+    State(app_state): State<AppState>,
+    Path(project_slug): Path<String>,
+) -> crate::error::Result<Response> {
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_slug(&ctx, mm, &payload.project_slug).await?;
+    let project = lib_core::model::project::ProjectBmc::get_by_slug(&ctx, mm, &project_slug).await?;
     let agents = lib_core::model::agent::AgentBmc::list_all_for_project(&ctx, mm, project.id).await?;
 
     let agent_responses: Vec<AgentResponse> = agents.into_iter().map(|a| AgentResponse {
@@ -248,6 +257,7 @@ pub async fn list_all_agents_for_project(State(app_state): State<AppState>, Json
 }
 
 // --- get_message ---
+// Keep for backwards compatibility
 #[derive(Deserialize)]
 pub struct GetMessagePayload {
     pub message_id: i64,
@@ -268,11 +278,14 @@ pub struct MessageResponse {
     pub attachments: Vec<serde_json::Value>,
 }
 
-pub async fn get_message(State(app_state): State<AppState>, Json(payload): Json<GetMessagePayload>) -> crate::error::Result<Response> {
+pub async fn get_message(
+    State(app_state): State<AppState>,
+    Path(message_id): Path<i64>,
+) -> crate::error::Result<Response> {
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let message = lib_core::model::message::MessageBmc::get(&ctx, mm, payload.message_id).await?;
+    let message = lib_core::model::message::MessageBmc::get(&ctx, mm, message_id).await?;
 
     Ok(Json(MessageResponse {
         id: message.id,
