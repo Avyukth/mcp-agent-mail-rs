@@ -23,3 +23,6 @@ slug = "0.1"
 strum = "0.25" # For AsRefStr trait
 strum_macros = "0.25" # For AsRefStr derive
 tokio = { version = "1", features = ["macros"] }
+sha1 = "0.10.6"
+hex = "0.4.3"
+globset = "0.4.18"

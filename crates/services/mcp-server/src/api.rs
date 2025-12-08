@@ -19,7 +19,7 @@ pub fn routes() -> Router<AppState> { // State is generic type for Router in axu
         .route("/api/projects", get(tools::list_all_projects))
         .route("/api/projects/:project_slug/agents", get(tools::list_all_agents_for_project))
         .route("/api/messages/:message_id", get(tools::get_message))
-        // Add more routes here
+        .route("/api/file_reservations/paths", post(tools::file_reservation_paths))
 }
 
 // Re-export common types
@@ -32,3 +32,5 @@ pub use tools::ListAgentsPayload; // Added
 pub use tools::AgentResponse; // Added
 pub use tools::GetMessagePayload; // Added
 pub use tools::MessageResponse; // Added
+pub use tools::FileReservationPathsPayload;
+pub use tools::FileReservationPathsResponse;

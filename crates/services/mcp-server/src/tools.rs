@@ -6,6 +6,7 @@ use axum::{
 use serde::{Deserialize, Serialize};
 use crate::AppState; // Use AppState from main.rs
 use lib_core::{self, Ctx};
+use lib_core::model::file_reservation::{FileReservationForCreate, FileReservationBmc}; // Added import
 use crate::error::ServerError; // Added ServerError import
 use chrono::{Utc, NaiveDateTime};
 
@@ -285,5 +286,111 @@ pub async fn get_message(State(app_state): State<AppState>, Json(payload): Json<
         ack_required: message.ack_required,
         created_ts: message.created_ts,
         attachments: message.attachments,
+    }).into_response())
+}
+
+// --- file_reservation_paths ---
+#[derive(Deserialize)]
+pub struct FileReservationPathsPayload {
+    pub project_slug: String,
+    pub agent_name: String,
+    pub paths: Vec<String>,
+    #[serde(default = "default_exclusive")]
+    pub exclusive: bool,
+    pub reason: Option<String>,
+    pub ttl_seconds: Option<i64>,
+}
+
+fn default_exclusive() -> bool {
+    true
+}
+
+#[derive(Serialize)]
+pub struct FileReservationGranted {
+    pub id: i64,
+    pub path_pattern: String,
+    pub exclusive: bool,
+    pub reason: String,
+    pub expires_ts: String,
+}
+
+#[derive(Serialize)]
+pub struct FileReservationConflict {
+    pub path_pattern: String,
+    pub exclusive: bool,
+    pub expires_ts: String,
+    pub conflict_type: String,
+    pub message: String,
+}
+
+#[derive(Serialize)]
+pub struct FileReservationPathsResponse {
+    pub granted: Vec<FileReservationGranted>,
+    pub conflicts: Vec<FileReservationConflict>,
+}
+
+pub async fn file_reservation_paths(State(app_state): State<AppState>, Json(payload): Json<FileReservationPathsPayload>) -> crate::error::Result<Response> {
+    let ctx = Ctx::root_ctx();
+    let mm = &app_state.mm;
+
+    let project = lib_core::model::project::ProjectBmc::get_by_slug(&ctx, mm, &payload.project_slug).await?;
+    let agent = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name).await?;
+
+    // 1. Get active reservations
+    let active_reservations = FileReservationBmc::list_active_for_project(&ctx, mm, project.id).await?;
+
+    let mut granted = Vec::new();
+    let mut conflicts = Vec::new();
+
+    let ttl = payload.ttl_seconds.unwrap_or(3600);
+    let now = chrono::Utc::now().naive_utc();
+    let expires_ts = now + chrono::Duration::seconds(ttl);
+
+    for path in payload.paths {
+        // Check conflicts
+        // Simple overlap check for now (exact match)
+        // TODO: Implement robust glob matching using globset
+        for res in &active_reservations {
+            if res.agent_id != agent.id {
+                if res.exclusive || payload.exclusive {
+                     if res.path_pattern == path {
+                         conflicts.push(FileReservationConflict {
+                             path_pattern: res.path_pattern.clone(),
+                             exclusive: res.exclusive,
+                             expires_ts: res.expires_ts.format("%Y-%m-%dT%H:%M:%S").to_string(),
+                             conflict_type: "FILE_RESERVATION_CONFLICT".to_string(),
+                             message: format!("Conflict with reservation held by agent ID {}", res.agent_id),
+                         });
+                         // We don't break, we collect all conflicts? Or just one per path?
+                         // Python collects conflicts.
+                     }
+                }
+            }
+        }
+
+        // Advisory model: always grant
+        let fr_c = FileReservationForCreate {
+            project_id: project.id,
+            agent_id: agent.id,
+            path_pattern: path.clone(),
+            exclusive: payload.exclusive,
+            reason: payload.reason.clone().unwrap_or_default(),
+            expires_ts,
+        };
+
+        let id = FileReservationBmc::create(&ctx, mm, fr_c).await?;
+        
+        granted.push(FileReservationGranted {
+            id,
+            path_pattern: path,
+            exclusive: payload.exclusive,
+            reason: payload.reason.clone().unwrap_or_default(),
+            expires_ts: expires_ts.format("%Y-%m-%dT%H:%M:%S").to_string(),
+        });
+    }
+
+    Ok(Json(FileReservationPathsResponse {
+        granted,
+        conflicts,
     }).into_response())
 }

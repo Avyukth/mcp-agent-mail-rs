@@ -1,7 +1,9 @@
 use crate::model::ModelManager;
 use crate::Result;
+use crate::store::git_store;
 use serde::{Deserialize, Serialize};
 use chrono::NaiveDateTime;
+use sha1::{Sha1, Digest};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileReservation {
@@ -46,9 +48,9 @@ impl FileReservationBmc {
         let mut rows = stmt.query((
             fr_c.project_id,
             fr_c.agent_id,
-            fr_c.path_pattern,
+            fr_c.path_pattern.as_str(),
             fr_c.exclusive,
-            fr_c.reason,
+            fr_c.reason.as_str(),
             expires_ts_str,
         )).await?;
 
@@ -58,7 +60,58 @@ impl FileReservationBmc {
             return Err(crate::Error::InvalidInput("Failed to create file reservation".into()));
         };
 
-        // TODO: Write to Git (will be added in a later step when implementing the tool)
+        // Write to Git
+        let stmt = db.prepare("SELECT slug FROM projects WHERE id = ?").await?;
+        let mut rows = stmt.query([fr_c.project_id]).await?;
+        let project_slug: String = if let Some(row) = rows.next().await? {
+            row.get(0)?
+        } else {
+             return Err(crate::Error::ProjectNotFound(format!("{}", fr_c.project_id)));
+        };
+
+        let stmt = db.prepare("SELECT name FROM agents WHERE id = ?").await?;
+        let mut rows = stmt.query([fr_c.agent_id]).await?;
+        let agent_name: String = if let Some(row) = rows.next().await? {
+            row.get(0)?
+        } else {
+             return Err(crate::Error::AgentNotFound(format!("{}", fr_c.agent_id)));
+        };
+
+        let repo_root = &mm.repo_root;
+        let repo = git_store::open_repo(repo_root)?;
+
+        // Hash path_pattern
+        let mut hasher = Sha1::new();
+        hasher.update(fr_c.path_pattern.as_bytes());
+        let result = hasher.finalize();
+        let digest = hex::encode(result);
+
+        // Path: projects/<slug>/file_reservations/<digest>.json
+        let rel_path = std::path::PathBuf::from("projects")
+            .join(&project_slug)
+            .join("file_reservations")
+            .join(format!("{}.json", digest));
+
+        let payload = serde_json::json!({
+            "id": id,
+            "agent": agent_name,
+            "path_pattern": fr_c.path_pattern,
+            "exclusive": fr_c.exclusive,
+            "reason": fr_c.reason,
+            "created_ts": chrono::Utc::now().to_rfc3339(),
+            "expires_ts": fr_c.expires_ts.format("%Y-%m-%dT%H:%M:%S").to_string(),
+        });
+        
+        let content = serde_json::to_string_pretty(&payload)?;
+
+        git_store::commit_file(
+            &repo,
+            &rel_path,
+            &content,
+            &format!("file_reservation: {} {}", agent_name, fr_c.path_pattern),
+            "mcp-bot",
+            "mcp-bot@localhost",
+        )?;
 
         Ok(id)
     }
