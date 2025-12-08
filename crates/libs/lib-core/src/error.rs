@@ -33,6 +33,9 @@ pub enum Error {
 
     #[error("Message not found: {0}")]
     MessageNotFound(i64),
+
+    #[error("FileReservation not found: {0}")]
+    FileReservationNotFound(String),
 }
 
 pub type Result<T> = core::result::Result<T, Error>;
