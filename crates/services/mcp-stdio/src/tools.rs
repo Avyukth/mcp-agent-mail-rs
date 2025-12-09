@@ -142,6 +142,21 @@ pub fn get_tool_schemas() -> Vec<ToolSchema> {
             ],
         },
         ToolSchema {
+            name: "force_release_reservation".into(),
+            description: "Force release a file reservation (emergency override).".into(),
+            parameters: vec![
+                ParameterSchema { name: "reservation_id".into(), param_type: "integer".into(), required: true, description: "Reservation ID".into() },
+            ],
+        },
+        ToolSchema {
+            name: "renew_file_reservation".into(),
+            description: "Extend the TTL of a file reservation.".into(),
+            parameters: vec![
+                ParameterSchema { name: "reservation_id".into(), param_type: "integer".into(), required: true, description: "Reservation ID".into() },
+                ParameterSchema { name: "ttl_seconds".into(), param_type: "integer".into(), required: false, description: "New TTL in seconds".into() },
+            ],
+        },
+        ToolSchema {
             name: "request_contact".into(),
             description: "Request to add another agent as a contact.".into(),
             parameters: vec![
@@ -478,6 +493,20 @@ pub struct ListReservationsParams {
 pub struct ReleaseReservationParams {
     /// Reservation ID to release
     pub reservation_id: i64,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ForceReleaseReservationParams {
+    /// Reservation ID to force release (for emergencies)
+    pub reservation_id: i64,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct RenewFileReservationParams {
+    /// Reservation ID to renew
+    pub reservation_id: i64,
+    /// New TTL in seconds (default 3600)
+    pub ttl_seconds: Option<i64>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -1138,6 +1167,45 @@ impl AgentMailService {
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let msg = format!("Released reservation {}", p.reservation_id);
+        Ok(CallToolResult::success(vec![Content::text(msg)]))
+    }
+
+    /// Force release a file reservation (emergency override)
+    #[tool(description = "Force release a file reservation by ID. Use for emergencies when an agent has abandoned work.")]
+    async fn force_release_reservation(
+        &self,
+        params: Parameters<ForceReleaseReservationParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::file_reservation::FileReservationBmc;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        FileReservationBmc::force_release(&ctx, &self.mm, p.reservation_id).await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        let msg = format!("Force released reservation {}", p.reservation_id);
+        Ok(CallToolResult::success(vec![Content::text(msg)]))
+    }
+
+    /// Renew a file reservation TTL
+    #[tool(description = "Extend the TTL of a file reservation. Keeps the lock active for more work.")]
+    async fn renew_file_reservation(
+        &self,
+        params: Parameters<RenewFileReservationParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::file_reservation::FileReservationBmc;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        let ttl = p.ttl_seconds.unwrap_or(3600);
+        let new_expires = chrono::Utc::now().naive_utc() + chrono::Duration::seconds(ttl);
+
+        FileReservationBmc::renew(&ctx, &self.mm, p.reservation_id, new_expires).await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        let msg = format!("Renewed reservation {} until {}", p.reservation_id, new_expires);
         Ok(CallToolResult::success(vec![Content::text(msg)]))
     }
 
