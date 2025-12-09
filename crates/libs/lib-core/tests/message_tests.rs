@@ -180,3 +180,57 @@ async fn test_search_messages() {
     assert!(results.iter().any(|m| m.subject == "Database Migration" || m.subject == "Performance"),
         "Should find messages about FTS");
 }
+
+/// Test marking a message as read
+#[tokio::test]
+async fn test_mark_message_read() {
+    let tc = TestContext::new().await.expect("Failed to create test context");
+    let (project_id, sender_id, recipient_id) = setup_messaging(&tc).await;
+    
+    // Send a message
+    let msg_c = MessageForCreate {
+        project_id,
+        sender_id,
+        recipient_ids: vec![recipient_id],
+        subject: "Unread Message".to_string(),
+        body_md: "This message should be marked as read.".to_string(),
+        thread_id: None,
+        importance: None,
+    };
+    let msg_id = MessageBmc::create(&tc.ctx, &tc.mm, msg_c).await.unwrap();
+    
+    // Mark as read by recipient
+    let result = MessageBmc::mark_read(&tc.ctx, &tc.mm, msg_id, recipient_id).await;
+    assert!(result.is_ok(), "mark_read should succeed");
+    
+    // Calling mark_read again should be idempotent (no error)
+    let result2 = MessageBmc::mark_read(&tc.ctx, &tc.mm, msg_id, recipient_id).await;
+    assert!(result2.is_ok(), "mark_read should be idempotent");
+}
+
+/// Test acknowledging a message
+#[tokio::test]
+async fn test_acknowledge_message() {
+    let tc = TestContext::new().await.expect("Failed to create test context");
+    let (project_id, sender_id, recipient_id) = setup_messaging(&tc).await;
+    
+    // Send a message with ack_required
+    let msg_c = MessageForCreate {
+        project_id,
+        sender_id,
+        recipient_ids: vec![recipient_id],
+        subject: "Important - ACK Required".to_string(),
+        body_md: "Please acknowledge this message.".to_string(),
+        thread_id: None,
+        importance: Some("high".to_string()),
+    };
+    let msg_id = MessageBmc::create(&tc.ctx, &tc.mm, msg_c).await.unwrap();
+    
+    // Acknowledge by recipient (also marks as read)
+    let result = MessageBmc::acknowledge(&tc.ctx, &tc.mm, msg_id, recipient_id).await;
+    assert!(result.is_ok(), "acknowledge should succeed");
+    
+    // Calling acknowledge again should be idempotent
+    let result2 = MessageBmc::acknowledge(&tc.ctx, &tc.mm, msg_id, recipient_id).await;
+    assert!(result2.is_ok(), "acknowledge should be idempotent");
+}
