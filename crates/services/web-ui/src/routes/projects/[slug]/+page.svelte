@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/stores';
-	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
 	import { getAgents, registerAgent, type Agent } from '$lib/api/client';
 
 	let agents = $state<Agent[]>([]);
@@ -17,8 +17,11 @@
 	});
 	let creating = $state(false);
 
+	// Use $effect for client-side data loading in Svelte 5
 	$effect(() => {
-		loadAgents();
+		if (browser) {
+			loadAgents();
+		}
 	});
 
 	async function loadAgents() {

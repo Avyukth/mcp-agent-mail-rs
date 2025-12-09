@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
 	import { getProjects, getAgents, type Project, type Agent } from '$lib/api/client';
 
 	interface AgentWithProject extends Agent {
@@ -15,8 +15,11 @@
 	let selectedProject = $state<string>('all');
 	let searchQuery = $state('');
 
-	onMount(async () => {
-		await loadAllAgents();
+	// Use $effect for client-side data loading in Svelte 5
+	$effect(() => {
+		if (browser) {
+			loadAllAgents();
+		}
 	});
 
 	async function loadAllAgents() {

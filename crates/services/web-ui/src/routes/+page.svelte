@@ -1,12 +1,19 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
 	import { checkHealth, getProjects, type Project } from '$lib/api/client';
 
 	let healthStatus = $state<string>('checking...');
 	let projects = $state<Project[]>([]);
 	let error = $state<string | null>(null);
 
-	onMount(async () => {
+	// Use $effect for client-side data loading in Svelte 5
+	$effect(() => {
+		if (browser) {
+			loadData();
+		}
+	});
+
+	async function loadData() {
 		try {
 			const health = await checkHealth();
 			healthStatus = health.status;
@@ -17,7 +24,7 @@
 			error = e instanceof Error ? e.message : 'Failed to connect to backend';
 			healthStatus = 'offline';
 		}
-	});
+	}
 </script>
 
 <div class="space-y-6">

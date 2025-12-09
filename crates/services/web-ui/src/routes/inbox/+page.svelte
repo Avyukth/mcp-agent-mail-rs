@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
 	import { getProjects, getAgents, getInbox, type Project, type Agent, type Message } from '$lib/api/client';
 	import ComposeMessage from '$lib/components/ComposeMessage.svelte';
 
@@ -19,7 +19,14 @@
 	// Compose modal
 	let showCompose = $state(false);
 
-	onMount(async () => {
+	// Use $effect for client-side data loading in Svelte 5
+	$effect(() => {
+		if (browser) {
+			initPage();
+		}
+	});
+
+	async function initPage() {
 		try {
 			projects = await getProjects();
 
@@ -40,7 +47,7 @@
 		} finally {
 			loading = false;
 		}
-	});
+	}
 
 	async function loadAgentsForProject(projectSlug: string) {
 		try {
@@ -73,6 +80,7 @@
 
 	async function loadMessages() {
 		if (!selectedProject || !selectedAgent) return;
+		if (loadingMessages) return; // Prevent duplicate loads
 
 		loadingMessages = true;
 		error = null;
@@ -123,7 +131,8 @@
 		}
 	}
 
-	function truncateBody(body: string, maxLength: number = 100): string {
+	function truncateBody(body: string | undefined, maxLength: number = 100): string {
+		if (!body) return '';
 		if (body.length <= maxLength) return body;
 		return body.substring(0, maxLength) + '...';
 	}

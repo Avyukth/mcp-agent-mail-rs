@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
 	import { getMessage, getAgents, type Message, type Agent } from '$lib/api/client';
 	import ComposeMessage from '$lib/components/ComposeMessage.svelte';
 
@@ -18,12 +18,19 @@
 	let agentName = $derived($page.url.searchParams.get('agent') || '');
 	let messageId = $derived(parseInt($page.params.id ?? '0'));
 
-	onMount(async () => {
+	// Use $effect for client-side data loading in Svelte 5
+	$effect(() => {
+		if (browser) {
+			initPage();
+		}
+	});
+
+	async function initPage() {
 		await loadMessage();
 		if (projectSlug) {
 			await loadAgents();
 		}
-	});
+	}
 
 	async function loadMessage() {
 		loading = true;

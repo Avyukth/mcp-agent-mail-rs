@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { onMount } from 'svelte';
+	import { browser } from '$app/environment';
 	import { getProjects, ensureProject, type Project } from '$lib/api/client';
 
 	let projects = $state<Project[]>([]);
@@ -11,8 +11,11 @@
 	let newProjectPath = $state('');
 	let creating = $state(false);
 
-	onMount(async () => {
-		await loadProjects();
+	// Use $effect for client-side data loading in Svelte 5
+	$effect(() => {
+		if (browser) {
+			loadProjects();
+		}
 	});
 
 	async function loadProjects() {
