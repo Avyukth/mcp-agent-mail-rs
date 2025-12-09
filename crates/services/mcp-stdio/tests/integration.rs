@@ -457,5 +457,77 @@ mod tools_tests {
         assert_eq!(linked_after.len(), 1);
         assert_eq!(linked_after[0], project_b_id);
     }
+
+    #[tokio::test]
+    async fn test_export_mailbox() {
+        use lib_core::model::agent::{AgentBmc, AgentForCreate};
+        use lib_core::model::export::{ExportBmc, ExportFormat};
+        use lib_core::model::message::{MessageBmc, MessageForCreate};
+        use lib_core::model::project::ProjectBmc;
+        use lib_core::Ctx;
+
+        let (mm, _temp) = create_test_mm().await;
+        let ctx = Ctx::root_ctx();
+
+        // Setup: Create project, agents, and messages
+        let project_id = ProjectBmc::create(&ctx, &mm, "export-test", "/export/test")
+            .await
+            .unwrap();
+
+        let agent_c = AgentForCreate {
+            project_id,
+            name: "ExportAgent".to_string(),
+            program: "test".to_string(),
+            model: "test".to_string(),
+            task_description: "Export test".to_string(),
+        };
+        let sender_id = AgentBmc::create(&ctx, &mm, agent_c).await.unwrap();
+
+        let recipient_c = AgentForCreate {
+            project_id,
+            name: "Recipient".to_string(),
+            program: "test".to_string(),
+            model: "test".to_string(),
+            task_description: "Recipient".to_string(),
+        };
+        let recipient_id = AgentBmc::create(&ctx, &mm, recipient_c).await.unwrap();
+
+        // Send a message
+        let msg_c = MessageForCreate {
+            project_id,
+            sender_id,
+            recipient_ids: vec![recipient_id],
+            subject: "Test Export Message".to_string(),
+            body_md: "This message should appear in the export.".to_string(),
+            thread_id: None,
+            importance: None,
+        };
+        MessageBmc::create(&ctx, &mm, msg_c).await.unwrap();
+
+        // Export as JSON
+        let json_export = ExportBmc::export_mailbox(&ctx, &mm, "export-test", ExportFormat::Json, false)
+            .await
+            .expect("JSON export should succeed");
+        assert_eq!(json_export.format, "json");
+        assert_eq!(json_export.message_count, 1);
+        assert!(json_export.content.contains("Test Export Message"));
+
+        // Export as HTML
+        let html_export = ExportBmc::export_mailbox(&ctx, &mm, "export-test", ExportFormat::Html, false)
+            .await
+            .expect("HTML export should succeed");
+        assert_eq!(html_export.format, "html");
+        assert!(html_export.content.contains("<html>"));
+        assert!(html_export.content.contains("Test Export Message"));
+
+        // Export as Markdown
+        let md_export = ExportBmc::export_mailbox(&ctx, &mm, "export-test", ExportFormat::Markdown, false)
+            .await
+            .expect("Markdown export should succeed");
+        assert_eq!(md_export.format, "markdown");
+        assert!(md_export.content.contains("# Mailbox Export:"));
+        assert!(md_export.content.contains("Test Export Message"));
+    }
 }
+
 

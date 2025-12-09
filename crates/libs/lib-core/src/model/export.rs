@@ -1,0 +1,139 @@
+//! Export functionality for mailbox data
+//! 
+//! Supports exporting messages in HTML, JSON, and Markdown formats.
+
+use serde::{Deserialize, Serialize};
+use crate::ctx::Ctx;
+use crate::model::ModelManager;
+use crate::model::message::MessageBmc;
+use crate::model::project::ProjectBmc;
+use crate::Result;
+
+/// Export format options
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExportFormat {
+    Html,
+    Json,
+    Markdown,
+}
+
+impl ExportFormat {
+    pub fn from_str(s: &str) -> Self {
+        match s.to_lowercase().as_str() {
+            "html" => Self::Html,
+            "md" | "markdown" => Self::Markdown,
+            _ => Self::Json, // default
+        }
+    }
+}
+
+/// Exported mailbox data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExportedMailbox {
+    pub project_slug: String,
+    pub project_name: String,
+    pub message_count: usize,
+    pub exported_at: String,
+    pub content: String,
+    pub format: String,
+}
+
+pub struct ExportBmc;
+
+impl ExportBmc {
+    /// Export a project's mailbox to the specified format
+    pub async fn export_mailbox(
+        ctx: &Ctx,
+        mm: &ModelManager,
+        project_slug: &str,
+        format: ExportFormat,
+        _include_attachments: bool,
+    ) -> Result<ExportedMailbox> {
+        // Get project
+        let project = ProjectBmc::get_by_slug(ctx, mm, project_slug).await?;
+        
+        // Get recent messages (limit to 100 for export)
+        let messages = MessageBmc::list_recent(ctx, mm, project.id, 100).await?;
+        
+        let exported_at = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string();
+        let message_count = messages.len();
+        
+        let content = match format {
+            ExportFormat::Html => Self::render_html(&project.slug, &messages),
+            ExportFormat::Json => Self::render_json(&messages)?,
+            ExportFormat::Markdown => Self::render_markdown(&project.slug, &messages),
+        };
+        
+        let format_str = match format {
+            ExportFormat::Html => "html",
+            ExportFormat::Json => "json",
+            ExportFormat::Markdown => "markdown",
+        };
+        
+        Ok(ExportedMailbox {
+            project_slug: project.slug.clone(),
+            project_name: project.human_key.clone(),
+            message_count,
+            exported_at,
+            content,
+            format: format_str.to_string(),
+        })
+    }
+    
+    fn render_html(project_slug: &str, messages: &[crate::model::message::Message]) -> String {
+        let mut html = String::new();
+        html.push_str("<!DOCTYPE html>\n<html>\n<head>\n");
+        html.push_str(&format!("<title>Mailbox Export - {}</title>\n", project_slug));
+        html.push_str("<style>
+body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+.message { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px; }
+.subject { font-weight: bold; font-size: 1.1em; }
+.meta { color: #666; font-size: 0.9em; margin: 5px 0; }
+.body { margin-top: 10px; white-space: pre-wrap; }
+</style>\n</head>\n<body>\n");
+        html.push_str(&format!("<h1>Mailbox Export: {}</h1>\n", project_slug));
+        html.push_str(&format!("<p>Total messages: {}</p>\n", messages.len()));
+        
+        for msg in messages {
+            html.push_str("<div class=\"message\">\n");
+            html.push_str(&format!("<div class=\"subject\">{}</div>\n", 
+                html_escape(&msg.subject)));
+            html.push_str(&format!("<div class=\"meta\">From: {} | {}</div>\n", 
+                html_escape(&msg.sender_name),
+                msg.created_ts.format("%Y-%m-%d %H:%M")));
+            html.push_str(&format!("<div class=\"body\">{}</div>\n", 
+                html_escape(&msg.body_md)));
+            html.push_str("</div>\n");
+        }
+        
+        html.push_str("</body>\n</html>");
+        html
+    }
+    
+    fn render_json(messages: &[crate::model::message::Message]) -> Result<String> {
+        Ok(serde_json::to_string_pretty(messages)?)
+    }
+    
+    fn render_markdown(project_slug: &str, messages: &[crate::model::message::Message]) -> String {
+        let mut md = String::new();
+        md.push_str(&format!("# Mailbox Export: {}\n\n", project_slug));
+        md.push_str(&format!("Total messages: {}\n\n---\n\n", messages.len()));
+        
+        for msg in messages {
+            md.push_str(&format!("## {}\n\n", msg.subject));
+            md.push_str(&format!("**From:** {} | **Date:** {}\n\n", 
+                msg.sender_name,
+                msg.created_ts.format("%Y-%m-%d %H:%M")));
+            md.push_str(&format!("{}\n\n---\n\n", msg.body_md));
+        }
+        
+        md
+    }
+}
+
+fn html_escape(s: &str) -> String {
+    s.replace('&', "&amp;")
+        .replace('<', "&lt;")
+        .replace('>', "&gt;")
+        .replace('"', "&quot;")
+}
