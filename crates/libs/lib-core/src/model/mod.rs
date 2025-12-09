@@ -36,4 +36,11 @@ impl ModelManager {
     pub(in crate::model) fn db(&self) -> &Db {
         &self.db
     }
+
+    /// Health check - verify database connectivity
+    pub async fn health_check(&self) -> Result<bool> {
+        let stmt = self.db.prepare("SELECT 1").await?;
+        let mut rows = stmt.query(()).await?;
+        Ok(rows.next().await?.is_some())
+    }
 }
