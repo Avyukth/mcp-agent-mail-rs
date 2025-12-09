@@ -343,6 +343,9 @@ impl MessageBmc {
         let db = mm.db();
 
         // Use FTS5 MATCH for full-text search, joining back to messages table
+        // FTS5 MATCH interprets unquoted "term" as column:value - wrap in quotes for pure text search
+        let fts_query = format!("\"{}\"", query.replace("\"", "\"\""));
+        
         let stmt = db.prepare(
             r#"
             SELECT
@@ -350,14 +353,15 @@ impl MessageBmc {
                 m.importance, m.ack_required, m.created_ts, m.attachments
             FROM messages AS m
             JOIN agents AS ag ON m.sender_id = ag.id
-            JOIN messages_fts ON messages_fts.rowid = m.id
-            WHERE m.project_id = ? AND messages_fts MATCH ?
-            ORDER BY rank
+            WHERE m.project_id = ? AND m.id IN (
+                SELECT rowid FROM messages_fts WHERE messages_fts MATCH ?
+            )
+            ORDER BY m.created_ts DESC
             LIMIT ?
             "#
         ).await?;
 
-        let mut rows = stmt.query((project_id, query, limit)).await?;
+        let mut rows = stmt.query((project_id, fts_query.as_str(), limit)).await?;
         let mut messages = Vec::new();
 
         while let Some(row) = rows.next().await? {

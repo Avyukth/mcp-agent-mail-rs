@@ -129,3 +129,54 @@ async fn test_message_threading() {
     
     assert_eq!(initial.thread_id, reply.thread_id, "Thread IDs should match");
 }
+
+/// Test full-text search using FTS5
+#[tokio::test]
+async fn test_search_messages() {
+    let tc = TestContext::new().await.expect("Failed to create test context");
+    let (project_id, sender_id, recipient_id) = setup_messaging(&tc).await;
+    
+    // Send a few messages with different content
+    let msg1_c = MessageForCreate {
+        project_id,
+        sender_id,
+        recipient_ids: vec![recipient_id],
+        subject: "Database Migration".to_string(),
+        body_md: "We need to implement FTS5 full-text search for messages.".to_string(),
+        thread_id: None,
+        importance: None,
+    };
+    MessageBmc::create(&tc.ctx, &tc.mm, msg1_c).await.unwrap();
+    
+    let msg2_c = MessageForCreate {
+        project_id,
+        sender_id,
+        recipient_ids: vec![recipient_id],
+        subject: "API Design".to_string(),
+        body_md: "The REST API should follow JSON:API spec.".to_string(),
+        thread_id: None,
+        importance: None,
+    };
+    MessageBmc::create(&tc.ctx, &tc.mm, msg2_c).await.unwrap();
+    
+    let msg3_c = MessageForCreate {
+        project_id,
+        sender_id,
+        recipient_ids: vec![recipient_id],
+        subject: "Performance".to_string(),
+        body_md: "Full-text search queries should be fast.".to_string(),
+        thread_id: None,
+        importance: None,
+    };
+    MessageBmc::create(&tc.ctx, &tc.mm, msg3_c).await.unwrap();
+    
+    // Search for "full-text search" - should match msg1 and msg3
+    let results = MessageBmc::search(&tc.ctx, &tc.mm, project_id, "full-text search", 10)
+        .await
+        .expect("Search should succeed");
+    
+    // Verify search finds relevant messages
+    assert!(results.len() >= 1, "Should find at least one message containing 'full-text search'");
+    assert!(results.iter().any(|m| m.subject == "Database Migration" || m.subject == "Performance"),
+        "Should find messages about FTS");
+}
