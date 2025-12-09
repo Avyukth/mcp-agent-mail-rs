@@ -25,7 +25,7 @@
 		loading = true;
 		error = null;
 		try {
-			agents = await getAgents($page.params.slug);
+			agents = await getAgents($page.params.slug ?? '');
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load agents';
 		} finally {
@@ -40,7 +40,7 @@
 		error = null;
 		try {
 			await registerAgent(
-				$page.params.slug,
+				$page.params.slug ?? '',
 				newAgent.name.trim(),
 				newAgent.program.trim() || 'unknown',
 				newAgent.model.trim() || 'unknown',

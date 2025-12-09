@@ -16,7 +16,7 @@
 	// Get context from URL params
 	let projectSlug = $derived($page.url.searchParams.get('project') || '');
 	let agentName = $derived($page.url.searchParams.get('agent') || '');
-	let messageId = $derived(parseInt($page.params.id));
+	let messageId = $derived(parseInt($page.params.id ?? '0'));
 
 	onMount(async () => {
 		await loadMessage();

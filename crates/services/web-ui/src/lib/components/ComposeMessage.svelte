@@ -23,13 +23,30 @@
 		onSent
 	}: Props = $props();
 
-	// Form state
-	let recipients = $state<string[]>(replyTo?.recipientName ? [replyTo.recipientName] : []);
-	let subject = $state(replyTo ? `Re: ${replyTo.subject.replace(/^Re: /, '')}` : '');
+	// Derive initial values from replyTo prop to avoid state_referenced_locally warnings
+	let initialRecipients = $derived(replyTo?.recipientName ? [replyTo.recipientName] : []);
+	let initialSubject = $derived(replyTo ? `Re: ${replyTo.subject.replace(/^Re: /, '')}` : '');
+	let initialThreadId = $derived(replyTo?.threadId || '');
+
+	// Form state - initialized once, then independent of replyTo changes
+	let recipients = $state<string[]>([]);
+	let subject = $state('');
 	let body = $state('');
 	let importance = $state<'low' | 'normal' | 'high'>('normal');
 	let ackRequired = $state(false);
-	let threadId = $state(replyTo?.threadId || '');
+	let threadId = $state('');
+
+	// Track if we've initialized form state from replyTo
+	let initialized = $state(false);
+
+	$effect(() => {
+		if (!initialized) {
+			recipients = initialRecipients;
+			subject = initialSubject;
+			threadId = initialThreadId;
+			initialized = true;
+		}
+	});
 
 	let sending = $state(false);
 	let error = $state<string | null>(null);
@@ -110,9 +127,9 @@
 	<form onsubmit={(e) => { e.preventDefault(); handleSubmit(); }} class="flex-1 overflow-y-auto p-4 space-y-4">
 		<!-- From (readonly) -->
 		<div>
-			<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+			<span class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
 				From
-			</label>
+			</span>
 			<div class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-700 dark:text-gray-300">
 				{senderName}
 				<span class="text-gray-500 dark:text-gray-400 text-sm ml-2">({projectSlug})</span>
@@ -120,10 +137,10 @@
 		</div>
 
 		<!-- Recipients -->
-		<div>
-			<label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+		<div role="group" aria-labelledby="recipients-label">
+			<span id="recipients-label" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
 				To *
-			</label>
+			</span>
 			{#if availableRecipients.length === 0}
 				<p class="text-sm text-gray-500 dark:text-gray-400 italic">
 					No other agents in this project. Register more agents to send messages.
