@@ -393,4 +393,69 @@ mod tools_tests {
         assert_eq!(macros.len(), 1);
         assert_eq!(macros[0].name, "start_review");
     }
+
+    #[tokio::test]
+    async fn test_product_workflow() {
+        use lib_core::model::product::ProductBmc;
+        use lib_core::model::project::ProjectBmc;
+        use lib_core::Ctx;
+
+        let (mm, _temp) = create_test_mm().await;
+        let ctx = Ctx::root_ctx();
+
+        // Create a product (multi-repo coordinator)
+        let product = ProductBmc::ensure(&ctx, &mm, "enterprise-suite", "Enterprise Suite")
+            .await
+            .expect("Failed to ensure product");
+        assert!(product.id > 0);
+        assert_eq!(product.product_uid, "enterprise-suite");
+
+        // Create two projects
+        let project_a_id = ProjectBmc::create(&ctx, &mm, "frontend", "/enterprise/frontend")
+            .await
+            .unwrap();
+        let project_b_id = ProjectBmc::create(&ctx, &mm, "backend", "/enterprise/backend")
+            .await
+            .unwrap();
+
+        // Link both projects to the product
+        let link_a = ProductBmc::link_project(&ctx, &mm, product.id, project_a_id)
+            .await
+            .expect("Failed to link frontend");
+        assert!(link_a > 0);
+
+        let link_b = ProductBmc::link_project(&ctx, &mm, product.id, project_b_id)
+            .await
+            .expect("Failed to link backend");
+        assert!(link_b > 0);
+
+        // Get linked projects
+        let linked = ProductBmc::get_linked_projects(&ctx, &mm, product.id)
+            .await
+            .expect("Failed to get linked projects");
+        assert_eq!(linked.len(), 2);
+        assert!(linked.contains(&project_a_id));
+        assert!(linked.contains(&project_b_id));
+
+        // List all products with their linked projects
+        let all_products = ProductBmc::list_all(&ctx, &mm)
+            .await
+            .expect("Failed to list products");
+        assert_eq!(all_products.len(), 1);
+        assert_eq!(all_products[0].project_ids.len(), 2);
+
+        // Unlink a project
+        let unlinked = ProductBmc::unlink_project(&ctx, &mm, product.id, project_a_id)
+            .await
+            .expect("Failed to unlink");
+        assert!(unlinked);
+
+        // Verify only one project remains linked
+        let linked_after = ProductBmc::get_linked_projects(&ctx, &mm, product.id)
+            .await
+            .unwrap();
+        assert_eq!(linked_after.len(), 1);
+        assert_eq!(linked_after[0], project_b_id);
+    }
 }
+
