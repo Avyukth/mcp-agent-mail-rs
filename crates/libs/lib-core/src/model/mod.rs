@@ -16,7 +16,7 @@ use std::path::PathBuf;
 
 #[derive(Clone)]
 pub struct ModelManager {
-    db: Db,
+    pub(crate) db: Db,
     pub repo_root: PathBuf,
 }
 
@@ -29,6 +29,12 @@ impl ModelManager {
         std::fs::create_dir_all(&repo_root)?;
         
         Ok(ModelManager { db, repo_root })
+    }
+
+    /// Constructor for testing with custom db connection and paths
+    /// This is public so integration tests can use it
+    pub fn new_for_test(db: Db, repo_root: PathBuf) -> Self {
+        ModelManager { db, repo_root }
     }
 
     /// Returns the sqlx db pool reference.
