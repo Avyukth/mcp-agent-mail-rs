@@ -234,3 +234,60 @@ async fn test_acknowledge_message() {
     let result2 = MessageBmc::acknowledge(&tc.ctx, &tc.mm, msg_id, recipient_id).await;
     assert!(result2.is_ok(), "acknowledge should be idempotent");
 }
+
+/// Test listing threads (summarization)
+#[tokio::test]
+async fn test_list_threads() {
+    let tc = TestContext::new().await.expect("Failed to create test context");
+    let (project_id, sender_id, recipient_id) = setup_messaging(&tc).await;
+    
+    // Send messages in thread 1
+    let msg1_c = MessageForCreate {
+        project_id,
+        sender_id,
+        recipient_ids: vec![recipient_id],
+        subject: "Thread A - Start".to_string(),
+        body_md: "Starting thread A".to_string(),
+        thread_id: None,
+        importance: None,
+    };
+    let msg1_id = MessageBmc::create(&tc.ctx, &tc.mm, msg1_c).await.unwrap();
+    let msg1 = MessageBmc::get(&tc.ctx, &tc.mm, msg1_id).await.unwrap();
+    
+    // Reply in thread 1
+    let reply_c = MessageForCreate {
+        project_id,
+        sender_id: recipient_id,
+        recipient_ids: vec![sender_id],
+        subject: "Re: Thread A - Start".to_string(),
+        body_md: "Reply in thread A".to_string(),
+        thread_id: msg1.thread_id.clone(),
+        importance: None,
+    };
+    MessageBmc::create(&tc.ctx, &tc.mm, reply_c).await.unwrap();
+    
+    // Send message in thread 2
+    let msg2_c = MessageForCreate {
+        project_id,
+        sender_id,
+        recipient_ids: vec![recipient_id],
+        subject: "Thread B - Different topic".to_string(),
+        body_md: "Starting thread B".to_string(),
+        thread_id: None,
+        importance: None,
+    };
+    MessageBmc::create(&tc.ctx, &tc.mm, msg2_c).await.unwrap();
+    
+    // List threads
+    let threads = MessageBmc::list_threads(&tc.ctx, &tc.mm, project_id, 10)
+        .await
+        .expect("Should list threads");
+    
+    // Should have at least 2 threads
+    assert!(threads.len() >= 2, "Should have at least 2 threads");
+    
+    // Each thread should have a message count
+    for thread in &threads {
+        assert!(thread.message_count > 0, "Thread should have messages");
+    }
+}
