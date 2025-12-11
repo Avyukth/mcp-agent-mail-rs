@@ -1,0 +1,15 @@
+//! Page components for each route.
+
+mod agents;
+mod dashboard;
+mod inbox;
+mod message_detail;
+mod project_detail;
+mod projects;
+
+pub use agents::Agents;
+pub use dashboard::Dashboard;
+pub use inbox::Inbox;
+pub use message_detail::MessageDetail;
+pub use project_detail::ProjectDetail;
+pub use projects::Projects;

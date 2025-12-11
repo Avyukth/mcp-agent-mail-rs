@@ -25,6 +25,190 @@ make test
 
 This project supports concurrent multi-agent development using git worktrees for isolation.
 
+### Step-by-Step Agent Workflow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    AGENT EXECUTION FLOW                          │
+└─────────────────────────────────────────────────────────────────┘
+
+ ┌──────────────────────────────────────────────────────────────┐
+ │ PHASE 1: INITIALIZATION                                       │
+ ├──────────────────────────────────────────────────────────────┤
+ │  1. cm context "<task>"     # Get procedural memory rules    │
+ │  2. bd ready --json         # Find ready work (no blockers)  │
+ │  3. bd show <id> --json     # Read issue details             │
+ │  4. bd update <id> --status in_progress                      │
+ └──────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+ ┌──────────────────────────────────────────────────────────────┐
+ │ PHASE 2: SANDBOX CREATION                                     │
+ ├──────────────────────────────────────────────────────────────┤
+ │  5. git worktree add .sandboxes/agent-<id> feature/<id>      │
+ │  6. cd .sandboxes/agent-<id>                                 │
+ │     └── Agent now has isolated workspace                     │
+ └──────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+ ┌──────────────────────────────────────────────────────────────┐
+ │ PHASE 3: EXECUTION                                            │
+ ├──────────────────────────────────────────────────────────────┤
+ │  7. Read code, understand requirements                        │
+ │  8. Make changes (edit, create, delete files)                │
+ │  9. Run tests: cargo test                                    │
+ │ 10. Run linter: cargo clippy --workspace                     │
+ │                                                               │
+ │  If discovered issues:                                        │
+ │  bd create "Bug: X" -t bug --deps discovered-from:<id>       │
+ └──────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+ ┌──────────────────────────────────────────────────────────────┐
+ │ PHASE 4: QUALITY GATES                                        │
+ ├──────────────────────────────────────────────────────────────┤
+ │ 11. cargo test --workspace        # All tests pass?          │
+ │ 12. cargo clippy -- -D warnings   # No warnings?             │
+ │ 13. cargo fmt --check             # Formatted?               │
+ │                                                               │
+ │  ┌─────────┐                      ┌─────────┐                │
+ │  │  PASS   │                      │  FAIL   │                │
+ │  └────┬────┘                      └────┬────┘                │
+ │       │                                │                      │
+ │       ▼                                ▼                      │
+ │  Continue to                      File blocker issue         │
+ │  Phase 5                          bd create "Gate failed"    │
+ │                                   -t bug -p 0                 │
+ └──────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+ ┌──────────────────────────────────────────────────────────────┐
+ │ PHASE 5: COMMIT & MERGE (on success)                          │
+ ├──────────────────────────────────────────────────────────────┤
+ │ 14. git add -A                                                │
+ │ 15. git commit -m "feat: <description> (closes bd-<id>)"     │
+ │ 16. cd ../..                      # Back to main repo        │
+ │ 17. git checkout main                                        │
+ │ 18. git merge feature/<id>                                   │
+ │ 19. git worktree remove .sandboxes/agent-<id>                │
+ │ 20. git branch -d feature/<id>                               │
+ └──────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+ ┌──────────────────────────────────────────────────────────────┐
+ │ PHASE 6: CLEANUP                                              │
+ ├──────────────────────────────────────────────────────────────┤
+ │ 21. bd close <id> --reason "Completed"                       │
+ │ 22. bd sync                       # Sync with git            │
+ │ 23. git add .beads/issues.jsonl                              │
+ │ 24. git commit -m "chore: close bd-<id>"                     │
+ └──────────────────────────────────────────────────────────────┘
+```
+
+### Detailed Step-by-Step Commands
+
+**Step 1: Get Procedural Memory Context**
+```bash
+cm context "implement user authentication"
+# Returns relevant rules from ~/.cass-memory/playbook.yaml
+# Example output:
+# - [b-123] Always use proper error handling with Result types
+# - [b-456] Run cargo clippy before committing
+```
+
+**Step 2: Find Ready Work**
+```bash
+bd ready --json
+# Returns issues with no blockers, sorted by priority
+# Example output:
+# [{"id":"bd-abc","title":"Add login endpoint","priority":1,"status":"open"}]
+```
+
+**Step 3: Read Issue Details**
+```bash
+bd show bd-abc --json
+# Returns full issue: description, acceptance criteria, dependencies
+```
+
+**Step 4: Claim the Issue**
+```bash
+bd update bd-abc --status in_progress --json
+# Atomically claims issue - prevents other agents from taking it
+```
+
+**Step 5-6: Create Sandbox**
+```bash
+git worktree add .sandboxes/agent-bd-abc feature/bd-abc
+cd .sandboxes/agent-bd-abc
+# Now working in isolated environment
+```
+
+**Step 7-10: Execute Work**
+```bash
+# Read, understand, implement
+# Make changes to files
+# Run tests frequently
+cargo test -p lib-core
+```
+
+**Step 11-13: Quality Gates**
+```bash
+cargo test --workspace
+cargo clippy --workspace -- -D warnings
+cargo fmt --check
+# All must pass before merge
+```
+
+**Step 14-20: Commit and Merge**
+```bash
+git add -A
+git commit -m "feat(auth): add login endpoint (closes bd-abc)"
+cd ../..
+git checkout main
+git merge feature/bd-abc
+git worktree remove .sandboxes/agent-bd-abc
+git branch -d feature/bd-abc
+```
+
+**Step 21-24: Close and Sync**
+```bash
+bd close bd-abc --reason "Implemented login endpoint with tests"
+bd sync
+git add .beads/issues.jsonl
+git commit -m "chore: close bd-abc"
+```
+
+### Failure Handling
+
+**If quality gates fail:**
+```bash
+# Stay in sandbox, file blocker issue
+bd create "Quality gate failed: clippy warnings in auth module" \
+  -t bug -p 0 \
+  --deps discovered-from:bd-abc
+
+# Release the issue (reopen for retry)
+bd update bd-abc --status open --notes "Blocked by quality gates"
+
+# Optionally keep sandbox for debugging
+# Or remove it:
+cd ../..
+git worktree remove --force .sandboxes/agent-bd-abc
+git branch -D feature/bd-abc
+```
+
+**If blocked by external dependency:**
+```bash
+# File blocker issue
+bd create "Blocked: need API spec from team" \
+  -t task -p 1 \
+  --label no-auto-claim \
+  --deps blocks:bd-abc
+
+# Update original issue
+bd update bd-abc --status blocked --notes "Waiting on bd-xyz"
+```
+
 ### Git Worktree Isolation
 
 Each agent works in an isolated git worktree to prevent conflicts:

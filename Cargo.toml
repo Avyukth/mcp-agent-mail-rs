@@ -5,6 +5,7 @@ members = [
     "crates/services/mcp-server",
     "crates/services/mcp-cli",
     "crates/services/mcp-stdio",
+    "crates/services/web-ui-leptos",
     "crates/tests/e2e",
 ]
 
@@ -52,3 +53,10 @@ clap = { version = "4.5", features = ["derive"] }
 # Utilities
 uuid = { version = "1.19", features = ["v4", "serde"] }
 base64 = "0.22"
+
+# WASM-optimized release profile for web-ui-leptos
+[profile.release]
+lto = true
+opt-level = 'z'
+codegen-units = 1
+

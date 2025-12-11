@@ -1,0 +1,43 @@
+//! Root application component with router configuration.
+
+use leptos::prelude::*;
+use leptos_router::components::*;
+use leptos_router::path;
+
+use crate::components::Layout;
+use crate::pages::*;
+
+/// Root application component with all routes.
+#[component]
+pub fn App() -> impl IntoView {
+    view! {
+        <Router>
+            <Routes fallback=|| view! { <NotFound /> }>
+                <ParentRoute path=path!("") view=Layout>
+                    <Route path=path!("") view=Dashboard />
+                    <Route path=path!("projects") view=Projects />
+                    <Route path=path!("projects/:slug") view=ProjectDetail />
+                    <Route path=path!("agents") view=Agents />
+                    <Route path=path!("inbox") view=Inbox />
+                    <Route path=path!("inbox/:id") view=MessageDetail />
+                </ParentRoute>
+            </Routes>
+        </Router>
+    }
+}
+
+/// 404 Not Found page.
+#[component]
+fn NotFound() -> impl IntoView {
+    view! {
+        <div class="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
+            <div class="text-center">
+                <h1 class="text-6xl font-bold text-gray-300 dark:text-gray-700">"404"</h1>
+                <p class="mt-4 text-xl text-gray-600 dark:text-gray-400">"Page not found"</p>
+                <a href="/" class="mt-6 inline-block text-primary-600 hover:text-primary-500">
+                    "← Back to Dashboard"
+                </a>
+            </div>
+        </div>
+    }
+}
