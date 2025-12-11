@@ -52,6 +52,10 @@ pub struct Agent {
     pub name: String,
     pub project_id: Option<String>,
     pub project_slug: Option<String>,
+    pub program: Option<String>,
+    pub model: Option<String>,
+    pub task_description: Option<String>,
+    pub last_active_ts: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub created_at: Option<String>,
 }
@@ -155,6 +159,47 @@ pub async fn get_agents(project_slug: &str) -> Result<Vec<Agent>, ApiError> {
     } else {
         Err(ApiError {
             message: format!("Failed to get agents: {}", response.status()),
+        })
+    }
+}
+
+/// Register a new agent for a project.
+pub async fn register_agent(
+    project_slug: &str,
+    name: &str,
+    program: &str,
+    model: &str,
+    task_description: Option<&str>,
+) -> Result<Agent, ApiError> {
+    let url = format!("{}/api/projects/{}/agents", API_BASE_URL, project_slug);
+    
+    #[derive(Serialize)]
+    struct RegisterAgentPayload<'a> {
+        name: &'a str,
+        program: &'a str,
+        model: &'a str,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        task_description: Option<&'a str>,
+    }
+    
+    let payload = RegisterAgentPayload {
+        name,
+        program,
+        model,
+        task_description,
+    };
+    
+    let response = Request::post(&url)
+        .header("Content-Type", "application/json")
+        .json(&payload)?
+        .send()
+        .await?;
+    
+    if response.ok() {
+        Ok(response.json().await?)
+    } else {
+        Err(ApiError {
+            message: format!("Failed to register agent: {}", response.status()),
         })
     }
 }
