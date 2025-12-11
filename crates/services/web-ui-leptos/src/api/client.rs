@@ -101,6 +101,32 @@ pub async fn get_projects() -> Result<Vec<Project>, ApiError> {
     }
 }
 
+/// Create or ensure a project exists.
+pub async fn ensure_project(human_key: &str) -> Result<Project, ApiError> {
+    let url = format!("{}/api/projects", API_BASE_URL);
+    
+    #[derive(Serialize)]
+    struct CreateProjectPayload<'a> {
+        human_key: &'a str,
+    }
+    
+    let payload = CreateProjectPayload { human_key };
+    
+    let response = Request::post(&url)
+        .header("Content-Type", "application/json")
+        .json(&payload)?
+        .send()
+        .await?;
+    
+    if response.ok() {
+        Ok(response.json().await?)
+    } else {
+        Err(ApiError {
+            message: format!("Failed to create project: {}", response.status()),
+        })
+    }
+}
+
 /// Get project by slug.
 pub async fn get_project(slug: &str) -> Result<Project, ApiError> {
     let url = format!("{}/api/projects/{}", API_BASE_URL, slug);
