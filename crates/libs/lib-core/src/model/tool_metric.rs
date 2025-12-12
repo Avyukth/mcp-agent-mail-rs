@@ -32,10 +32,12 @@ pub struct ToolMetricBmc;
 impl ToolMetricBmc {
     pub async fn create(_ctx: &Ctx, mm: &ModelManager, metric_c: ToolMetricForCreate) -> Result<i64> {
         let db = mm.db();
+        let created_at = chrono::Utc::now().naive_utc().to_string();
+        
         let stmt = db.prepare(
             r#"
-            INSERT INTO tool_metrics (project_id, agent_id, tool_name, args_json, status, error_code, duration_ms)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO tool_metrics (project_id, agent_id, tool_name, args_json, status, error_code, duration_ms, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             RETURNING id
             "#
         ).await?;
@@ -48,6 +50,7 @@ impl ToolMetricBmc {
             metric_c.status.into(),
             metric_c.error_code.into(),
             metric_c.duration_ms.into(),
+            created_at.into(),
         ];
         let mut rows = stmt.query(params).await?;
         

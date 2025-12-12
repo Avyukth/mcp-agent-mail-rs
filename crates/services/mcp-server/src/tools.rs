@@ -1970,3 +1970,24 @@ pub async fn get_tool_stats(
     
     Ok(Json(stats).into_response())
 }
+
+// --- Activity ---
+
+#[derive(Deserialize)]
+pub struct ListActivityParams {
+    pub project_id: i64,
+    pub limit: Option<i64>,
+}
+
+pub async fn list_activity(
+    State(state): State<AppState>,
+    Query(params): Query<ListActivityParams>,
+) -> crate::error::Result<Response> {
+    use lib_core::model::activity::ActivityBmc;
+    
+    let ctx = Ctx::root_ctx();
+    let limit = params.limit.unwrap_or(50);
+    let items = ActivityBmc::list_recent(&ctx, &state.mm, params.project_id, limit).await?;
+    
+    Ok(Json(items).into_response())
+}

@@ -64,4 +64,5 @@ pub fn routes() -> Router<AppState> {
         // Metrics
         .route("/api/metrics/tools", get(tools::list_tool_metrics))
         .route("/api/metrics/tools/stats", get(tools::get_tool_stats))
+        .route("/api/activity", get(tools::list_activity))
 }
