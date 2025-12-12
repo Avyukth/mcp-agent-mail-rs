@@ -11,8 +11,11 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilte
 use crate::error::ServerError;
 
 mod api;
+mod auth;
 mod error;
 mod tools;
+
+use auth::{auth_middleware, AuthConfig, JwksClient};
 
 // --- Application State
 #[derive(Clone)]
@@ -20,21 +23,29 @@ pub struct AppState {
     pub mm: ModelManager,
     pub metrics_handle: PrometheusHandle,
     pub start_time: Instant,
+    pub auth_config: AuthConfig,
+    pub jwks_client: Option<JwksClient>,
 }
 
-fn setup_metrics() -> PrometheusHandle {
-    const EXPONENTIAL_SECONDS: &[f64] = &[
-        0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
-    ];
+use once_cell::sync::OnceCell;
 
-    PrometheusBuilder::new()
-        .set_buckets_for_metric(
-            Matcher::Full("http_request_duration_seconds".to_string()),
-            EXPONENTIAL_SECONDS,
-        )
-        .expect("Failed to set buckets")
-        .install_recorder()
-        .expect("Failed to install Prometheus recorder")
+static METRICS_HANDLE: OnceCell<PrometheusHandle> = OnceCell::new();
+
+fn setup_metrics() -> PrometheusHandle {
+    METRICS_HANDLE.get_or_init(|| {
+        const EXPONENTIAL_SECONDS: &[f64] = &[
+            0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+        ];
+
+        PrometheusBuilder::new()
+            .set_buckets_for_metric(
+                Matcher::Full("http_request_duration_seconds".to_string()),
+                EXPONENTIAL_SECONDS,
+            )
+            .expect("Failed to set buckets")
+            .install_recorder()
+            .expect("Failed to install Prometheus recorder")
+    }).clone()
 }
 
 fn setup_tracing() {
@@ -67,10 +78,23 @@ async fn main() -> std::result::Result<(), ServerError> {
 
     // Initialize ModelManager
     let mm = ModelManager::new().await?;
+    
+    // Initialize Auth
+    let auth_config = AuthConfig::from_env();
+    tracing::info!("Auth Mode: {:?}", auth_config.mode);
+
+    let jwks_client = if let Some(url) = &auth_config.jwks_url {
+        Some(JwksClient::new(url.clone()))
+    } else {
+        None
+    };
+
     let app_state = AppState {
         mm,
         metrics_handle,
         start_time: Instant::now(),
+        auth_config,
+        jwks_client,
     };
 
     // Build our application with routes
@@ -81,8 +105,13 @@ async fn main() -> std::result::Result<(), ServerError> {
 
     let app = Router::new()
         .merge(api::routes())
-        .route("/", get(root_handler))
         .route("/mcp", post(mcp_handler))
+        .route_layer(axum::middleware::from_fn_with_state(
+            app_state.clone(),
+            auth_middleware,
+        ))
+        // Public routes (no auth)
+        .route("/", get(root_handler))
         .route("/health", get(health_handler))
         .route("/ready", get(ready_handler))
         .route("/metrics", get(metrics_handler))
