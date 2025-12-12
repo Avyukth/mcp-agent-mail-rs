@@ -110,7 +110,7 @@ pub fn Inbox() -> impl IntoView {
     };
 
     // Refresh messages
-    let refresh = move |_| {
+    let refresh = move || {
         let project = selected_project.get();
         let agent = selected_agent.get();
         if project.is_empty() || agent.is_empty() {
@@ -132,8 +132,50 @@ pub fn Inbox() -> impl IntoView {
         });
     };
 
+    // Compose state
+    let show_compose = RwSignal::new(false);
+
     view! {
         <div class="space-y-6">
+            // Compose Modal
+            {move || {
+                if show_compose.get() {
+                    let project = selected_project.get();
+                    let agent = selected_agent.get();
+                    let agent_list = agents.get();
+                    
+                    if !project.is_empty() && !agent.is_empty() {
+                         Some(view! {
+                            <div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
+                                <div 
+                                    class="fixed inset-0 bg-charcoal-900/50 backdrop-blur-sm transition-opacity" 
+                                    on:click=move |_| show_compose.set(false)
+                                ></div>
+                                <div class="relative w-full max-w-2xl bg-white dark:bg-charcoal-800 rounded-2xl shadow-xl overflow-hidden animate-scale-in">
+                                    <crate::components::ComposeMessage
+                                        props=crate::components::ComposeProps {
+                                            project_slug: project,
+                                            sender_name: agent,
+                                            agents: agent_list,
+                                            reply_to: None,
+                                        }
+                                        on_close=Callback::new(move |_| show_compose.set(false))
+                                        on_sent=Callback::new(move |_| {
+                                            show_compose.set(false);
+                                            refresh();
+                                        })
+                                    />
+                                </div>
+                            </div>
+                        })
+                    } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }}
+
             // Header with gradient accent
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
@@ -148,7 +190,10 @@ pub fn Inbox() -> impl IntoView {
                     let agent = selected_agent.get();
                     if !project.is_empty() && !agent.is_empty() {
                         Some(view! {
-                            <button class="btn-primary flex items-center gap-2">
+                            <button 
+                                on:click=move |_| show_compose.set(true)
+                                class="btn-primary flex items-center gap-2"
+                            >
                                 <i data-lucide="square-pen" class="icon-sm"></i>
                                 <span>"Compose"</span>
                             </button>
@@ -221,7 +266,7 @@ pub fn Inbox() -> impl IntoView {
                             Some(view! {
                                 <div class="flex items-end">
                                     <button
-                                        on:click=refresh
+                                        on:click=move |_| refresh()
                                         disabled=move || loading_messages.get()
                                         class="btn-secondary flex items-center gap-2 disabled:opacity-50"
                                     >
@@ -300,7 +345,10 @@ pub fn Inbox() -> impl IntoView {
                                 <p class="text-charcoal-500 dark:text-charcoal-400 mb-6">
                                     "No messages for " <span class="font-medium text-charcoal-700 dark:text-cream-200">{agent}</span> " yet."
                                 </p>
-                                <button class="btn-primary flex items-center gap-2 mx-auto">
+                                <button
+                                    on:click=move |_| show_compose.set(true)
+                                    class="btn-primary flex items-center gap-2 mx-auto"
+                                >
                                     <i data-lucide="send" class="icon-sm"></i>
                                     "Send a Message"
                                 </button>
