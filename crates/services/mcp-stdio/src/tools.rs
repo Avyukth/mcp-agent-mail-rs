@@ -67,7 +67,9 @@ pub fn get_tool_schemas() -> Vec<ToolSchema> {
             parameters: vec![
                 ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
                 ParameterSchema { name: "sender_name".into(), param_type: "string".into(), required: true, description: "Sender agent name".into() },
-                ParameterSchema { name: "recipient_names".into(), param_type: "array".into(), required: true, description: "List of recipient agent names".into() },
+                ParameterSchema { name: "to".into(), param_type: "string".into(), required: true, description: "Recipient agent names (comma-separated)".into() },
+                ParameterSchema { name: "cc".into(), param_type: "string".into(), required: false, description: "CC recipient agent names (comma-separated)".into() },
+                ParameterSchema { name: "bcc".into(), param_type: "string".into(), required: false, description: "BCC recipient agent names (comma-separated)".into() },
                 ParameterSchema { name: "subject".into(), param_type: "string".into(), required: true, description: "Message subject".into() },
                 ParameterSchema { name: "body_md".into(), param_type: "string".into(), required: true, description: "Message body in markdown".into() },
                 ParameterSchema { name: "importance".into(), param_type: "string".into(), required: false, description: "Message importance level".into() },
@@ -349,6 +351,7 @@ impl AgentMailService {
         Ok(Self { mm, tool_router })
     }
 
+    #[cfg(test)]
     pub fn new_with_mm(mm: Arc<ModelManager>) -> Self {
         let tool_router = Self::tool_router();
         Self { mm, tool_router }
@@ -356,6 +359,97 @@ impl AgentMailService {
 
     fn ctx(&self) -> Ctx {
         Ctx::root_ctx()
+    }
+
+    pub async fn read_resource_impl(
+        &self,
+        request: ReadResourceRequestParam,
+    ) -> Result<ReadResourceResult, McpError> {
+        let uri_str = request.uri;
+        let uri = url::Url::parse(&uri_str)
+            .map_err(|e| McpError::invalid_params(format!("Invalid URI: {}", e), None))?;
+
+        if uri.scheme() != "agent-mail" {
+            return Err(McpError::invalid_params("URI scheme must be 'agent-mail'".to_string(), None));
+        }
+
+        // URI format: agent-mail://{project_slug}/{resource_type}/{optional_id}
+        let project_slug = uri.host_str()
+            .ok_or(McpError::invalid_params("URI missing host (project slug)".to_string(), None))?;
+        
+        // Path starts with /, so segments are after host
+        let segments: Vec<&str> = uri.path_segments()
+            .ok_or(McpError::invalid_params("Invalid URI path".to_string(), None))?
+            .collect();
+
+        if segments.is_empty() {
+             return Err(McpError::invalid_params("URI path missing resource type".to_string(), None));
+        }
+
+        let resource_type = segments[0];
+        let resource_id = segments.get(1).cloned();
+
+        let ctx = self.ctx();
+        let mm = &self.mm;
+
+        // Resolve project ID
+        let project = ProjectBmc::get_by_slug(&ctx, mm, project_slug).await
+            .map_err(|_| McpError::invalid_params(format!("Project not found: {}", project_slug), None))?;
+        let project_id = project.id;
+
+        let content = match resource_type {
+            "agents" => {
+                let agents = AgentBmc::list_all_for_project(&ctx, mm, project_id).await
+                    .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+                serde_json::to_string_pretty(&agents)
+                    .map_err(|e| McpError::internal_error(e.to_string(), None))?
+            },
+            "file_reservations" => {
+                let reservations = FileReservationBmc::list_active_for_project(&ctx, mm, project_id).await
+                    .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+                serde_json::to_string_pretty(&reservations)
+                    .map_err(|e| McpError::internal_error(e.to_string(), None))?
+            },
+            "inbox" => {
+                let agent_name = resource_id.ok_or(McpError::invalid_params("Missing agent name".to_string(), None))?;
+                let agent = AgentBmc::get_by_name(&ctx, mm, project_id, agent_name).await
+                    .map_err(|_| McpError::invalid_params(format!("Agent not found: {}", agent_name), None))?;
+                
+                // Default limit 20
+                let messages = MessageBmc::list_inbox_for_agent(&ctx, mm, project_id, agent.id, 20).await
+                    .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+                serde_json::to_string_pretty(&messages)
+                    .map_err(|e| McpError::internal_error(e.to_string(), None))?
+            },
+            "outbox" => {
+                let agent_name = resource_id.ok_or(McpError::invalid_params("Missing agent name".to_string(), None))?;
+                let agent = AgentBmc::get_by_name(&ctx, mm, project_id, agent_name).await
+                    .map_err(|_| McpError::invalid_params(format!("Agent not found: {}", agent_name), None))?;
+                
+                let messages = MessageBmc::list_outbox_for_agent(&ctx, mm, project_id, agent.id, 20).await
+                    .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+                serde_json::to_string_pretty(&messages)
+                    .map_err(|e| McpError::internal_error(e.to_string(), None))?
+            },
+            "thread" => {
+                let thread_id_str = resource_id.ok_or(McpError::invalid_params("Missing thread ID".to_string(), None))?;
+                let messages = MessageBmc::list_by_thread(&ctx, mm, project_id, thread_id_str).await
+                        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+                
+                serde_json::to_string_pretty(&messages)
+                    .map_err(|e| McpError::internal_error(e.to_string(), None))?
+            },
+            _ => return Err(McpError::invalid_params(format!("Unknown resource type: {}", resource_type), None)),
+        };
+
+        Ok(ReadResourceResult {
+            contents: vec![ResourceContents::TextResourceContents {
+                uri: uri_str,
+                mime_type: Some("application/json".to_string()),
+                text: content,
+                meta: None,
+            }],
+        })
     }
 }
 
@@ -438,101 +532,13 @@ impl ServerHandler for AgentMailService {
         }
     }
 
+
     fn read_resource(
         &self,
         request: ReadResourceRequestParam,
         _context: RequestContext<RoleServer>,
     ) -> impl std::future::Future<Output = Result<ReadResourceResult, McpError>> + Send + '_ {
-        async move {
-            let uri_str = request.uri;
-            let uri = url::Url::parse(&uri_str)
-                .map_err(|e| McpError::invalid_params(format!("Invalid URI: {}", e), None))?;
-
-            if uri.scheme() != "agent-mail" {
-                return Err(McpError::invalid_params("URI scheme must be 'agent-mail'".to_string(), None));
-            }
-
-            // Path format: /{project_slug}/{resource_type}/{optional_id}
-            let segments: Vec<&str> = uri.path_segments()
-                .ok_or(McpError::invalid_params("Invalid URI path".to_string(), None))?
-                .collect();
-
-            if segments.len() < 2 {
-                return Err(McpError::invalid_params("URI path too short".to_string(), None));
-            }
-
-            let project_slug = segments[0];
-            let resource_type = segments[1];
-            let resource_id = segments.get(2).cloned();
-
-            let ctx = self.ctx();
-            let mm = &self.mm;
-
-            // Resolve project ID
-            let project = ProjectBmc::get_by_slug(&ctx, mm, project_slug).await
-                .map_err(|_| McpError::invalid_params(format!("Project not found: {}", project_slug), None))?;
-            let project_id = project.id;
-
-            let content = match resource_type {
-                "agents" => {
-                    let agents = AgentBmc::list_all_for_project(&ctx, mm, project_id).await
-                        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-                    serde_json::to_string_pretty(&agents)
-                        .map_err(|e| McpError::internal_error(e.to_string(), None))?
-                },
-                "file_reservations" => {
-                    let reservations = FileReservationBmc::list_active_for_project(&ctx, mm, project_id).await
-                        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-                    serde_json::to_string_pretty(&reservations)
-                        .map_err(|e| McpError::internal_error(e.to_string(), None))?
-                },
-                "inbox" => {
-                    let agent_name = resource_id.ok_or(McpError::invalid_params("Missing agent name".to_string(), None))?;
-                    let agent = AgentBmc::get_by_name(&ctx, mm, project_id, agent_name).await
-                        .map_err(|_| McpError::invalid_params(format!("Agent not found: {}", agent_name), None))?;
-                    
-                    // Default limit 20
-                    let messages = MessageBmc::list_inbox_for_agent(&ctx, mm, project_id, agent.id, 20).await
-                        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-                    serde_json::to_string_pretty(&messages)
-                        .map_err(|e| McpError::internal_error(e.to_string(), None))?
-                },
-                "outbox" => {
-                    let agent_name = resource_id.ok_or(McpError::invalid_params("Missing agent name".to_string(), None))?;
-                    let agent = AgentBmc::get_by_name(&ctx, mm, project_id, agent_name).await
-                        .map_err(|_| McpError::invalid_params(format!("Agent not found: {}", agent_name), None))?;
-                    
-                    let messages = MessageBmc::list_outbox_for_agent(&ctx, mm, project_id, agent.id, 20).await
-                        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-                    serde_json::to_string_pretty(&messages)
-                        .map_err(|e| McpError::internal_error(e.to_string(), None))?
-                },
-                "thread" => {
-                    let thread_id_str = resource_id.ok_or(McpError::invalid_params("Missing thread ID".to_string(), None))?;
-                    // Thread ID is string in DB, usually UUID, but protocol might send it differently.
-                    // Actually ThreadBmc doesn't exist? I used ThreadBmc::get_full_thread in previous attempt but check imports:
-                    // I imported `thread::ThreadBmc` but viewing `lib-core` didn't confirm it.
-                    // Wait, I saw `list_by_thread` in `MessageBmc`. 
-                    // Let's use `MessageBmc::list_by_thread`.
-                    
-                    let messages = MessageBmc::list_by_thread(&ctx, mm, project_id, thread_id_str).await
-                         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-                    
-                    serde_json::to_string_pretty(&messages)
-                        .map_err(|e| McpError::internal_error(e.to_string(), None))?
-                },
-                _ => return Err(McpError::invalid_params(format!("Unknown resource type: {}", resource_type), None)),
-            };
-
-            Ok(ReadResourceResult {
-                contents: vec![ResourceContents::TextResourceContents {
-                    uri: uri_str,
-                    mime_type: Some("application/json".to_string()),
-                    text: content,
-                    meta: None,
-                }],
-            })
-        }
+        self.read_resource_impl(request)
     }
 }
 
@@ -570,6 +576,10 @@ pub struct SendMessageParams {
     pub sender_name: String,
     /// Recipient agent names (comma-separated for multiple)
     pub to: String,
+    /// CC recipient agent names (comma-separated for multiple)
+    pub cc: Option<String>,
+    /// BCC recipient agent names (comma-separated for multiple)
+    pub bcc: Option<String>,
     /// Message subject
     pub subject: String,
     /// Message body in markdown
@@ -1036,22 +1046,43 @@ impl AgentMailService {
             return Err(McpError::invalid_params(format!("Agent '{}' does not have 'send_message' capability", p.sender_name), None));
         }
 
-        // Parse recipients
-        let recipient_names: Vec<&str> = p.to.split(',').map(|s| s.trim()).collect();
-        let mut recipient_ids = Vec::new();
-        for name in &recipient_names {
-            let recipient = AgentBmc::get_by_name(&ctx, &self.mm, project.id, name).await
-                .map_err(|e| McpError::invalid_params(format!("Recipient '{}' not found: {}", name, e), None))?;
-            recipient_ids.push(recipient.id);
+        // Helper to resolve list of names to IDs
+        async fn resolve_agents(ctx: &lib_core::Ctx, mm: &lib_core::ModelManager, project_id: i64, names_str: &str) -> Result<Vec<i64>, McpError> {
+             use lib_core::model::agent::AgentBmc;
+             let names: Vec<&str> = names_str.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
+             let mut ids = Vec::new();
+             for name in names {
+                 let agent = AgentBmc::get_by_name(ctx, mm, project_id, name).await
+                     .map_err(|e| McpError::invalid_params(format!("Agent '{}' not found: {}", name, e), None))?;
+                 ids.push(agent.id);
+             }
+             Ok(ids)
         }
+
+        // Parse recipients
+        let recipient_ids = resolve_agents(&ctx, &self.mm, project.id, &p.to).await?;
+        
+        let cc_ids = if let Some(cc) = &p.cc {
+             let ids = resolve_agents(&ctx, &self.mm, project.id, cc).await?;
+             if ids.is_empty() { None } else { Some(ids) }
+        } else {
+             None
+        };
+
+        let bcc_ids = if let Some(bcc) = &p.bcc {
+             let ids = resolve_agents(&ctx, &self.mm, project.id, bcc).await?;
+             if ids.is_empty() { None } else { Some(ids) }
+        } else {
+             None
+        };
 
         // Create message
         let msg_c = MessageForCreate {
             project_id: project.id,
             sender_id: sender.id,
             recipient_ids,
-            cc_ids: None,
-            bcc_ids: None,
+            cc_ids,
+            bcc_ids,
             subject: p.subject.clone(),
             body_md: p.body_md,
             thread_id: p.thread_id,
@@ -2463,7 +2494,9 @@ mod tests {
         let params = SendMessageParams {
             project_slug: "mw-test".into(),
             sender_name: "Sender".into(),
-            to: "Sender".into(), // self-send
+            to: "Sender".into(),
+            cc: None,
+            bcc: None,
             subject: "Test".into(),
             body_md: "Body".into(),
             importance: None,
@@ -2490,6 +2523,8 @@ mod tests {
             project_slug: "mw-test".into(),
             sender_name: "Sender".into(),
             to: "Sender".into(),
+            cc: None,
+            bcc: None,
             subject: "Test".into(),
             body_md: "Body".into(),
             importance: None,
@@ -2529,5 +2564,124 @@ mod tests {
         let text = format!("{:?}", content);
         assert!(text.contains("Sibling Projects for 'Project A'"));
         assert!(text.contains("Project B"));
+    }
+    #[tokio::test]
+    async fn test_send_message_cc_bcc() {
+        use lib_core::model::message::MessageBmc;
+    
+        let (mm, _temp) = create_test_mm().await;
+        // Construct service
+        let service = AgentMailService::new_with_mm(mm.clone());
+        let ctx = Ctx::root_ctx();
+
+        // Create project
+        let pid = ProjectBmc::create(&ctx, &mm, "cc-test", "CC Test").await.unwrap();
+
+        // Create Agents
+        let sender_c = AgentForCreate { project_id: pid, name: "Sender".into(), program: "test".into(), model: "test".into(), task_description: "Sender".into() };
+        let sender_id = AgentBmc::create(&ctx, &mm, sender_c).await.unwrap();
+        // Recipient
+        let recv_c = AgentForCreate { project_id: pid, name: "Recv".into(), program: "test".into(), model: "test".into(), task_description: "Recv".into() };
+        let recv_id = AgentBmc::create(&ctx, &mm, recv_c).await.unwrap();
+        // CC
+        let cc_c = AgentForCreate { project_id: pid, name: "CCAgent".into(), program: "test".into(), model: "test".into(), task_description: "CC".into() };
+        let cc_id = AgentBmc::create(&ctx, &mm, cc_c).await.unwrap();
+        // BCC
+        let bcc_c = AgentForCreate { project_id: pid, name: "BCCAgent".into(), program: "test".into(), model: "test".into(), task_description: "BCC".into() };
+        let bcc_id = AgentBmc::create(&ctx, &mm, bcc_c).await.unwrap();
+
+        // Grant Capability
+        let cap = AgentCapabilityForCreate { agent_id: sender_id, capability: "send_message".into() };
+        AgentCapabilityBmc::create(&ctx, &mm, cap).await.unwrap();
+
+        // Call Tool
+        let params = SendMessageParams {
+            project_slug: "cc-test".into(),
+            sender_name: "Sender".into(),
+            to: "Recv".into(),
+            cc: Some("CCAgent".into()),
+            bcc: Some("BCCAgent".into()),
+            subject: "CC Test".into(),
+            body_md: "Body".into(),
+            importance: None,
+            thread_id: None,
+        };
+
+        // Invoke
+        let result = service.send_message(Parameters(params)).await.unwrap();
+        let msg = format!("{:?}", result); 
+        assert!(msg.contains("Message sent"));
+
+        // Verify with list_recent (or get message if we could parse id)
+        // Let's use MessageBmc::list_recent
+        let msgs = MessageBmc::list_recent(&ctx, &mm, pid, 1).await.unwrap();
+        let m = &msgs[0];
+        assert_eq!(m.subject, "CC Test");
+
+        // Verify recipients in DB
+        // We can't access DB directly easily here as it's private in mm?
+        // Actually mm.db() is private pub(in crate::model).
+        // But we are in mcp-stdio, which imports lib-core.
+        // We can't access mm.db().
+        // BUT we can use `list_inbox` for each agent to verify delivery!
+        
+        let inbox_recv = MessageBmc::list_inbox_for_agent(&ctx, &mm, pid, recv_id, 10).await.unwrap();
+        assert_eq!(inbox_recv.len(), 1);
+        
+        // Correct verification of CC/BCC delivery:
+        let inbox_cc = MessageBmc::list_inbox_for_agent(&ctx, &mm, pid, cc_id, 10).await.unwrap();
+        assert_eq!(inbox_cc.len(), 1, "CC agent should have message in inbox");
+        
+        let inbox_bcc = MessageBmc::list_inbox_for_agent(&ctx, &mm, pid, bcc_id, 10).await.unwrap();
+        assert_eq!(inbox_bcc.len(), 1, "BCC agent should have message in inbox");
+    }
+    #[tokio::test]
+    async fn test_outbox_resource() {
+        use rmcp::model::{ReadResourceRequestParam, ResourceContents};
+        use lib_core::model::message::{MessageBmc, MessageForCreate};
+
+        let (mm, _temp) = create_test_mm().await;
+        // Construct service
+        let service = AgentMailService::new_with_mm(mm.clone());
+        let ctx = Ctx::root_ctx();
+
+        // Create project
+        let pid = ProjectBmc::create(&ctx, &mm, "outbox-test", "Outbox Test").await.unwrap();
+
+        // Create Agents
+        let sender_c = AgentForCreate { project_id: pid, name: "Sender".into(), program: "test".into(), model: "test".into(), task_description: "Sender".into() };
+        let sender_id = AgentBmc::create(&ctx, &mm, sender_c).await.unwrap();
+        
+        let recv_c = AgentForCreate { project_id: pid, name: "Recv".into(), program: "test".into(), model: "test".into(), task_description: "Recv".into() };
+        let recv_id = AgentBmc::create(&ctx, &mm, recv_c).await.unwrap();
+
+        // Send a message
+        let msg_c = MessageForCreate {
+            project_id: pid,
+            sender_id,
+            recipient_ids: vec![recv_id],
+            cc_ids: None,
+            bcc_ids: None,
+            subject: "Outbox Check".into(),
+            body_md: "Body".into(),
+            thread_id: None,
+            importance: None,
+        };
+        MessageBmc::create(&ctx, &mm, msg_c).await.unwrap();
+
+        // Call read_resource
+        let uri = "agent-mail://outbox-test/outbox/Sender".to_string();
+        let params = ReadResourceRequestParam { uri };
+        
+        // Use refactored impl to avoid constructing context
+        let result = service.read_resource_impl(params).await.unwrap();
+        
+        let content = &result.contents[0];
+        if let ResourceContents::TextResourceContents { text, .. } = content {
+             assert!(text.contains("Outbox Check"));
+             assert!(text.contains("Sender"));
+        } else {
+             panic!("Expected TextResourceContents");
+        }
     }
 }
