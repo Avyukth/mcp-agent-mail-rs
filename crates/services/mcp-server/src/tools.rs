@@ -1,5 +1,5 @@
 use axum::{
-    extract::{Path, State},
+    extract::{Path, State, Query},
     response::{IntoResponse, Response},
     Json,
 };
@@ -1937,4 +1937,36 @@ pub async fn get_attachment(
             }).into_response())
         }
     }
+}
+// --- Metrics ---
+
+#[derive(Deserialize)]
+pub struct ListMetricsParams {
+    pub project_id: Option<i64>,
+    pub limit: Option<i64>,
+}
+
+pub async fn list_tool_metrics(
+    State(state): State<AppState>,
+    Query(params): Query<ListMetricsParams>,
+) -> crate::error::Result<Response> {
+    use lib_core::model::tool_metric::ToolMetricBmc;
+    
+    let ctx = Ctx::root_ctx();
+    let limit = params.limit.unwrap_or(50);
+    let metrics = ToolMetricBmc::list_recent(&ctx, &state.mm, params.project_id, limit).await?;
+    
+    Ok(Json(metrics).into_response())
+}
+
+pub async fn get_tool_stats(
+    State(state): State<AppState>,
+    Query(params): Query<ListMetricsParams>,
+) -> crate::error::Result<Response> {
+    use lib_core::model::tool_metric::ToolMetricBmc;
+    
+    let ctx = Ctx::root_ctx();
+    let stats = ToolMetricBmc::get_stats(&ctx, &state.mm, params.project_id).await?;
+    
+    Ok(Json(stats).into_response())
 }

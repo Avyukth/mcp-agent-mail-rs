@@ -29,6 +29,8 @@ mod tools_tests {
         conn.execute_batch(schema).await.unwrap();
         let schema002 = include_str!("../../../../migrations/002_agent_capabilities.sql");
         conn.execute_batch(schema002).await.unwrap();
+        let schema003 = include_str!("../../../../migrations/003_tool_metrics.sql");
+        conn.execute_batch(schema003).await.unwrap();
 
         let mm = ModelManager::new_for_test(conn, archive_root);
         (Arc::new(mm), temp_dir)

@@ -61,4 +61,7 @@ pub fn routes() -> Router<AppState> {
         // Attachments
         .route("/api/attachments/add", post(tools::add_attachment))
         .route("/api/attachments/get", post(tools::get_attachment))
+        // Metrics
+        .route("/api/metrics/tools", get(tools::list_tool_metrics))
+        .route("/api/metrics/tools/stats", get(tools::get_tool_stats))
 }

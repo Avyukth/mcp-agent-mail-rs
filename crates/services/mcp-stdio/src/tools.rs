@@ -338,6 +338,13 @@ pub fn get_tool_schemas() -> Vec<ToolSchema> {
 }
 
 /// The main MCP service for Agent Mail
+// Simple macro for early return locally
+macro_rules! guard_unwrap {
+    ($val:expr, $ret:expr) => {
+        if let Some(v) = $val { v } else { $ret }
+    };
+}
+
 #[derive(Clone)]
 pub struct AgentMailService {
     mm: Arc<ModelManager>,
@@ -451,6 +458,75 @@ impl AgentMailService {
             }],
         })
     }
+    pub async fn record_tool_metric(
+        &self,
+        tool_name: &str,
+        args: &Option<serde_json::Value>,
+        duration: std::time::Duration,
+        result: &Result<CallToolResult, McpError>,
+    ) {
+        use lib_core::model::tool_metric::{ToolMetricBmc, ToolMetricForCreate};
+        use lib_core::model::project::ProjectBmc;
+        use lib_core::model::agent::AgentBmc;
+
+        let (status, error_code) = match result {
+            Ok(_) => ("success".to_string(), None),
+            Err(e) => ("error".to_string(), Some(format!("{:?}", e.code))), 
+        };
+
+        // Extract context
+        let (project_slug, agent_name) = self.extract_context(args);
+        
+        // Resolve IDs (best effort)
+        let ctx = self.ctx();
+        let mut project_id = None;
+        let mut agent_id = None;
+        
+        if let Some(slug) = project_slug {
+             if let Ok(p) = ProjectBmc::get_by_slug(&ctx, &self.mm, &slug).await {
+                 project_id = Some(p.id);
+                 if let Some(name) = agent_name {
+                     if let Ok(a) = AgentBmc::get_by_name(&ctx, &self.mm, p.id, &name).await {
+                         agent_id = Some(a.id);
+                     }
+                 }
+             }
+        }
+        
+        let metric = ToolMetricForCreate {
+             project_id,
+             agent_id,
+             tool_name: tool_name.to_string(),
+             args_json: args.as_ref().map(|v| v.to_string()),
+             status,
+             error_code,
+             duration_ms: duration.as_millis() as i64,
+        };
+        
+        if let Err(e) = ToolMetricBmc::create(&ctx, &self.mm, metric).await {
+            tracing::error!("Failed to record tool metric: {}", e);
+        }
+    }
+
+    pub fn extract_context(&self, args: &Option<serde_json::Value>) -> (Option<String>, Option<String>) {
+        let val = guard_unwrap!(args.as_ref(), return (None, None));
+        let obj = guard_unwrap!(val.as_object(), return (None, None));
+
+        // Try to find project slug
+        let project_slug = obj.get("project_slug")
+            .or_else(|| obj.get("slug")) // For EnsureProjectParams
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+
+        // Try to find agent name
+        let agent_name = obj.get("agent_name")
+            .or_else(|| obj.get("sender_name")) // For SendMessageParams
+            .or_else(|| obj.get("name")) // For RegisterAgentParams
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+            
+        (project_slug, agent_name)
+    }
 }
 
 impl ServerHandler for AgentMailService {
@@ -473,8 +549,24 @@ impl ServerHandler for AgentMailService {
         request: CallToolRequestParam,
         context: RequestContext<RoleServer>,
     ) -> impl std::future::Future<Output = Result<CallToolResult, McpError>> + Send + '_ {
-        let tool_context = rmcp::handler::server::tool::ToolCallContext::new(self, request, context);
-        self.tool_router.call(tool_context)
+        async move {
+            let start = std::time::Instant::now();
+            let tool_name = request.name.clone();
+            let args = request.arguments.clone();
+            
+            let tool_context = rmcp::handler::server::tool::ToolCallContext::new(self, request, context);
+            let result = self.tool_router.call(tool_context).await;
+            
+            let duration = start.elapsed();
+            
+            // Fire and forget metric recording (spawn generic task or just await since we are async)
+            // Awaiting is safer to ensure it's recorded before response? 
+            // Better to spawn to avoid latency, but for now await is fine as DB write is fast.
+            let args_val = args.map(serde_json::Value::Object);
+            self.record_tool_metric(&tool_name, &args_val, duration, &result).await;
+            
+            result
+        }
     }
 
     fn list_resources(
@@ -540,6 +632,11 @@ impl ServerHandler for AgentMailService {
     ) -> impl std::future::Future<Output = Result<ReadResourceResult, McpError>> + Send + '_ {
         self.read_resource_impl(request)
     }
+
+
+
+
+
 }
 
 // ============================================================================
@@ -2466,6 +2563,8 @@ mod tests {
         conn.execute_batch(schema1).await.unwrap();
         let schema2 = include_str!("../../../../migrations/002_agent_capabilities.sql");
         conn.execute_batch(schema2).await.unwrap();
+        let schema3 = include_str!("../../../../migrations/003_tool_metrics.sql");
+        conn.execute_batch(schema3).await.unwrap();
 
         let mm = ModelManager::new_for_test(conn, archive_root);
         (Arc::new(mm), temp_dir)
@@ -2683,5 +2782,55 @@ mod tests {
         } else {
              panic!("Expected TextResourceContents");
         }
+    }
+    #[tokio::test]
+    async fn test_record_tool_metric() {
+        use lib_core::model::tool_metric::ToolMetricBmc;
+        use lib_core::model::project::ProjectBmc;
+        use lib_core::model::agent::{AgentBmc, AgentForCreate};
+        use serde_json::json;
+
+        let (mm, _temp) = create_test_mm().await;
+        // Construct service
+        let service = AgentMailService::new_with_mm(mm.clone());
+        let ctx = Ctx::root_ctx();
+
+        // 1. Create Project and Agent
+        let project_id = ProjectBmc::create(&ctx, &mm, "metric-test", "Metric Test").await.unwrap();
+        let agent_c = AgentForCreate {
+            project_id,
+            name: "MetricAgent".into(),
+            program: "test".into(),
+            model: "test".into(),
+            task_description: "test".into(),
+        };
+        let agent_id = AgentBmc::create(&ctx, &mm, agent_c).await.unwrap();
+
+        // 2. Simulate tool call arguments with context
+        let args = Some(json!({
+            "project_slug": "metric-test",
+            "agent_name": "MetricAgent",
+            "other": "stuff"
+        }));
+
+        let duration = std::time::Duration::from_millis(123);
+        // We pass a dummy Ok result. Result type is Result<CallToolResult, McpError>.
+        // CallToolResult is rmcp struct.
+        use rmcp::model::CallToolResult;
+        let result = Ok(CallToolResult { content: vec![], is_error: None, meta: None, structured_content: None });
+
+        // 3. Call record_tool_metric
+        service.record_tool_metric("test_tool", &args, duration, &result).await;
+
+        // 4. Verify DB
+        let metrics = ToolMetricBmc::list_recent(&ctx, &mm, Some(project_id), 10).await.unwrap();
+        assert_eq!(metrics.len(), 1);
+        let m = &metrics[0];
+        
+        assert_eq!(m.tool_name, "test_tool");
+        assert_eq!(m.duration_ms, 123);
+        assert_eq!(m.status, "success");
+        assert_eq!(m.project_id, Some(project_id));
+        assert_eq!(m.agent_id, Some(agent_id));
     }
 }
