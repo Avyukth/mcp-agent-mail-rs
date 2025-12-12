@@ -188,4 +188,37 @@ impl ProjectBmc {
             Err(crate::Error::ProjectNotFound(format!("ID: {}", id)))
         }
     }
+
+    /// List sibling projects (projects sharing at least one product)
+    pub async fn list_siblings(ctx: &crate::Ctx, mm: &ModelManager, project_id: i64) -> Result<Vec<Project>> {
+        // 1. Get products for this project
+        let products = crate::model::product::ProductBmc::list_for_project(ctx, mm, project_id).await?;
+        
+        let mut sibling_ids = std::collections::HashSet::new();
+        
+        // 2. Get all projects for these products
+        for product in products {
+            let linked_ids = crate::model::product::ProductBmc::get_linked_projects(ctx, mm, product.id).await?;
+            for pid in linked_ids {
+                if pid != project_id {
+                    sibling_ids.insert(pid);
+                }
+            }
+        }
+
+        // 3. Fetch project details
+        let mut siblings = Vec::new();
+        for pid in sibling_ids {
+            // We use get which might fail if project deleted but link remains? 
+            // DB constraint should prevent this, but safe to ignore error or handle
+            if let Ok(proj) = Self::get(ctx, mm, pid).await {
+                siblings.push(proj);
+            }
+        }
+
+        // Sort by slug for consistency
+        siblings.sort_by(|a, b| a.slug.cmp(&b.slug));
+        
+        Ok(siblings)
+    }
 }

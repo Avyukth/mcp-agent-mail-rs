@@ -597,6 +597,12 @@ pub struct GetMessageParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct ListProjectSiblingsParams {
+    /// Project slug to find siblings for
+    pub project_slug: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct WhoisParams {
     /// Project slug
     pub project_slug: String,
@@ -709,6 +715,7 @@ pub struct CreateAgentIdentityParams {
     /// Project slug
     pub project_slug: String,
     /// Optional hint for name generation
+    #[allow(dead_code)]
     pub hint: Option<String>,
 }
 
@@ -909,6 +916,7 @@ pub struct ExportMailboxParams {
     /// Export format: html, json, or markdown
     pub format: Option<String>,
     /// Include attachments in export
+    #[allow(dead_code)]
     pub include_attachments: Option<bool>,
 }
 
@@ -2149,7 +2157,39 @@ impl AgentMailService {
         Ok(CallToolResult::success(vec![Content::text(output)]))
     }
 
-    /// Product-wide inbox
+    /// List project siblings
+    #[tool(description = "List sibling projects (projects sharing at least one product).")]
+    async fn list_project_siblings(
+        &self,
+        params: Parameters<ListProjectSiblingsParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::project::ProjectBmc;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+            .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
+
+        let siblings = ProjectBmc::list_siblings(&ctx, &self.mm, project.id).await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        let mut output = format!("Sibling Projects for '{}' ({}):\n\n", project.human_key, siblings.len());
+        for sibling in &siblings {
+            output.push_str(&format!(
+                "- {} (slug: {}, created: {})\n",
+                sibling.human_key, sibling.slug, sibling.created_at
+            ));
+        }
+
+        if siblings.is_empty() {
+            output.push_str("No siblings found (project is not part of any product, or is the only project in its products).\n");
+        }
+
+        Ok(CallToolResult::success(vec![Content::text(output)]))
+    }
+
+
     #[tool(description = "Get aggregated inbox across all projects in a product.")]
     async fn product_inbox(
         &self,
@@ -2426,5 +2466,37 @@ mod tests {
         };
         let result = service.send_message(Parameters(params2)).await;
         assert!(result.is_ok());
+    }
+
+
+    #[tokio::test]
+    async fn test_list_project_siblings_tool() {
+        use lib_core::model::product::ProductBmc;
+        
+        let (mm, _temp) = create_test_mm().await;
+        let service = AgentMailService::new_with_mm(mm.clone());
+        let ctx = Ctx::root_ctx();
+
+        // 1. Create Projects
+        let id_a = ProjectBmc::create(&ctx, &mm, "proj-a", "Project A").await.unwrap();
+        let id_b = ProjectBmc::create(&ctx, &mm, "proj-b", "Project B").await.unwrap();
+
+        // 2. Link to Product
+        let product = ProductBmc::ensure(&ctx, &mm, "prod-p", "Product P").await.unwrap();
+        ProductBmc::link_project(&ctx, &mm, product.id, id_a).await.unwrap();
+        ProductBmc::link_project(&ctx, &mm, product.id, id_b).await.unwrap();
+
+        // 3. Call tool
+        let params = ListProjectSiblingsParams {
+            project_slug: "proj-a".to_string(),
+        };
+        let result = service.list_project_siblings(Parameters(params)).await.unwrap();
+        
+        // 4. Verify output
+        let content = &result.content[0];
+        // 4. Verify output via Debug (since Content structure is complex)
+        let text = format!("{:?}", content);
+        assert!(text.contains("Sibling Projects for 'Project A'"));
+        assert!(text.contains("Project B"));
     }
 }

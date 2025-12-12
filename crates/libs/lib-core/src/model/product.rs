@@ -194,4 +194,33 @@ impl ProductBmc {
 
         Ok(project_ids)
     }
+
+    /// List products a project belongs to
+    pub async fn list_for_project(_ctx: &Ctx, mm: &ModelManager, project_id: i64) -> Result<Vec<Product>> {
+        let db = mm.db();
+        // Join products and product_project_links
+        let stmt = db.prepare(
+            "SELECT p.id, p.product_uid, p.name, p.created_at 
+             FROM products p
+             JOIN product_project_links l ON p.id = l.product_id
+             WHERE l.project_id = ?"
+        ).await?;
+        let mut rows = stmt.query([project_id]).await?;
+
+        let mut products = Vec::new();
+        while let Some(row) = rows.next().await? {
+            let created_at_str: String = row.get(3)?;
+            let created_at = NaiveDateTime::parse_from_str(&created_at_str, "%Y-%m-%d %H:%M:%S")
+                .unwrap_or_default();
+
+            products.push(Product {
+                id: row.get(0)?,
+                product_uid: row.get(1)?,
+                name: row.get(2)?,
+                created_at,
+            });
+        }
+
+        Ok(products)
+    }
 }
