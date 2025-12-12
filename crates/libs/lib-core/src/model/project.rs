@@ -17,7 +17,7 @@ pub struct Project {
 pub struct ProjectBmc;
 
 impl ProjectBmc {
-    pub async fn create(_ctx: &crate::Ctx, mm: &ModelManager, slug: &str, human_key: &str) -> Result<i64> {
+    pub async fn create(ctx: &crate::Ctx, mm: &ModelManager, slug: &str, human_key: &str) -> Result<i64> {
         let db = mm.db();
 
         // Execute insert
@@ -31,6 +31,9 @@ impl ProjectBmc {
         };
 
         Self::ensure_archive(mm, slug).await?;
+        
+        // Register built-in macros for this project
+        let _ = super::macro_def::MacroDefBmc::ensure_builtin_macros(ctx, mm, id).await;
 
         Ok(id)
     }
