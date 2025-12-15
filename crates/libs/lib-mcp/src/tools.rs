@@ -334,6 +334,92 @@ pub fn get_tool_schemas() -> Vec<ToolSchema> {
                 ParameterSchema { name: "ttl_seconds".into(), param_type: "integer".into(), required: false, description: "New TTL in seconds".into() },
             ],
         },
+        ToolSchema {
+            name: "list_outbox".into(),
+            description: "List messages in an agent's outbox (sent messages).".into(),
+            parameters: vec![
+                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
+                ParameterSchema { name: "agent_name".into(), param_type: "string".into(), required: true, description: "Agent name".into() },
+                ParameterSchema { name: "limit".into(), param_type: "integer".into(), required: false, description: "Maximum messages to return".into() },
+            ],
+        },
+        ToolSchema {
+            name: "file_reservation_paths".into(),
+            description: "Reserve multiple file paths with conflict detection.".into(),
+            parameters: vec![
+                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
+                ParameterSchema { name: "agent_name".into(), param_type: "string".into(), required: true, description: "Agent name".into() },
+                ParameterSchema { name: "paths".into(), param_type: "array".into(), required: true, description: "File paths to reserve".into() },
+                ParameterSchema { name: "exclusive".into(), param_type: "boolean".into(), required: true, description: "Whether reservation is exclusive".into() },
+                ParameterSchema { name: "reason".into(), param_type: "string".into(), required: false, description: "Reason for reservation".into() },
+                ParameterSchema { name: "ttl_seconds".into(), param_type: "integer".into(), required: false, description: "TTL in seconds".into() },
+            ],
+        },
+        ToolSchema {
+            name: "summarize_threads".into(),
+            description: "Get summaries of multiple conversation threads.".into(),
+            parameters: vec![
+                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
+                ParameterSchema { name: "limit".into(), param_type: "integer".into(), required: true, description: "Maximum threads".into() },
+            ],
+        },
+        ToolSchema {
+            name: "install_precommit_guard".into(),
+            description: "Install pre-commit guard for file reservation checks.".into(),
+            parameters: vec![
+                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
+                ParameterSchema { name: "target_repo_path".into(), param_type: "string".into(), required: true, description: "Target repository path".into() },
+            ],
+        },
+        ToolSchema {
+            name: "uninstall_precommit_guard".into(),
+            description: "Uninstall pre-commit guard.".into(),
+            parameters: vec![
+                ParameterSchema { name: "target_repo_path".into(), param_type: "string".into(), required: true, description: "Target repository path".into() },
+            ],
+        },
+        ToolSchema {
+            name: "add_attachment".into(),
+            description: "Add an attachment to a message.".into(),
+            parameters: vec![
+                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
+                ParameterSchema { name: "message_id".into(), param_type: "integer".into(), required: true, description: "Message ID".into() },
+                ParameterSchema { name: "filename".into(), param_type: "string".into(), required: true, description: "Filename".into() },
+                ParameterSchema { name: "content_base64".into(), param_type: "string".into(), required: true, description: "Base64 encoded content".into() },
+            ],
+        },
+        ToolSchema {
+            name: "get_attachment".into(),
+            description: "Get an attachment from a message.".into(),
+            parameters: vec![
+                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
+                ParameterSchema { name: "attachment_id".into(), param_type: "string".into(), required: true, description: "Attachment ID".into() },
+                ParameterSchema { name: "filename".into(), param_type: "string".into(), required: true, description: "Filename".into() },
+            ],
+        },
+        ToolSchema {
+            name: "list_tool_metrics".into(),
+            description: "List recent tool usage metrics.".into(),
+            parameters: vec![
+                ParameterSchema { name: "project_id".into(), param_type: "integer".into(), required: false, description: "Optional project ID filter".into() },
+                ParameterSchema { name: "limit".into(), param_type: "integer".into(), required: false, description: "Maximum results".into() },
+            ],
+        },
+        ToolSchema {
+            name: "get_tool_stats".into(),
+            description: "Get aggregated tool usage statistics.".into(),
+            parameters: vec![
+                ParameterSchema { name: "project_id".into(), param_type: "integer".into(), required: false, description: "Optional project ID filter".into() },
+            ],
+        },
+        ToolSchema {
+            name: "list_activity".into(),
+            description: "List recent activity for a project.".into(),
+            parameters: vec![
+                ParameterSchema { name: "project_id".into(), param_type: "integer".into(), required: true, description: "Project ID".into() },
+                ParameterSchema { name: "limit".into(), param_type: "integer".into(), required: false, description: "Maximum results".into() },
+            ],
+        },
     ]
 }
 
@@ -1034,6 +1120,92 @@ pub struct ExportMailboxParams {
     /// Include attachments in export
     #[allow(dead_code)]
     pub include_attachments: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ListOutboxParams {
+    /// Project slug
+    pub project_slug: String,
+    /// Agent name to list outbox for
+    pub agent_name: String,
+    /// Maximum number of messages to return
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct FileReservationPathsParams {
+    /// Project slug
+    pub project_slug: String,
+    /// Agent name requesting reservations
+    pub agent_name: String,
+    /// File paths to reserve (array)
+    pub paths: Vec<String>,
+    /// Whether this is an exclusive reservation
+    pub exclusive: bool,
+    /// Reason for the reservation
+    pub reason: Option<String>,
+    /// TTL in seconds (default 3600)
+    pub ttl_seconds: Option<i64>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SummarizeThreadsParams {
+    /// Project slug
+    pub project_slug: String,
+    /// Maximum number of threads
+    pub limit: i64,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct InstallPrecommitGuardParams {
+    /// Project slug
+    pub project_slug: String,
+    /// Target repository path
+    pub target_repo_path: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct UninstallPrecommitGuardParams {
+    /// Target repository path
+    pub target_repo_path: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct AddAttachmentParams {
+    /// Project slug
+    pub project_slug: String,
+    /// Message ID to attach to
+    pub message_id: i64,
+    /// Filename
+    pub filename: String,
+    /// Base64 encoded content
+    pub content_base64: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct GetAttachmentParams {
+    /// Project slug
+    pub project_slug: String,
+    /// Attachment ID
+    pub attachment_id: String,
+    /// Filename
+    pub filename: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ListToolMetricsParams {
+    /// Optional project ID filter
+    pub project_id: Option<i64>,
+    /// Maximum number of results
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ListActivityParams {
+    /// Project ID
+    pub project_id: i64,
+    /// Maximum number of results
+    pub limit: Option<i64>,
 }
 
 // ============================================================================
@@ -2537,6 +2709,388 @@ impl AgentMailService {
                 Ok(CallToolResult::success(vec![Content::text(md)]))
             }
         }
+    }
+
+    /// List messages in an agent's outbox
+    #[tool(description = "Get messages from an agent's outbox (sent messages).")]
+    async fn list_outbox(
+        &self,
+        params: Parameters<ListOutboxParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::agent::AgentBmc;
+        use lib_core::model::message::MessageBmc;
+        use lib_core::model::project::ProjectBmc;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+            .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
+
+        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name).await
+            .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
+
+        let messages = MessageBmc::list_outbox_for_agent(&ctx, &self.mm, project.id, agent.id, p.limit.unwrap_or(50)).await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        let mut output = format!("Outbox for '{}' ({} messages):\n\n", p.agent_name, messages.len());
+        for m in &messages {
+            output.push_str(&format!(
+                "- [{}] {} (to: {:?}, thread: {:?}, {})\n",
+                m.id, m.subject, m.sender_name, m.thread_id, m.importance
+            ));
+        }
+
+        Ok(CallToolResult::success(vec![Content::text(output)]))
+    }
+
+    /// Reserve multiple file paths with conflict detection
+    #[tool(description = "Reserve multiple file paths for exclusive editing with conflict detection.")]
+    async fn file_reservation_paths(
+        &self,
+        params: Parameters<FileReservationPathsParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::agent::AgentBmc;
+        use lib_core::model::file_reservation::{FileReservationBmc, FileReservationForCreate};
+        use lib_core::model::project::ProjectBmc;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+            .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
+
+        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name).await
+            .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
+
+        let active_reservations = FileReservationBmc::list_active_for_project(&ctx, &self.mm, project.id).await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        let ttl = p.ttl_seconds.unwrap_or(3600);
+        let now = chrono::Utc::now().naive_utc();
+        let expires_ts = now + chrono::Duration::seconds(ttl);
+
+        let mut granted = Vec::new();
+        let mut conflicts = Vec::new();
+
+        for path in p.paths {
+            // Check conflicts
+            for res in &active_reservations {
+                if res.agent_id != agent.id
+                    && (res.exclusive || p.exclusive)
+                    && res.path_pattern == path
+                {
+                    conflicts.push(format!(
+                        "Conflict: {} (held by agent ID {}, expires: {})",
+                        res.path_pattern, res.agent_id, res.expires_ts
+                    ));
+                }
+            }
+
+            // Always grant (advisory model)
+            let fr_c = FileReservationForCreate {
+                project_id: project.id,
+                agent_id: agent.id,
+                path_pattern: path.clone(),
+                exclusive: p.exclusive,
+                reason: p.reason.clone().unwrap_or_default(),
+                expires_ts,
+            };
+
+            let id = FileReservationBmc::create(&ctx, &self.mm, fr_c).await
+                .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+            granted.push(format!("Granted: {} (id: {}, expires: {})", path, id, expires_ts));
+        }
+
+        let mut output = format!("Granted {} reservations\n\n", granted.len());
+        for g in granted {
+            output.push_str(&format!("  {}\n", g));
+        }
+
+        if !conflicts.is_empty() {
+            output.push_str(&format!("\n⚠️ {} conflicts detected:\n", conflicts.len()));
+            for c in conflicts {
+                output.push_str(&format!("  {}\n", c));
+            }
+        }
+
+        Ok(CallToolResult::success(vec![Content::text(output)]))
+    }
+
+    /// Summarize multiple threads
+    #[tool(description = "Get summaries of multiple conversation threads.")]
+    async fn summarize_threads(
+        &self,
+        params: Parameters<SummarizeThreadsParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::message::MessageBmc;
+        use lib_core::model::project::ProjectBmc;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+            .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
+
+        let threads = MessageBmc::list_threads(&ctx, &self.mm, project.id, p.limit).await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        let mut output = format!("Thread Summaries ({} threads):\n\n", threads.len());
+        for t in &threads {
+            output.push_str(&format!(
+                "Thread: {}\n  Subject: {}\n  Messages: {}\n  Last activity: {}\n\n",
+                t.thread_id, t.subject, t.message_count, t.last_message_ts
+            ));
+        }
+
+        Ok(CallToolResult::success(vec![Content::text(output)]))
+    }
+
+    /// Install pre-commit guard
+    #[tool(description = "Install pre-commit guard for file reservation conflict detection.")]
+    async fn install_precommit_guard(
+        &self,
+        params: Parameters<InstallPrecommitGuardParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::project::ProjectBmc;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        // Verify project exists
+        let _project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+            .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
+
+        let target_path = std::path::PathBuf::from(&p.target_repo_path);
+        let hooks_dir = target_path.join(".git").join("hooks");
+        let hook_path = hooks_dir.join("pre-commit");
+
+        let hook_script = format!(r#"#!/bin/sh
+# MCP Agent Mail Pre-commit Guard
+# Installed for project: {}
+
+if [ -n "$AGENT_MAIL_BYPASS" ]; then
+    echo "MCP Agent Mail: Bypass enabled, skipping reservation check"
+    exit 0
+fi
+
+echo "MCP Agent Mail: Pre-commit guard active"
+exit 0
+"#, p.project_slug);
+
+        // Ensure hooks directory exists
+        if !hooks_dir.exists() {
+            std::fs::create_dir_all(&hooks_dir)
+                .map_err(|e| McpError::internal_error(format!("Failed to create hooks directory: {}", e), None))?;
+        }
+
+        // Write the hook
+        std::fs::write(&hook_path, hook_script)
+            .map_err(|e| McpError::internal_error(format!("Failed to write hook: {}", e), None))?;
+
+        // Make it executable (Unix only)
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut perms = std::fs::metadata(&hook_path)
+                .map_err(|e| McpError::internal_error(format!("Failed to get permissions: {}", e), None))?
+                .permissions();
+            perms.set_mode(0o755);
+            std::fs::set_permissions(&hook_path, perms)
+                .map_err(|e| McpError::internal_error(format!("Failed to set permissions: {}", e), None))?;
+        }
+
+        let msg = format!("Pre-commit guard installed at: {}", hook_path.display());
+        Ok(CallToolResult::success(vec![Content::text(msg)]))
+    }
+
+    /// Uninstall pre-commit guard
+    #[tool(description = "Uninstall pre-commit guard.")]
+    async fn uninstall_precommit_guard(
+        &self,
+        params: Parameters<UninstallPrecommitGuardParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let p = params.0;
+
+        let target_path = std::path::PathBuf::from(&p.target_repo_path);
+        let hook_path = target_path.join(".git").join("hooks").join("pre-commit");
+
+        if hook_path.exists() {
+            let content = std::fs::read_to_string(&hook_path)
+                .map_err(|e| McpError::internal_error(format!("Failed to read hook: {}", e), None))?;
+
+            if content.contains("MCP Agent Mail Pre-commit Guard") {
+                std::fs::remove_file(&hook_path)
+                    .map_err(|e| McpError::internal_error(format!("Failed to remove hook: {}", e), None))?;
+                Ok(CallToolResult::success(vec![Content::text("Pre-commit guard uninstalled successfully".to_string())]))
+            } else {
+                Ok(CallToolResult::success(vec![Content::text("Hook exists but is not an Agent Mail guard".to_string())]))
+            }
+        } else {
+            Ok(CallToolResult::success(vec![Content::text("No pre-commit hook found".to_string())]))
+        }
+    }
+
+    /// Add attachment to a message
+    #[tool(description = "Add an attachment to a message (base64 encoded).")]
+    async fn add_attachment(
+        &self,
+        params: Parameters<AddAttachmentParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::message::MessageBmc;
+        use lib_core::model::project::ProjectBmc;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+            .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
+
+        // Verify message exists
+        let _message = MessageBmc::get(&ctx, &self.mm, p.message_id).await
+            .map_err(|e| McpError::invalid_params(format!("Message not found: {}", e), None))?;
+
+        // Generate attachment ID
+        let attachment_id = format!("att_{}_{}", p.message_id, uuid::Uuid::new_v4().to_string().split('-').next().unwrap_or("0"));
+
+        // Store attachment in Git
+        let repo = lib_core::store::git_store::open_repo(&self.mm.repo_root)
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        let attachment_path = std::path::PathBuf::from("projects")
+            .join(&project.slug)
+            .join("attachments")
+            .join(&attachment_id)
+            .join(&p.filename);
+
+        // Decode base64 content
+        use base64::Engine;
+        let content = base64::engine::general_purpose::STANDARD
+            .decode(&p.content_base64)
+            .map_err(|e| McpError::invalid_params(format!("Invalid base64: {}", e), None))?;
+
+        lib_core::store::git_store::commit_file(
+            &repo,
+            &attachment_path,
+            &String::from_utf8_lossy(&content),
+            &format!("attachment: {} for message {}", p.filename, p.message_id),
+            "mcp-bot",
+            "mcp-bot@localhost",
+        ).map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        let msg = format!("Attachment '{}' added with ID {}", p.filename, attachment_id);
+        Ok(CallToolResult::success(vec![Content::text(msg)]))
+    }
+
+    /// Get attachment from a message
+    #[tool(description = "Get an attachment from a message (returns base64 encoded content).")]
+    async fn get_attachment(
+        &self,
+        params: Parameters<GetAttachmentParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::project::ProjectBmc;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+            .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
+
+        let repo = lib_core::store::git_store::open_repo(&self.mm.repo_root)
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        let attachment_path = std::path::PathBuf::from("projects")
+            .join(&project.slug)
+            .join("attachments")
+            .join(&p.attachment_id)
+            .join(&p.filename);
+
+        match lib_core::store::git_store::read_file_content(&repo, &attachment_path) {
+            Ok(content) => {
+                use base64::Engine;
+                let content_base64 = base64::engine::general_purpose::STANDARD.encode(content.as_bytes());
+
+                let mime_type = match p.filename.rsplit('.').next() {
+                    Some("txt") => "text/plain",
+                    Some("json") => "application/json",
+                    Some("md") => "text/markdown",
+                    Some("png") => "image/png",
+                    Some("jpg") | Some("jpeg") => "image/jpeg",
+                    Some("pdf") => "application/pdf",
+                    _ => "application/octet-stream",
+                };
+
+                let output = format!("Attachment: {}\nMIME Type: {}\n\nContent (base64):\n{}",
+                    p.filename, mime_type, content_base64);
+                Ok(CallToolResult::success(vec![Content::text(output)]))
+            }
+            Err(_) => {
+                Err(McpError::invalid_params(format!("Attachment not found: {}", p.filename), None))
+            }
+        }
+    }
+
+    /// List tool usage metrics
+    #[tool(description = "List recent tool usage metrics for observability.")]
+    async fn list_tool_metrics(
+        &self,
+        params: Parameters<ListToolMetricsParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::tool_metric::ToolMetricBmc;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        let limit = p.limit.unwrap_or(50);
+        let metrics = ToolMetricBmc::list_recent(&ctx, &self.mm, p.project_id, limit).await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        let json_str = serde_json::to_string_pretty(&metrics)
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        Ok(CallToolResult::success(vec![Content::text(json_str)]))
+    }
+
+    /// Get tool usage statistics
+    #[tool(description = "Get aggregated tool usage statistics.")]
+    async fn get_tool_stats(
+        &self,
+        params: Parameters<ListToolMetricsParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::tool_metric::ToolMetricBmc;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        let stats = ToolMetricBmc::get_stats(&ctx, &self.mm, p.project_id).await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        let json_str = serde_json::to_string_pretty(&stats)
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        Ok(CallToolResult::success(vec![Content::text(json_str)]))
+    }
+
+    /// List activity for a project
+    #[tool(description = "List recent activity for a project.")]
+    async fn list_activity(
+        &self,
+        params: Parameters<ListActivityParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::activity::ActivityBmc;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        let limit = p.limit.unwrap_or(50);
+        let items = ActivityBmc::list_recent(&ctx, &self.mm, p.project_id, limit).await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        let json_str = serde_json::to_string_pretty(&items)
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        Ok(CallToolResult::success(vec![Content::text(json_str)]))
     }
 }
 

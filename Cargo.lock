@@ -2848,13 +2848,16 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "axum 0.8.7",
+ "base64 0.22.1",
  "chrono",
  "lib-common",
  "lib-core",
+ "libsql",
  "rmcp",
  "schemars",
  "serde",
  "serde_json",
+ "tempfile",
  "thiserror 2.0.17",
  "tokio",
  "tower 0.5.2",
@@ -2862,6 +2865,7 @@ dependencies = [
  "tracing",
  "tracing-subscriber",
  "url",
+ "uuid",
 ]
 
 [[package]]
