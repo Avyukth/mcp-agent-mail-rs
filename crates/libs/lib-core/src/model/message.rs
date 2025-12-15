@@ -74,32 +74,32 @@ impl MessageBmc {
             return Err(crate::Error::InvalidInput("Failed to create message".into()));
         };
 
-        // 2. Insert Recipients with kind
+        // 2. Insert Recipients with recipient_type
         // "to" recipients
         for recipient_id in &msg_c.recipient_ids {
              db.execute(
-                "INSERT INTO message_recipients (message_id, agent_id, kind) VALUES (?, ?, 'to')",
+                "INSERT INTO message_recipients (message_id, agent_id, recipient_type) VALUES (?, ?, 'to')",
                 (id, *recipient_id)
             )
             .await?;
         }
-        
+
         // "cc" recipients
         if let Some(cc_ids) = &msg_c.cc_ids {
             for recipient_id in cc_ids {
                 db.execute(
-                    "INSERT INTO message_recipients (message_id, agent_id, kind) VALUES (?, ?, 'cc')",
+                    "INSERT INTO message_recipients (message_id, agent_id, recipient_type) VALUES (?, ?, 'cc')",
                     (id, *recipient_id)
                 )
                 .await?;
             }
         }
-        
+
         // "bcc" recipients
         if let Some(bcc_ids) = &msg_c.bcc_ids {
             for recipient_id in bcc_ids {
                 db.execute(
-                    "INSERT INTO message_recipients (message_id, agent_id, kind) VALUES (?, ?, 'bcc')",
+                    "INSERT INTO message_recipients (message_id, agent_id, recipient_type) VALUES (?, ?, 'bcc')",
                     (id, *recipient_id)
                 )
                 .await?;

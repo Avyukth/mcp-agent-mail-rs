@@ -50,6 +50,12 @@ impl ModelManager {
         &self.db
     }
 
+    /// Returns the db connection for integration tests
+    /// This should only be used in test code
+    pub fn db_for_test(&self) -> &Db {
+        &self.db
+    }
+
     /// Health check - verify database connectivity
     pub async fn health_check(&self) -> Result<bool> {
         let stmt = self.db.prepare("SELECT 1").await?;

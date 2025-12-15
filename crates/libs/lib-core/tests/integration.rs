@@ -6,3 +6,4 @@ mod common;
 mod project_tests;
 mod agent_tests;
 mod message_tests;
+mod cc_bcc_tests;

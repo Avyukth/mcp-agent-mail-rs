@@ -261,7 +261,7 @@ async fn test_acknowledge_message() {
 async fn test_list_threads() {
     let tc = TestContext::new().await.expect("Failed to create test context");
     let (project_id, sender_id, recipient_id) = setup_messaging(&tc).await;
-    
+
     // Send messages in thread 1
     let msg1_c = MessageForCreate {
         project_id,
@@ -276,7 +276,7 @@ async fn test_list_threads() {
     };
     let msg1_id = MessageBmc::create(&tc.ctx, &tc.mm, msg1_c).await.unwrap();
     let msg1 = MessageBmc::get(&tc.ctx, &tc.mm, msg1_id).await.unwrap();
-    
+
     // Reply in thread 1
     let reply_c = MessageForCreate {
         project_id,
@@ -290,7 +290,7 @@ async fn test_list_threads() {
         importance: None,
     };
     MessageBmc::create(&tc.ctx, &tc.mm, reply_c).await.unwrap();
-    
+
     // Send message in thread 2
     let msg2_c = MessageForCreate {
         project_id,
@@ -304,17 +304,311 @@ async fn test_list_threads() {
         importance: None,
     };
     MessageBmc::create(&tc.ctx, &tc.mm, msg2_c).await.unwrap();
-    
+
     // List threads
     let threads = MessageBmc::list_threads(&tc.ctx, &tc.mm, project_id, 10)
         .await
         .expect("Should list threads");
-    
+
     // Should have at least 2 threads
     assert!(threads.len() >= 2, "Should have at least 2 threads");
-    
+
     // Each thread should have a message count
     for thread in &threads {
         assert!(thread.message_count > 0, "Thread should have messages");
     }
+}
+
+/// Test listing outbox messages for an agent
+#[tokio::test]
+async fn test_list_outbox() {
+    let tc = TestContext::new().await.expect("Failed to create test context");
+    let (project_id, sender_id, recipient_id) = setup_messaging(&tc).await;
+
+    // Send multiple messages from sender
+    let msg1_c = MessageForCreate {
+        project_id,
+        sender_id,
+        recipient_ids: vec![recipient_id],
+        cc_ids: None,
+        bcc_ids: None,
+        subject: "Outbox Test 1".to_string(),
+        body_md: "First message from sender".to_string(),
+        thread_id: None,
+        importance: None,
+    };
+    MessageBmc::create(&tc.ctx, &tc.mm, msg1_c).await.unwrap();
+
+    let msg2_c = MessageForCreate {
+        project_id,
+        sender_id,
+        recipient_ids: vec![recipient_id],
+        cc_ids: None,
+        bcc_ids: None,
+        subject: "Outbox Test 2".to_string(),
+        body_md: "Second message from sender".to_string(),
+        thread_id: None,
+        importance: Some("high".to_string()),
+    };
+    MessageBmc::create(&tc.ctx, &tc.mm, msg2_c).await.unwrap();
+
+    // List outbox for sender
+    let outbox = MessageBmc::list_outbox_for_agent(&tc.ctx, &tc.mm, project_id, sender_id, 10)
+        .await
+        .expect("Should list outbox messages");
+
+    // Verify we got both messages
+    assert_eq!(outbox.len(), 2, "Should have 2 messages in outbox");
+
+    // Verify messages are ordered by created_ts DESC (newest first)
+    assert!(outbox[0].subject == "Outbox Test 2" || outbox[0].subject == "Outbox Test 1",
+        "Should contain expected subjects");
+
+    // Verify sender_id is correct
+    for msg in &outbox {
+        assert_eq!(msg.sender_id, sender_id, "All messages should be from sender");
+    }
+}
+
+/// Test outbox filtering by project
+#[tokio::test]
+async fn test_outbox_project_filtering() {
+    let tc = TestContext::new().await.expect("Failed to create test context");
+
+    // Create first project and agents
+    let human_key1 = "/outbox/project1";
+    let slug1 = slugify(human_key1);
+    let project1_id = ProjectBmc::create(&tc.ctx, &tc.mm, &slug1, human_key1)
+        .await
+        .expect("Failed to create project 1");
+    let project1 = ProjectBmc::get(&tc.ctx, &tc.mm, project1_id).await.unwrap();
+
+    let sender1_c = AgentForCreate {
+        project_id: project1.id,
+        name: "Sender1".to_string(),
+        program: "test".to_string(),
+        model: "test".to_string(),
+        task_description: "Sender in project 1".to_string(),
+    };
+    let sender1_id = AgentBmc::create(&tc.ctx, &tc.mm, sender1_c).await.unwrap();
+
+    let recipient1_c = AgentForCreate {
+        project_id: project1.id,
+        name: "Recipient1".to_string(),
+        program: "test".to_string(),
+        model: "test".to_string(),
+        task_description: "Recipient in project 1".to_string(),
+    };
+    let recipient1_id = AgentBmc::create(&tc.ctx, &tc.mm, recipient1_c).await.unwrap();
+
+    // Create second project and agents
+    let human_key2 = "/outbox/project2";
+    let slug2 = slugify(human_key2);
+    let project2_id = ProjectBmc::create(&tc.ctx, &tc.mm, &slug2, human_key2)
+        .await
+        .expect("Failed to create project 2");
+    let project2 = ProjectBmc::get(&tc.ctx, &tc.mm, project2_id).await.unwrap();
+
+    let sender2_c = AgentForCreate {
+        project_id: project2.id,
+        name: "Sender2".to_string(),
+        program: "test".to_string(),
+        model: "test".to_string(),
+        task_description: "Sender in project 2".to_string(),
+    };
+    let sender2_id = AgentBmc::create(&tc.ctx, &tc.mm, sender2_c).await.unwrap();
+
+    let recipient2_c = AgentForCreate {
+        project_id: project2.id,
+        name: "Recipient2".to_string(),
+        program: "test".to_string(),
+        model: "test".to_string(),
+        task_description: "Recipient in project 2".to_string(),
+    };
+    let recipient2_id = AgentBmc::create(&tc.ctx, &tc.mm, recipient2_c).await.unwrap();
+
+    // Send message in project 1
+    let msg1_c = MessageForCreate {
+        project_id: project1.id,
+        sender_id: sender1_id,
+        recipient_ids: vec![recipient1_id],
+        cc_ids: None,
+        bcc_ids: None,
+        subject: "Project 1 Message".to_string(),
+        body_md: "Message in project 1".to_string(),
+        thread_id: None,
+        importance: None,
+    };
+    MessageBmc::create(&tc.ctx, &tc.mm, msg1_c).await.unwrap();
+
+    // Send message in project 2
+    let msg2_c = MessageForCreate {
+        project_id: project2.id,
+        sender_id: sender2_id,
+        recipient_ids: vec![recipient2_id],
+        cc_ids: None,
+        bcc_ids: None,
+        subject: "Project 2 Message".to_string(),
+        body_md: "Message in project 2".to_string(),
+        thread_id: None,
+        importance: None,
+    };
+    MessageBmc::create(&tc.ctx, &tc.mm, msg2_c).await.unwrap();
+
+    // List outbox for sender1 in project1
+    let outbox1 = MessageBmc::list_outbox_for_agent(&tc.ctx, &tc.mm, project1.id, sender1_id, 10)
+        .await
+        .expect("Should list outbox for project 1");
+
+    // List outbox for sender2 in project2
+    let outbox2 = MessageBmc::list_outbox_for_agent(&tc.ctx, &tc.mm, project2.id, sender2_id, 10)
+        .await
+        .expect("Should list outbox for project 2");
+
+    // Verify correct filtering
+    assert_eq!(outbox1.len(), 1, "Should have 1 message in project 1 outbox");
+    assert_eq!(outbox2.len(), 1, "Should have 1 message in project 2 outbox");
+    assert_eq!(outbox1[0].subject, "Project 1 Message");
+    assert_eq!(outbox2[0].subject, "Project 2 Message");
+}
+
+/// Test outbox pagination with limit
+#[tokio::test]
+async fn test_outbox_pagination() {
+    let tc = TestContext::new().await.expect("Failed to create test context");
+    let (project_id, sender_id, recipient_id) = setup_messaging(&tc).await;
+
+    // Send 5 messages
+    for i in 1..=5 {
+        let msg_c = MessageForCreate {
+            project_id,
+            sender_id,
+            recipient_ids: vec![recipient_id],
+            cc_ids: None,
+            bcc_ids: None,
+            subject: format!("Message {}", i),
+            body_md: format!("Body of message {}", i),
+            thread_id: None,
+            importance: None,
+        };
+        MessageBmc::create(&tc.ctx, &tc.mm, msg_c).await.unwrap();
+    }
+
+    // List with limit of 3
+    let outbox_limited = MessageBmc::list_outbox_for_agent(&tc.ctx, &tc.mm, project_id, sender_id, 3)
+        .await
+        .expect("Should list outbox with limit");
+
+    // Verify limit is respected
+    assert_eq!(outbox_limited.len(), 3, "Should return exactly 3 messages");
+
+    // List with limit of 10 (should return all 5)
+    let outbox_all = MessageBmc::list_outbox_for_agent(&tc.ctx, &tc.mm, project_id, sender_id, 10)
+        .await
+        .expect("Should list all outbox messages");
+
+    assert_eq!(outbox_all.len(), 5, "Should return all 5 messages");
+}
+
+/// Test outbox with multiple recipients (including CC and BCC)
+#[tokio::test]
+async fn test_outbox_with_multiple_recipients() {
+    let tc = TestContext::new().await.expect("Failed to create test context");
+    let human_key = "/outbox/multi-recipient";
+    let slug = slugify(human_key);
+
+    let project_id = ProjectBmc::create(&tc.ctx, &tc.mm, &slug, human_key)
+        .await
+        .expect("Failed to create project");
+    let project = ProjectBmc::get(&tc.ctx, &tc.mm, project_id).await.unwrap();
+
+    // Create one sender and multiple recipients
+    let sender_c = AgentForCreate {
+        project_id: project.id,
+        name: "MultiSender".to_string(),
+        program: "test".to_string(),
+        model: "test".to_string(),
+        task_description: "Sender".to_string(),
+    };
+    let sender_id = AgentBmc::create(&tc.ctx, &tc.mm, sender_c).await.unwrap();
+
+    let recipient1_c = AgentForCreate {
+        project_id: project.id,
+        name: "Recipient1".to_string(),
+        program: "test".to_string(),
+        model: "test".to_string(),
+        task_description: "Recipient 1".to_string(),
+    };
+    let recipient1_id = AgentBmc::create(&tc.ctx, &tc.mm, recipient1_c).await.unwrap();
+
+    let recipient2_c = AgentForCreate {
+        project_id: project.id,
+        name: "Recipient2".to_string(),
+        program: "test".to_string(),
+        model: "test".to_string(),
+        task_description: "Recipient 2".to_string(),
+    };
+    let recipient2_id = AgentBmc::create(&tc.ctx, &tc.mm, recipient2_c).await.unwrap();
+
+    let recipient3_c = AgentForCreate {
+        project_id: project.id,
+        name: "Recipient3".to_string(),
+        program: "test".to_string(),
+        model: "test".to_string(),
+        task_description: "Recipient 3".to_string(),
+    };
+    let recipient3_id = AgentBmc::create(&tc.ctx, &tc.mm, recipient3_c).await.unwrap();
+
+    // Send message with multiple recipients (to, cc, bcc)
+    let msg_c = MessageForCreate {
+        project_id: project.id,
+        sender_id,
+        recipient_ids: vec![recipient1_id],
+        cc_ids: Some(vec![recipient2_id]),
+        bcc_ids: Some(vec![recipient3_id]),
+        subject: "Multi-recipient Message".to_string(),
+        body_md: "This message has multiple recipients".to_string(),
+        thread_id: None,
+        importance: None,
+    };
+    MessageBmc::create(&tc.ctx, &tc.mm, msg_c).await.unwrap();
+
+    // Check outbox for sender
+    let outbox = MessageBmc::list_outbox_for_agent(&tc.ctx, &tc.mm, project.id, sender_id, 10)
+        .await
+        .expect("Should list outbox");
+
+    // Should have exactly 1 message
+    assert_eq!(outbox.len(), 1, "Should have 1 message in outbox");
+    assert_eq!(outbox[0].subject, "Multi-recipient Message");
+
+    // Verify each recipient got the message in their inbox
+    let inbox1 = MessageBmc::list_inbox_for_agent(&tc.ctx, &tc.mm, project.id, recipient1_id, 10)
+        .await
+        .expect("Should list inbox for recipient1");
+    assert_eq!(inbox1.len(), 1, "Recipient1 should have message in inbox");
+
+    let inbox2 = MessageBmc::list_inbox_for_agent(&tc.ctx, &tc.mm, project.id, recipient2_id, 10)
+        .await
+        .expect("Should list inbox for recipient2");
+    assert_eq!(inbox2.len(), 1, "Recipient2 (CC) should have message in inbox");
+
+    let inbox3 = MessageBmc::list_inbox_for_agent(&tc.ctx, &tc.mm, project.id, recipient3_id, 10)
+        .await
+        .expect("Should list inbox for recipient3");
+    assert_eq!(inbox3.len(), 1, "Recipient3 (BCC) should have message in inbox");
+}
+
+/// Test empty outbox
+#[tokio::test]
+async fn test_empty_outbox() {
+    let tc = TestContext::new().await.expect("Failed to create test context");
+    let (project_id, sender_id, _recipient_id) = setup_messaging(&tc).await;
+
+    // List outbox without sending any messages
+    let outbox = MessageBmc::list_outbox_for_agent(&tc.ctx, &tc.mm, project_id, sender_id, 10)
+        .await
+        .expect("Should list empty outbox");
+
+    assert_eq!(outbox.len(), 0, "Outbox should be empty");
 }

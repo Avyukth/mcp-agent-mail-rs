@@ -10,6 +10,7 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
 use tracing::{error, info, warn};
 
@@ -21,6 +22,8 @@ pub struct AuthConfig {
     pub mode: AuthMode,
     pub bearer_token: Option<String>,
     pub jwks_url: Option<String>,
+    pub jwt_audience: Option<String>,
+    pub jwt_issuer: Option<String>,
     pub allow_localhost: bool,
 }
 
@@ -42,6 +45,8 @@ impl AuthConfig {
 
         let bearer_token = std::env::var("HTTP_BEARER_TOKEN").ok();
         let jwks_url = std::env::var("HTTP_JWKS_URL").ok();
+        let jwt_audience = std::env::var("HTTP_JWT_AUDIENCE").ok();
+        let jwt_issuer = std::env::var("HTTP_JWT_ISSUER").ok();
         let allow_localhost = std::env::var("HTTP_ALLOW_LOCALHOST_UNAUTHENTICATED")
             .map(|v| v.to_lowercase() == "true")
             .unwrap_or(true);
@@ -53,11 +58,21 @@ impl AuthConfig {
         if mode == AuthMode::Jwt && jwks_url.is_none() {
             warn!("HTTP_AUTH_MODE=jwt but HTTP_JWKS_URL is not set. Auth will fail.");
         }
+        if mode == AuthMode::Jwt {
+            if jwt_audience.is_some() {
+                info!("JWT audience validation enabled");
+            }
+            if jwt_issuer.is_some() {
+                info!("JWT issuer validation enabled");
+            }
+        }
 
         Self {
             mode,
             bearer_token,
             jwks_url,
+            jwt_audience,
+            jwt_issuer,
             allow_localhost,
         }
     }
@@ -79,36 +94,57 @@ struct JwksResponse {
     keys: Vec<Jwk>,
 }
 
-/// JWKS Client for fetching and caching keys
+/// JWKS Client for fetching and caching keys with TTL-based refresh
 #[derive(Clone)]
 pub struct JwksClient {
     url: String,
     client: Client,
     keys: Arc<RwLock<HashMap<String, DecodingKey>>>,
+    last_refresh: Arc<RwLock<Option<Instant>>>,
+    cache_ttl: Duration,
 }
 
 impl JwksClient {
+    /// Create a new JWKS client with default 1-hour cache TTL
     pub fn new(url: String) -> Self {
+        Self::new_with_ttl(url, Duration::from_secs(3600))
+    }
+
+    /// Create a new JWKS client with custom cache TTL
+    pub fn new_with_ttl(url: String, cache_ttl: Duration) -> Self {
         Self {
             url,
             client: Client::new(),
             keys: Arc::new(RwLock::new(HashMap::new())),
+            last_refresh: Arc::new(RwLock::new(None)),
+            cache_ttl,
+        }
+    }
+
+    /// Check if the cache needs refresh based on TTL
+    async fn should_refresh(&self) -> bool {
+        let last_refresh = self.last_refresh.read().await;
+        match *last_refresh {
+            None => true,
+            Some(last) => last.elapsed() >= self.cache_ttl,
         }
     }
 
     pub async fn get_verifying_key(&self, kid: &str) -> Option<DecodingKey> {
-        // Fast path: check cache
-        {
+        // Fast path: check cache if not expired
+        if !self.should_refresh().await {
             let keys = self.keys.read().await;
             if let Some(key) = keys.get(kid) {
                 return Some(key.clone());
             }
         }
 
-        // Slow path: refresh keys
+        // Slow path: refresh keys (either expired or key not found)
         if let Err(e) = self.refresh_keys().await {
             error!("Failed to refresh JWKS: {}", e);
-            return None;
+            // Try to return cached key even if refresh failed
+            let keys = self.keys.read().await;
+            return keys.get(kid).cloned();
         }
 
         // Check cache again
@@ -117,8 +153,9 @@ impl JwksClient {
     }
 
     async fn refresh_keys(&self) -> Result<(), anyhow::Error> {
+        info!("Refreshing JWKS from {}", self.url);
         let resp = self.client.get(&self.url).send().await?.json::<JwksResponse>().await?;
-        
+
         let mut new_keys = HashMap::new();
         for jwk in resp.keys {
             if jwk.kty == "RSA" {
@@ -128,19 +165,42 @@ impl JwksClient {
             }
         }
 
+        // Update keys and refresh timestamp
         let mut keys = self.keys.write().await;
         *keys = new_keys;
-        info!("JWKS refreshed, loaded {} keys", keys.len());
+        let key_count = keys.len();
+        drop(keys);
+
+        let mut last_refresh = self.last_refresh.write().await;
+        *last_refresh = Some(Instant::now());
+
+        info!("JWKS refreshed, loaded {} keys (TTL: {:?})", key_count, self.cache_ttl);
         Ok(())
     }
 }
 
-/// JWT Claims
+/// JWT Claims - Standard JWT claims plus custom fields
 #[derive(Debug, Serialize, Deserialize)]
 struct Claims {
+    /// Subject (usually user ID)
     sub: String,
+    /// Expiration time (as UTC timestamp)
     exp: usize,
-    // Add other claims as needed
+    /// Issuer
+    #[serde(skip_serializing_if = "Option::is_none")]
+    iss: Option<String>,
+    /// Audience
+    #[serde(skip_serializing_if = "Option::is_none")]
+    aud: Option<String>,
+    /// Issued at
+    #[serde(skip_serializing_if = "Option::is_none")]
+    iat: Option<usize>,
+    /// Not before
+    #[serde(skip_serializing_if = "Option::is_none")]
+    nbf: Option<usize>,
+    /// JWT ID
+    #[serde(skip_serializing_if = "Option::is_none")]
+    jti: Option<String>,
 }
 
 /// Auth Middleware
@@ -199,11 +259,27 @@ pub async fn auth_middleware(
                 let kid = header.kid.ok_or(StatusCode::UNAUTHORIZED)?;
                 let key = jwks_client.get_verifying_key(&kid).await.ok_or(StatusCode::UNAUTHORIZED)?;
 
-                let validation = Validation::new(header.alg);
-                // decode verifies signature and exp
+                // Configure validation with audience and issuer if provided
+                let mut validation = Validation::new(header.alg);
+
+                if let Some(ref audience) = auth_config.jwt_audience {
+                    validation.set_audience(&[audience]);
+                }
+
+                if let Some(ref issuer) = auth_config.jwt_issuer {
+                    validation.set_issuer(&[issuer]);
+                }
+
+                // decode verifies signature, exp, aud, and iss
                 match decode::<Claims>(&token, &key, &validation) {
-                    Ok(_) => Ok(next.run(req).await),
-                    Err(_) => Err(StatusCode::UNAUTHORIZED),
+                    Ok(token_data) => {
+                        info!("JWT validated successfully for subject: {}", token_data.claims.sub);
+                        Ok(next.run(req).await)
+                    },
+                    Err(e) => {
+                        warn!("JWT validation failed: {}", e);
+                        Err(StatusCode::UNAUTHORIZED)
+                    },
                 }
             } else {
                 error!("Auth mode is JWT but JwksClient is missing");
@@ -249,9 +325,25 @@ mod tests {
 
     /// Helper to create a JWT with given claims
     fn create_test_jwt(private_key: &RsaPrivateKey, kid: &str, exp: usize) -> String {
+        create_test_jwt_with_claims(private_key, kid, exp, None, None)
+    }
+
+    /// Helper to create a JWT with optional audience and issuer
+    fn create_test_jwt_with_claims(
+        private_key: &RsaPrivateKey,
+        kid: &str,
+        exp: usize,
+        aud: Option<String>,
+        iss: Option<String>,
+    ) -> String {
         let claims = Claims {
             sub: "test-user".to_string(),
             exp,
+            iss,
+            aud,
+            iat: Some(chrono::Utc::now().timestamp() as usize),
+            nbf: None,
+            jti: None,
         };
 
         let mut header = Header::new(Algorithm::RS256);
@@ -280,6 +372,8 @@ mod tests {
             mode: AuthMode::None,
             bearer_token: None,
             jwks_url: None,
+            jwt_audience: None,
+            jwt_issuer: None,
             allow_localhost: false,
         };
         let app_state = AppState {
@@ -317,6 +411,8 @@ mod tests {
             mode: AuthMode::Bearer,
             bearer_token: Some("secret123".to_string()),
             jwks_url: None,
+            jwt_audience: None,
+            jwt_issuer: None,
             allow_localhost: false,
         };
         let app_state = AppState {
@@ -360,6 +456,8 @@ mod tests {
             mode: AuthMode::Bearer,
             bearer_token: Some("secret123".to_string()),
             jwks_url: None,
+            jwt_audience: None,
+            jwt_issuer: None,
             allow_localhost: false,
         };
         let app_state = AppState {
@@ -429,6 +527,8 @@ mod tests {
             mode: AuthMode::Jwt,
             bearer_token: None,
             jwks_url: Some(jwks_url.clone()),
+            jwt_audience: None,
+            jwt_issuer: None,
             allow_localhost: false,
         };
         let jwks_client = Some(JwksClient::new(jwks_url));
@@ -492,6 +592,8 @@ mod tests {
             mode: AuthMode::Jwt,
             bearer_token: None,
             jwks_url: Some(jwks_url.clone()),
+            jwt_audience: None,
+            jwt_issuer: None,
             allow_localhost: false,
         };
         let jwks_client = Some(JwksClient::new(jwks_url));
@@ -554,6 +656,8 @@ mod tests {
             mode: AuthMode::Jwt,
             bearer_token: None,
             jwks_url: Some(jwks_url.clone()),
+            jwt_audience: None,
+            jwt_issuer: None,
             allow_localhost: false,
         };
         let jwks_client = Some(JwksClient::new(jwks_url));
@@ -586,6 +690,219 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn test_auth_jwt_with_audience_validation_success() {
+        // 1. Generate RSA key pair and JWKS
+        let kid = "test-key-aud";
+        let (private_key, jwks_json) = generate_test_keys(kid);
+
+        // 2. Start mock JWKS server
+        let mock_server = MockServer::start().await;
+        Mock::given(path("/.well-known/jwks.json"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(jwks_json))
+            .mount(&mock_server)
+            .await;
+
+        // 3. Create valid JWT with audience
+        let exp = (chrono::Utc::now() + chrono::Duration::hours(1)).timestamp() as usize;
+        let token = create_test_jwt_with_claims(
+            &private_key,
+            kid,
+            exp,
+            Some("test-audience".to_string()),
+            None,
+        );
+
+        // 4. Setup app state with JWT auth and audience validation
+        let temp_dir = tempfile::tempdir().unwrap();
+        let db_path = temp_dir.path().join("test.db");
+        let repo_root = temp_dir.path().join("archive");
+        std::fs::create_dir_all(&repo_root).unwrap();
+
+        let db = libsql::Builder::new_local(db_path).build().await.unwrap();
+        let conn = db.connect().unwrap();
+        let mm = crate::ModelManager::new_for_test(conn, repo_root);
+
+        let jwks_url = format!("{}/.well-known/jwks.json", mock_server.uri());
+        let auth_config = AuthConfig {
+            mode: AuthMode::Jwt,
+            bearer_token: None,
+            jwks_url: Some(jwks_url.clone()),
+            jwt_audience: Some("test-audience".to_string()),
+            jwt_issuer: None,
+            allow_localhost: false,
+        };
+        let jwks_client = Some(JwksClient::new(jwks_url));
+
+        let app_state = AppState {
+            mm,
+            metrics_handle: crate::setup_metrics(),
+            start_time: std::time::Instant::now(),
+            auth_config,
+            jwks_client,
+        };
+
+        let app = Router::new()
+            .route("/", get(handler))
+            .layer(middleware::from_fn_with_state(app_state, auth_middleware));
+
+        // 5. Make request with valid JWT
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/")
+                    .header("Authorization", format!("Bearer {}", token))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
+    async fn test_auth_jwt_with_audience_validation_failure() {
+        // 1. Generate RSA key pair and JWKS
+        let kid = "test-key-aud-fail";
+        let (private_key, jwks_json) = generate_test_keys(kid);
+
+        // 2. Start mock JWKS server
+        let mock_server = MockServer::start().await;
+        Mock::given(path("/.well-known/jwks.json"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(jwks_json))
+            .mount(&mock_server)
+            .await;
+
+        // 3. Create JWT with wrong audience
+        let exp = (chrono::Utc::now() + chrono::Duration::hours(1)).timestamp() as usize;
+        let token = create_test_jwt_with_claims(
+            &private_key,
+            kid,
+            exp,
+            Some("wrong-audience".to_string()),
+            None,
+        );
+
+        // 4. Setup app state with JWT auth expecting different audience
+        let temp_dir = tempfile::tempdir().unwrap();
+        let db_path = temp_dir.path().join("test.db");
+        let repo_root = temp_dir.path().join("archive");
+        std::fs::create_dir_all(&repo_root).unwrap();
+
+        let db = libsql::Builder::new_local(db_path).build().await.unwrap();
+        let conn = db.connect().unwrap();
+        let mm = crate::ModelManager::new_for_test(conn, repo_root);
+
+        let jwks_url = format!("{}/.well-known/jwks.json", mock_server.uri());
+        let auth_config = AuthConfig {
+            mode: AuthMode::Jwt,
+            bearer_token: None,
+            jwks_url: Some(jwks_url.clone()),
+            jwt_audience: Some("expected-audience".to_string()),
+            jwt_issuer: None,
+            allow_localhost: false,
+        };
+        let jwks_client = Some(JwksClient::new(jwks_url));
+
+        let app_state = AppState {
+            mm,
+            metrics_handle: crate::setup_metrics(),
+            start_time: std::time::Instant::now(),
+            auth_config,
+            jwks_client,
+        };
+
+        let app = Router::new()
+            .route("/", get(handler))
+            .layer(middleware::from_fn_with_state(app_state, auth_middleware));
+
+        // 5. Make request with JWT having wrong audience
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/")
+                    .header("Authorization", format!("Bearer {}", token))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_auth_jwt_with_issuer_validation_success() {
+        // 1. Generate RSA key pair and JWKS
+        let kid = "test-key-iss";
+        let (private_key, jwks_json) = generate_test_keys(kid);
+
+        // 2. Start mock JWKS server
+        let mock_server = MockServer::start().await;
+        Mock::given(path("/.well-known/jwks.json"))
+            .respond_with(ResponseTemplate::new(200).set_body_string(jwks_json))
+            .mount(&mock_server)
+            .await;
+
+        // 3. Create valid JWT with issuer
+        let exp = (chrono::Utc::now() + chrono::Duration::hours(1)).timestamp() as usize;
+        let token = create_test_jwt_with_claims(
+            &private_key,
+            kid,
+            exp,
+            None,
+            Some("https://test-issuer.example.com".to_string()),
+        );
+
+        // 4. Setup app state with JWT auth and issuer validation
+        let temp_dir = tempfile::tempdir().unwrap();
+        let db_path = temp_dir.path().join("test.db");
+        let repo_root = temp_dir.path().join("archive");
+        std::fs::create_dir_all(&repo_root).unwrap();
+
+        let db = libsql::Builder::new_local(db_path).build().await.unwrap();
+        let conn = db.connect().unwrap();
+        let mm = crate::ModelManager::new_for_test(conn, repo_root);
+
+        let jwks_url = format!("{}/.well-known/jwks.json", mock_server.uri());
+        let auth_config = AuthConfig {
+            mode: AuthMode::Jwt,
+            bearer_token: None,
+            jwks_url: Some(jwks_url.clone()),
+            jwt_audience: None,
+            jwt_issuer: Some("https://test-issuer.example.com".to_string()),
+            allow_localhost: false,
+        };
+        let jwks_client = Some(JwksClient::new(jwks_url));
+
+        let app_state = AppState {
+            mm,
+            metrics_handle: crate::setup_metrics(),
+            start_time: std::time::Instant::now(),
+            auth_config,
+            jwks_client,
+        };
+
+        let app = Router::new()
+            .route("/", get(handler))
+            .layer(middleware::from_fn_with_state(app_state, auth_middleware));
+
+        // 5. Make request with valid JWT
+        let response = app
+            .oneshot(
+                Request::builder()
+                    .uri("/")
+                    .header("Authorization", format!("Bearer {}", token))
+                    .body(Body::empty())
+                    .unwrap(),
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(response.status(), StatusCode::OK);
+    }
+
+    #[tokio::test]
     async fn test_auth_jwt_malformed_token() {
         // 1. Setup mock JWKS (won't be needed but required for JWT mode)
         let mock_server = MockServer::start().await;
@@ -609,6 +926,8 @@ mod tests {
             mode: AuthMode::Jwt,
             bearer_token: None,
             jwks_url: Some(jwks_url.clone()),
+            jwt_audience: None,
+            jwt_issuer: None,
             allow_localhost: false,
         };
         let jwks_client = Some(JwksClient::new(jwks_url));

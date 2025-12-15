@@ -10,12 +10,16 @@ pub struct AgentCapability {
     pub agent_id: i64,
     pub capability: String,
     pub granted_at: NaiveDateTime,
+    pub granted_by: Option<i64>,
+    pub expires_at: Option<NaiveDateTime>,
 }
 
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct AgentCapabilityForCreate {
     pub agent_id: i64,
     pub capability: String,
+    pub granted_by: Option<i64>,
+    pub expires_at: Option<NaiveDateTime>,
 }
 
 pub struct AgentCapabilityBmc;
@@ -25,11 +29,12 @@ impl AgentCapabilityBmc {
         let db = mm.db();
         let now = chrono::Utc::now().naive_utc();
         let now_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
+        let expires_at_str = capability_c.expires_at.map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string());
 
         let stmt = db.prepare(
             r#"
-            INSERT INTO agent_capabilities (agent_id, capability, granted_at)
-            VALUES (?, ?, ?)
+            INSERT INTO agent_capabilities (agent_id, capability, granted_at, granted_by, expires_at)
+            VALUES (?, ?, ?, ?, ?)
             RETURNING id
             "#
         ).await?;
@@ -38,6 +43,8 @@ impl AgentCapabilityBmc {
             capability_c.agent_id,
             capability_c.capability,
             now_str,
+            capability_c.granted_by,
+            expires_at_str,
         )).await?;
 
         if let Some(row) = rows.next().await? {
@@ -51,7 +58,7 @@ impl AgentCapabilityBmc {
         let db = mm.db();
         let stmt = db.prepare(
             r#"
-            SELECT id, agent_id, capability, granted_at
+            SELECT id, agent_id, capability, granted_at, granted_by, expires_at
             FROM agent_capabilities WHERE agent_id = ? ORDER BY capability ASC
             "#
         ).await?;
@@ -63,11 +70,20 @@ impl AgentCapabilityBmc {
             let granted_at = NaiveDateTime::parse_from_str(&granted_at_str, "%Y-%m-%d %H:%M:%S")
                 .unwrap_or_default();
 
+            let granted_by: Option<i64> = row.get(4)?;
+
+            let expires_at: Option<String> = row.get(5)?;
+            let expires_at = expires_at.and_then(|s| {
+                NaiveDateTime::parse_from_str(&s, "%Y-%m-%d %H:%M:%S").ok()
+            });
+
             capabilities.push(AgentCapability {
                 id: row.get(0)?,
                 agent_id: row.get(1)?,
                 capability: row.get(2)?,
                 granted_at,
+                granted_by,
+                expires_at,
             });
         }
         Ok(capabilities)

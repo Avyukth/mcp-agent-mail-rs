@@ -78,6 +78,10 @@ async fn create_test_db(db_path: &std::path::Path) -> Result<lib_core::store::Db
     conn.execute_batch(schema).await?;
     let schema002 = include_str!("../../../../../migrations/002_agent_capabilities.sql");
     conn.execute_batch(schema002).await?;
-    
+    let schema003 = include_str!("../../../../../migrations/003_tool_metrics.sql");
+    conn.execute_batch(schema003).await?;
+    let schema004 = include_str!("../../../../../migrations/004_add_recipient_type.sql");
+    conn.execute_batch(schema004).await?;
+
     Ok(conn)
 }
