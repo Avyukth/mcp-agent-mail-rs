@@ -36,6 +36,8 @@ async fn test_agent_capability_lifecycle() {
     let cap_c = AgentCapabilityForCreate {
         agent_id,
         capability: "send_message".to_string(),
+        granted_by: None,
+        expires_at: None,
     };
     let cap_id = AgentCapabilityBmc::create(&tc.ctx, &tc.mm, cap_c).await.unwrap();
     assert!(cap_id > 0);
