@@ -2,10 +2,14 @@
 resolver = "2"
 members = [
     "crates/libs/lib-core",
+    "crates/libs/lib-common",
+    "crates/libs/lib-server",
     "crates/services/mcp-server",
     "crates/services/mcp-cli",
     "crates/services/mcp-stdio",
+    "crates/services/mcp-agent-mail",
     "crates/services/web-ui-leptos",
+    "crates/libs/lib-mcp",
     "crates/tests/e2e",
 ]
 
@@ -14,6 +18,7 @@ members = [
 axum = "0.8.7"
 tokio = { version = "1.48.0", features = ["full"] }
 tower-http = { version = "0.6.8", features = ["trace", "cors", "request-id"] }
+reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
 
 # Metrics
 metrics = "0.24.3"

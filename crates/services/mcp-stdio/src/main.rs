@@ -1,17 +1,8 @@
-//! MCP Agent Mail - stdio server for Claude Desktop and Antigravity integration
-//!
-//! This binary implements the Model Context Protocol (MCP) server over stdio,
-//! allowing Claude Desktop and Antigravity to interact with the multi-agent messaging system.
-
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use rmcp::ServiceExt;
-use tokio::io::{stdin, stdout};
 use tracing_subscriber::{fmt, prelude::*, EnvFilter};
-
-mod tools;
-
-use tools::AgentMailService;
+use lib_mcp::{run_stdio, run_sse, tools::get_tool_schemas};
+use lib_common::config::McpConfig;
 
 #[derive(Parser)]
 #[command(name = "mcp-agent-mail")]
@@ -53,136 +44,62 @@ enum Commands {
 async fn main() -> Result<()> {
     let cli = Cli::parse();
 
+    // Note: Logging setup is tricky here. 
+    // lib-mcp doesn't set up logging, it assumes caller does.
+    // mcp-stdio used to set up stderr logging.
+    // We should replicate that here for the standalone binary.
+    
     match cli.command.unwrap_or(Commands::Serve {
         transport: "stdio".to_string(),
         port: 3000,
         host: "127.0.0.1".to_string(),
     }) {
-        Commands::Serve { transport, port, host } => {
+        Commands::Serve { transport, port, host: _ } => {
+            // Setup logging for standalone mode
+            tracing_subscriber::registry()
+                .with(fmt::layer().with_writer(std::io::stderr))
+                .with(EnvFilter::from_default_env().add_directive("mcp_stdio=info".parse()?))
+                .init();
+
+            let config = McpConfig {
+                transport: transport.clone(),
+                port,
+            };
+
             match transport.as_str() {
-                "sse" => run_sse_server(&host, port).await,
-                _ => run_stdio_server().await,
+                "sse" => run_sse(config).await,
+                _ => run_stdio(config).await,
             }
         }
-        Commands::Schema { format, output } => export_schema(&format, output.as_deref()).await,
-        Commands::Tools => list_tools().await,
+        Commands::Schema { format, output } => {
+            let schemas = get_tool_schemas();
+            let content = match format.as_str() {
+                "markdown" | "md" => generate_markdown_docs(&schemas),
+                _ => serde_json::to_string_pretty(&schemas)?,
+            };
+            if let Some(path) = output {
+                std::fs::write(path, &content)?;
+                eprintln!("Schema written to {}", path);
+            } else {
+                println!("{}", content);
+            }
+            Ok(())
+        },
+        Commands::Tools => {
+            let schemas = get_tool_schemas();
+            println!("MCP Agent Mail Tools ({} total)\n", schemas.len());
+            println!("{:<30} DESCRIPTION", "TOOL");
+            println!("{}", "-".repeat(80));
+            for schema in schemas {
+                println!("{:<30} {}", schema.name, schema.description);
+            }
+            Ok(())
+        },
     }
 }
 
-async fn run_stdio_server() -> Result<()> {
-    // Initialize logging to stderr (stdout is reserved for MCP)
-    tracing_subscriber::registry()
-        .with(fmt::layer().with_writer(std::io::stderr))
-        .with(EnvFilter::from_default_env().add_directive("mcp_stdio=info".parse()?))
-        .init();
-
-    tracing::info!("Starting MCP Agent Mail server (stdio mode)...");
-
-    // Initialize the service
-    let service = AgentMailService::new().await?;
-
-    // Run over stdio
-    let transport = (stdin(), stdout());
-    let server = service.serve(transport).await?;
-
-    tracing::info!("MCP server initialized, waiting for requests...");
-
-    // Wait for shutdown
-    let quit_reason = server.waiting().await?;
-    tracing::info!("Server shutting down: {:?}", quit_reason);
-
-    Ok(())
-}
-
-async fn run_sse_server(host: &str, port: u16) -> Result<()> {
-    use rmcp::transport::streamable_http_server::{
-        tower::{StreamableHttpService, StreamableHttpServerConfig},
-        session::local::LocalSessionManager,
-    };
-    use std::net::SocketAddr;
-    use std::sync::Arc;
-
-    // Initialize logging to stdout (SSE mode)
-    tracing_subscriber::registry()
-        .with(fmt::layer())
-        .with(EnvFilter::from_default_env().add_directive("mcp_stdio=info".parse()?))
-        .init();
-
-    let addr: SocketAddr = format!("{}:{}", host, port).parse()?;
-    tracing::info!("Starting MCP Agent Mail server (HTTP/SSE mode) on http://{}", addr);
-
-    // Create session manager for stateful connections
-    let session_manager = Arc::new(LocalSessionManager::default());
-
-    // Configure the HTTP server
-    let config = StreamableHttpServerConfig::default();
-
-    // Create a service factory that creates a new AgentMailService for each connection
-    let service_factory = || {
-        // Note: AgentMailService::new() is async but the factory needs to be sync
-        // We'll use a blocking approach here for simplicity
-        let rt = tokio::runtime::Handle::current();
-        rt.block_on(async {
-            AgentMailService::new().await
-                .map_err(|e| std::io::Error::other(e.to_string()))
-        })
-    };
-
-    // Create the StreamableHttpService (tower-compatible)
-    let mcp_service = StreamableHttpService::new(
-        service_factory,
-        session_manager,
-        config,
-    );
-
-    tracing::info!("HTTP/SSE MCP endpoints:");
-    tracing::info!("  - POST http://{}/mcp (for tool calls)", addr);
-    tracing::info!("  - GET  http://{}/mcp (for SSE stream)", addr);
-
-    // Create an Axum app with the MCP service
-    let app = axum::Router::new()
-        .route("/mcp", axum::routing::any_service(mcp_service));
-
-    // Run the server
-    let listener = tokio::net::TcpListener::bind(addr).await?;
-    axum::serve(listener, app).await?;
-
-    Ok(())
-}
-
-async fn export_schema(format: &str, output: Option<&str>) -> Result<()> {
-    let schemas = tools::get_tool_schemas();
-
-    let content = match format {
-        "markdown" | "md" => generate_markdown_docs(&schemas),
-        _ => serde_json::to_string_pretty(&schemas)?,
-    };
-
-    if let Some(path) = output {
-        std::fs::write(path, &content)?;
-        eprintln!("Schema written to {}", path);
-    } else {
-        println!("{}", content);
-    }
-
-    Ok(())
-}
-
-async fn list_tools() -> Result<()> {
-    let schemas = tools::get_tool_schemas();
-
-    println!("MCP Agent Mail Tools ({} total)\n", schemas.len());
-    println!("{:<30} DESCRIPTION", "TOOL");
-    println!("{}", "-".repeat(80));
-
-    for schema in &schemas {
-        println!("{:<30} {}", schema.name, schema.description);
-    }
-
-    Ok(())
-}
-
-fn generate_markdown_docs(schemas: &[tools::ToolSchema]) -> String {
+// Helper needed because it was local in main.rs before
+fn generate_markdown_docs(schemas: &[lib_mcp::tools::ToolSchema]) -> String {
     let mut md = String::from("# MCP Agent Mail - Tool Reference\n\n");
     md.push_str(&format!("Total tools: {}\n\n", schemas.len()));
     md.push_str("## Table of Contents\n\n");
@@ -201,8 +118,11 @@ fn generate_markdown_docs(schemas: &[tools::ToolSchema]) -> String {
             md.push_str("### Parameters\n\n");
             md.push_str("| Name | Type | Required | Description |\n");
             md.push_str("|------|------|----------|-------------|\n");
-
-            for param in &schema.parameters {
+            md.push_str("|------|------|----------|-------------|\n"); 
+            // Loop params logic needs to be replicated or access schema internals
+            // ToolSchema in lib-mcp needs to be public inspectable. 
+            // Assuming it is standard struct.
+             for param in &schema.parameters {
                 md.push_str(&format!(
                     "| `{}` | {} | {} | {} |\n",
                     param.name,
@@ -211,25 +131,7 @@ fn generate_markdown_docs(schemas: &[tools::ToolSchema]) -> String {
                     param.description
                 ));
             }
-            md.push('\n');
         }
-
-        md.push_str("### Example\n\n");
-        md.push_str("```json\n");
-        md.push_str(&format!("{{\n  \"tool\": \"{}\",\n  \"arguments\": {{\n", schema.name));
-        for (i, param) in schema.parameters.iter().enumerate() {
-            let example_value = match param.param_type.as_str() {
-                "string" => "\"example\"".to_string(),
-                "integer" | "number" => "1".to_string(),
-                "boolean" => "true".to_string(),
-                _ => "null".to_string(),
-            };
-            let comma = if i < schema.parameters.len() - 1 { "," } else { "" };
-            md.push_str(&format!("    \"{}\": {}{}\n", param.name, example_value, comma));
-        }
-        md.push_str("  }\n}\n```\n\n");
-        md.push_str("---\n\n");
     }
-
     md
 }

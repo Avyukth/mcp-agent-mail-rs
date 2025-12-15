@@ -4,38 +4,10 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-# Workspace dependencies
-anyhow.workspace = true
-axum.workspace = true
-chrono.workspace = true
+# Dependencies now handled by lib-server
+lib-server = { path = "../../libs/lib-server" }
+lib-common = { path = "../../libs/lib-common" }
 tokio.workspace = true
-tower-http.workspace = true
 tracing.workspace = true
-tracing-subscriber.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-thiserror.workspace = true
-metrics-exporter-prometheus.workspace = true
-
-# Internal workspace dependency
-lib-core = { path = "../../libs/lib-core" }
-
-# Utilities
-base64.workspace = true
-uuid.workspace = true
-
-# Auth
-jsonwebtoken = "9"
-reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
-axum-extra = { version = "0.9", features = ["typed-header"] }
-once_cell = "1.19"
-tower = { version = "0.5", features = ["util"] }
-
-[dev-dependencies]
-tempfile = "3.8"
-libsql = { version = "0.9.29", features = [] }
-wiremock = "0.6"
-rsa = { version = "0.9", features = ["sha2"] }
-rand = "0.8"
 
 

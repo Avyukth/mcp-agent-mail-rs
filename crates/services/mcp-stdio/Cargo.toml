@@ -5,30 +5,13 @@ edition = "2021"
 description = "MCP stdio server for Agent Mail - Claude Desktop and Antigravity integration"
 
 [[bin]]
-name = "mcp-agent-mail"
+name = "mcp-stdio-server"
 path = "src/main.rs"
 
 [dependencies]
-# Workspace dependencies
-tokio.workspace = true
-tracing.workspace = true
-tracing-subscriber.workspace = true
-serde.workspace = true
-serde_json.workspace = true
-anyhow.workspace = true
-chrono.workspace = true
-clap.workspace = true
-url = "2.5"
-
-# MCP SDK
-rmcp.workspace = true
-schemars.workspace = true
-
-# Web Framework (for HTTP/SSE transport)
-axum.workspace = true
-
 # Internal
-lib-core = { path = "../../libs/lib-core" }
+lib-mcp = { path = "../../libs/lib-mcp" }
+lib-common = { path = "../../libs/lib-common" }
 
 [dev-dependencies]
 tokio = { version = "1", features = ["rt-multi-thread", "macros"] }

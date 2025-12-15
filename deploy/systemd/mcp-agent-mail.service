@@ -1,5 +1,5 @@
 [Unit]
-Description=MCP Agent Mail Server
+Description=MCP Agent Mail Unified Service
 After=network.target
 
 [Service]
@@ -7,14 +7,14 @@ Type=simple
 User=mcp
 Group=mcp
 # Adjust path to your binary
-ExecStart=/usr/local/bin/mcp-server
+ExecStart=/opt/mouchak/bin/mcp-agent-mail serve http
 # Adjust path to your env file
-EnvironmentFile=/etc/mcp-server/env
+EnvironmentFile=/etc/mouchak/env
 Restart=always
 RestartSec=5
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=mcp-server
+SyslogIdentifier=mcp-agent-mail
 
 [Install]
 WantedBy=multi-user.target

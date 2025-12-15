@@ -2,9 +2,11 @@
 set -e
 
 # Configuration
-SERVICE_NAME="mcp-server"
-BINARY_PATH="./target/release/mcp-server" # Assumes running from repo root
-INSTALL_BIN="/usr/local/bin/mcp-server"
+BIN_NAME="mcp-agent-mail"
+SERVICE_NAME="mcp-agent-mail"
+INSTALL_DIR="/opt/mouchak/bin"
+BINARY_PATH="./target/release/${BIN_NAME}" # Assumes running from repo root
+INSTALL_BIN="${INSTALL_DIR}/${BIN_NAME}"
 INSTALL_SERVICE="/etc/systemd/system/${SERVICE_NAME}.service"
 CONFIG_DIR="/etc/${SERVICE_NAME}"
 DATA_DIR="/var/lib/${SERVICE_NAME}"
