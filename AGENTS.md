@@ -21,6 +21,8 @@
 - Agent-optimized: JSON output, ready work detection, discovered-from links
 - Multi-agent: All agents share the same issue database via git
 
+> **Warning:** Do not edit `.beads/*.jsonl` directly; only use `bd` commands.
+
 ### Quick Reference
 
 ```bash
@@ -298,6 +300,7 @@ When handing off work between agents:
 - ❌ Do NOT create markdown TODO lists
 - ❌ Do NOT use external issue trackers
 - ❌ Do NOT skip claiming issues before working
+- ❌ Do NOT edit `.beads/*.jsonl` directly (only use `bd` commands)
 
 ## References
 

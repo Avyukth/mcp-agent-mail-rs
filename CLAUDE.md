@@ -292,7 +292,9 @@ This returns:
 
 ### beads (`bd`) - Task Memory
 
-**Distributed issue tracker via git:**
+**Distributed issue tracker via git.**
+
+> **Warning:** Do not edit `.beads/*.jsonl` directly; only use `bd` commands.
 
 ```bash
 bd ready --json           # Find ready work (no blockers)
@@ -465,6 +467,7 @@ git add -A && git commit -m "feat: X (closes bd-Y)"
 
 **DON'T:**
 - Create markdown TODO lists
+- Edit `.beads/*.jsonl` directly (only use `bd` commands)
 - Use `unwrap()` in production code
 - Skip claiming issues before working
 - Ignore clippy warnings
