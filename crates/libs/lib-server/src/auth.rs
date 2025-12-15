@@ -508,6 +508,7 @@ mod tests {
             start_time: std::time::Instant::now(),
             auth_config,
             jwks_client: None,
+            ratelimit_config: crate::ratelimit::RateLimitConfig::new(),
         };
 
         let app = Router::new()
@@ -547,6 +548,7 @@ mod tests {
             start_time: std::time::Instant::now(),
             auth_config,
             jwks_client: None,
+            ratelimit_config: crate::ratelimit::RateLimitConfig::new(),
         };
 
         let app = Router::new()
@@ -592,6 +594,7 @@ mod tests {
             start_time: std::time::Instant::now(),
             auth_config,
             jwks_client: None,
+            ratelimit_config: crate::ratelimit::RateLimitConfig::new(),
         };
 
         let app = Router::new()
@@ -665,6 +668,7 @@ mod tests {
             start_time: std::time::Instant::now(),
             auth_config,
             jwks_client,
+            ratelimit_config: crate::ratelimit::RateLimitConfig::new(),
         };
 
         let app = Router::new()
@@ -730,6 +734,7 @@ mod tests {
             start_time: std::time::Instant::now(),
             auth_config,
             jwks_client,
+            ratelimit_config: crate::ratelimit::RateLimitConfig::new(),
         };
 
         let app = Router::new()
@@ -794,6 +799,7 @@ mod tests {
             start_time: std::time::Instant::now(),
             auth_config,
             jwks_client,
+            ratelimit_config: crate::ratelimit::RateLimitConfig::new(),
         };
 
         let app = Router::new()
@@ -865,6 +871,7 @@ mod tests {
             start_time: std::time::Instant::now(),
             auth_config,
             jwks_client,
+            ratelimit_config: crate::ratelimit::RateLimitConfig::new(),
         };
 
         let app = Router::new()
@@ -936,6 +943,7 @@ mod tests {
             start_time: std::time::Instant::now(),
             auth_config,
             jwks_client,
+            ratelimit_config: crate::ratelimit::RateLimitConfig::new(),
         };
 
         let app = Router::new()
@@ -1007,6 +1015,7 @@ mod tests {
             start_time: std::time::Instant::now(),
             auth_config,
             jwks_client,
+            ratelimit_config: crate::ratelimit::RateLimitConfig::new(),
         };
 
         let app = Router::new()
@@ -1064,6 +1073,7 @@ mod tests {
             start_time: std::time::Instant::now(),
             auth_config,
             jwks_client,
+            ratelimit_config: crate::ratelimit::RateLimitConfig::new(),
         };
 
         let app = Router::new()
@@ -1111,6 +1121,7 @@ mod tests {
             start_time: std::time::Instant::now(),
             auth_config,
             jwks_client: None,
+            ratelimit_config: crate::ratelimit::RateLimitConfig::new(),
         };
 
         // Create router with ConnectInfo support
@@ -1167,6 +1178,7 @@ mod tests {
             start_time: std::time::Instant::now(),
             auth_config,
             jwks_client: None,
+            ratelimit_config: crate::ratelimit::RateLimitConfig::new(),
         };
 
         // Create router with ConnectInfo support
