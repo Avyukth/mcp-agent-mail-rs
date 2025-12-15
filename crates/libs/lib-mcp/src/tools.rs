@@ -568,16 +568,14 @@ impl AgentMailService {
         let mut project_id = None;
         let mut agent_id = None;
         
-        if let Some(slug) = project_slug {
-             if let Ok(p) = ProjectBmc::get_by_slug(&ctx, &self.mm, &slug).await {
+        if let Some(slug) = project_slug 
+             && let Ok(p) = ProjectBmc::get_by_slug(&ctx, &self.mm, &slug).await {
                  project_id = Some(p.id);
-                 if let Some(name) = agent_name {
-                     if let Ok(a) = AgentBmc::get_by_name(&ctx, &self.mm, p.id, &name).await {
+                 if let Some(name) = agent_name 
+                     && let Ok(a) = AgentBmc::get_by_name(&ctx, &self.mm, p.id, &name).await {
                          agent_id = Some(a.id);
                      }
-                 }
              }
-        }
         
         let metric = ToolMetricForCreate {
              project_id,
@@ -3120,6 +3118,8 @@ mod tests {
         conn.execute_batch(schema2).await.unwrap();
         let schema3 = include_str!("../../../../migrations/003_tool_metrics.sql");
         conn.execute_batch(schema3).await.unwrap();
+        let schema4 = include_str!("../../../../migrations/004_add_recipient_type.sql");
+        conn.execute_batch(schema4).await.unwrap();
 
         let mm = ModelManager::new_for_test(conn, archive_root);
         (Arc::new(mm), temp_dir)
@@ -3168,6 +3168,8 @@ mod tests {
         let cap_c = AgentCapabilityForCreate {
             agent_id: sender_id,
             capability: "send_message".into(),
+            granted_by: None,
+            expires_at: None,
         };
         AgentCapabilityBmc::create(&ctx, &mm, cap_c).await.unwrap();
 
@@ -3245,7 +3247,12 @@ mod tests {
         let bcc_id = AgentBmc::create(&ctx, &mm, bcc_c).await.unwrap();
 
         // Grant Capability
-        let cap = AgentCapabilityForCreate { agent_id: sender_id, capability: "send_message".into() };
+        let cap = AgentCapabilityForCreate {
+            agent_id: sender_id,
+            capability: "send_message".into(),
+            granted_by: None,
+            expires_at: None,
+        };
         AgentCapabilityBmc::create(&ctx, &mm, cap).await.unwrap();
 
         // Call Tool

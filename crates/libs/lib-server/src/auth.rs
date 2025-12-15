@@ -158,11 +158,10 @@ impl JwksClient {
 
         let mut new_keys = HashMap::new();
         for jwk in resp.keys {
-            if jwk.kty == "RSA" {
-                if let Ok(decoding_key) = DecodingKey::from_rsa_components(&jwk.n, &jwk.e) {
+            if jwk.kty == "RSA" 
+                && let Ok(decoding_key) = DecodingKey::from_rsa_components(&jwk.n, &jwk.e) {
                     new_keys.insert(jwk.kid.clone(), decoding_key);
                 }
-            }
         }
 
         // Update keys and refresh timestamp

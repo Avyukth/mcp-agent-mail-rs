@@ -68,11 +68,11 @@ pub fn Agents() -> impl IntoView {
                 if !query.is_empty() {
                     let name_match = a.agent.name.to_lowercase().contains(&query);
                     let program_match = a.agent.program.as_ref()
-                        .map_or(false, |p| p.to_lowercase().contains(&query));
+                        .is_some_and(|p| p.to_lowercase().contains(&query));
                     let model_match = a.agent.model.as_ref()
-                        .map_or(false, |m| m.to_lowercase().contains(&query));
+                        .is_some_and(|m| m.to_lowercase().contains(&query));
                     let task_match = a.agent.task_description.as_ref()
-                        .map_or(false, |t| t.to_lowercase().contains(&query));
+                        .is_some_and(|t| t.to_lowercase().contains(&query));
                     if !name_match && !program_match && !model_match && !task_match {
                         return false;
                     }

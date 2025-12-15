@@ -9,12 +9,12 @@ pub struct TestFixtures;
 impl TestFixtures {
     /// Generate a unique project slug for testing
     pub fn unique_project_slug() -> String {
-        format!("test-project-{}", Uuid::new_v4().to_string()[..8].to_string())
+        format!("test-project-{}", &Uuid::new_v4().to_string()[..8])
     }
 
     /// Generate a unique agent name for testing
     pub fn unique_agent_name() -> String {
-        format!("test-agent-{}", Uuid::new_v4().to_string()[..8].to_string())
+        format!("test-agent-{}", &Uuid::new_v4().to_string()[..8])
     }
 
     /// Create project payload
