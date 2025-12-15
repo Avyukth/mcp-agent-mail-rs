@@ -316,6 +316,7 @@ pub async fn get_message(id: &str) -> Result<Message, ApiError> {
 }
 
 /// Send a message.
+#[allow(clippy::too_many_arguments)]
 pub async fn send_message(
     project_slug: &str,
     sender: &str,

@@ -100,7 +100,7 @@ pub fn ComposeMessage(
             let tid = thread_id.get();
             let imp = importance.get();
             let ack = ack_required.get();
-            let on_sent = on_sent.clone();
+            let on_sent = on_sent;
 
             leptos::task::spawn_local(async move {
                 match client::send_message(
@@ -172,7 +172,7 @@ pub fn ComposeMessage(
                                 {available_recipients.iter().map(|agent| {
                                     let name = agent.name.clone();
                                     let name_display = name.clone();
-                                    let toggle = toggle_recipient.clone();
+                                    let toggle = toggle_recipient;
                                     view! {
                                         <button
                                             type="button"

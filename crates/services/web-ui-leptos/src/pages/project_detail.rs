@@ -26,7 +26,6 @@ pub fn ProjectDetail() -> impl IntoView {
 
     // Load agents
     let load_agents = {
-        let slug = slug.clone();
         move || {
             let project_slug = slug();
             loading.set(true);
@@ -48,14 +47,11 @@ pub fn ProjectDetail() -> impl IntoView {
 
     // Initial load
     Effect::new({
-        let load = load_agents.clone();
-        move |_| { load(); }
+        move |_| { load_agents(); }
     });
 
     // Create agent handler
     let create_agent = {
-        let slug = slug.clone();
-        let _load_agents = load_agents.clone();
         move |_| {
             let name = new_name.get();
             if name.trim().is_empty() {

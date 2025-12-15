@@ -3335,10 +3335,13 @@ name = "mcp-stdio"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "chrono",
  "clap",
  "lib-common",
+ "lib-core",
  "lib-mcp",
  "libsql",
+ "rmcp",
  "serde_json",
  "tempfile",
  "tokio",
