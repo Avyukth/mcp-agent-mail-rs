@@ -238,11 +238,10 @@ pub async fn auth_middleware(
     // 2. Check Localhost Bypass
     if auth_config.allow_localhost {
         // Try to get client IP from ConnectInfo extension (set by into_make_service_with_connect_info)
-        if let Some(connect_info) = req.extensions().get::<ConnectInfo<SocketAddr>>() {
-            if is_localhost(&connect_info.0) {
+        if let Some(connect_info) = req.extensions().get::<ConnectInfo<SocketAddr>>() 
+            && is_localhost(&connect_info.0) {
                 info!("Localhost bypass: allowing unauthenticated request from {}", connect_info.0);
                 return Ok(next.run(req).await);
-            }
         }
     }
 
@@ -403,13 +402,12 @@ pub async fn capabilities_middleware(
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     for project in projects {
-        if let Ok(agent) = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &agent_name).await {
-            if let Ok(true) = lib_core::model::agent_capabilities::AgentCapabilityBmc::check(&ctx, mm, agent.id, required_capability).await {
+        if let Ok(agent) = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &agent_name).await
+            && let Ok(true) = lib_core::model::agent_capabilities::AgentCapabilityBmc::check(&ctx, mm, agent.id, required_capability).await {
                 if config.log_checks {
                     info!("RBAC: {} has {} in {}", agent_name, required_capability, project.slug);
                 }
                 return Ok(next.run(req).await);
-            }
         }
     }
 

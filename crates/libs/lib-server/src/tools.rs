@@ -1689,6 +1689,46 @@ pub struct SummarizeThreadResponse {
     pub summary: String,
 }
 
+// Helper to call OpenAI API
+async fn call_openai_summarize(messages: &[lib_core::model::message::Message]) -> crate::error::Result<String> {
+    let api_key = std::env::var("OPENAI_API_KEY").unwrap_or_default();
+    if api_key.is_empty() {
+        return Ok(String::new());
+    }
+
+    let prompt = messages.iter().map(|m| {
+        format!("{}: {}", m.sender_name, m.body_md)
+    }).collect::<Vec<_>>().join("\n\n");
+
+    let client = reqwest::Client::new();
+    let resp = client.post("https://api.openai.com/v1/chat/completions")
+        .header("Authorization", format!("Bearer {}", api_key))
+        .json(&serde_json::json!({
+            "model": "gpt-4o",
+            "messages": [
+                {"role": "system", "content": "You are a helpful assistant. Summarize the following thread concisely."},
+                {"role": "user", "content": prompt}
+            ],
+            "max_tokens": 500
+        }))
+        .send()
+        .await
+        .map_err(|e| anyhow::anyhow!("OpenAI request failed: {}", e))?;
+
+    if !resp.status().is_success() {
+         return Err(anyhow::anyhow!("OpenAI API error: {}", resp.status()).into());
+    }
+
+    let json: serde_json::Value = resp.json().await
+         .map_err(|e| anyhow::anyhow!("Failed to parse OpenAI response: {}", e))?;
+
+    let summary = json["choices"][0]["message"]["content"].as_str()
+        .unwrap_or("Failed to extract summary")
+        .to_string();
+
+    Ok(summary)
+}
+
 pub async fn summarize_thread(
     State(app_state): State<AppState>,
     Json(payload): Json<SummarizeThreadPayload>,
@@ -1704,12 +1744,21 @@ pub async fn summarize_thread(
     participants.dedup();
 
     let subject = messages.first().map(|m| m.subject.clone()).unwrap_or_default();
-    let summary = format!(
-        "Thread with {} messages from {} participants. Latest: {}",
-        messages.len(),
-        participants.len(),
-        messages.last().map(|m| m.body_md.chars().take(100).collect::<String>()).unwrap_or_default()
-    );
+
+    // Try LLM summarization
+    let llm_summary = call_openai_summarize(&messages).await?;
+
+    let summary = if !llm_summary.is_empty() {
+        llm_summary
+    } else {
+        // Fallback
+        format!(
+            "Thread with {} messages from {} participants. Latest: {}",
+            messages.len(),
+            participants.len(),
+            messages.last().map(|m| m.body_md.chars().take(100).collect::<String>()).unwrap_or_default()
+        )
+    };
 
     Ok(Json(SummarizeThreadResponse {
         thread_id: payload.thread_id,
