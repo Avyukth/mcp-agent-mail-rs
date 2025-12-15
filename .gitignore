@@ -18,4 +18,5 @@ build/
 playwright-report/
 test-results/
 .sandboxes/
-docs/PLAN_CRITICISM_577.1.md 
+docs/PLAN_CRITICISM_PRODUCTION_SPRINT.md
+docs/CRITICAL_GAP_ANALYSIS.md
