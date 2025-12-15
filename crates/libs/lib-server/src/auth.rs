@@ -16,6 +16,17 @@ use tracing::{error, info, warn};
 
 use crate::AppState;
 
+/// Authenticated user information stored as request extension
+#[derive(Debug, Clone)]
+pub struct AuthenticatedUser {
+    /// The subject from JWT (typically user/agent identifier)
+    pub subject: String,
+    /// Optional agent name extracted from claims or subject
+    pub agent_name: Option<String>,
+    /// Optional project context
+    pub project_slug: Option<String>,
+}
+
 /// Authentication configuration
 #[derive(Debug, Clone)]
 pub struct AuthConfig {
@@ -273,6 +284,14 @@ pub async fn auth_middleware(
                 match decode::<Claims>(&token, &key, &validation) {
                     Ok(token_data) => {
                         info!("JWT validated successfully for subject: {}", token_data.claims.sub);
+                        // Store authenticated user in request extensions
+                        let auth_user = AuthenticatedUser {
+                            subject: token_data.claims.sub.clone(),
+                            agent_name: Some(token_data.claims.sub), // Default: subject is agent name
+                            project_slug: None, // Will be extracted from request body if needed
+                        };
+                        let mut req = req;
+                        req.extensions_mut().insert(auth_user);
                         Ok(next.run(req).await)
                     },
                     Err(e) => {
@@ -289,22 +308,107 @@ pub async fn auth_middleware(
     }
 }
 
+/// Route-to-capability mapping for RBAC enforcement
+/// Returns the required capability for a given route path, or None if no capability check needed
+pub fn get_required_capability(path: &str) -> Option<&'static str> {
+    let normalized = path.trim_end_matches('/');
+    match normalized {
+        // Messaging operations
+        "/api/message/send" | "/api/send_message" => Some("send_message"),
+        "/api/message/reply" | "/api/reply_message" => Some("send_message"),
+        "/api/inbox" | "/api/fetch_inbox" | "/api/list_inbox" | "/api/get_inbox" => Some("fetch_inbox"),
+        "/api/outbox" | "/api/fetch_outbox" | "/api/list_outbox" | "/api/get_outbox" => Some("fetch_outbox"),
+        "/api/message/acknowledge" | "/api/acknowledge_message" => Some("acknowledge_message"),
+        "/api/message/read" | "/api/mark_message_read" => Some("fetch_inbox"),
+        "/api/messages/search" | "/api/search_messages" => Some("fetch_inbox"),
+        // File reservations
+        "/api/file_reservations/paths" | "/api/file_reservation_paths" => Some("file_reservation"),
+        "/api/file_reservations/list" | "/api/list_file_reservations" | "/api/reservations" => Some("file_reservation"),
+        "/api/file_reservations/release" | "/api/release_file_reservation" => Some("file_reservation"),
+        "/api/file_reservations/renew" | "/api/renew_file_reservation" => Some("file_reservation"),
+        "/api/file_reservations/force_release" | "/api/force_release_file_reservation" => Some("admin"),
+        // Build slots
+        "/api/build_slots/acquire" | "/api/acquire_build_slot" => Some("build"),
+        "/api/build_slots/renew" | "/api/renew_build_slot" => Some("build"),
+        "/api/build_slots/release" | "/api/release_build_slot" => Some("build"),
+        // Overseer and archive
+        "/api/overseer/send" | "/api/send_overseer_message" => Some("overseer"),
+        "/api/archive/commit" | "/api/commit_archive" => Some("archive"),
+        _ => None,
+    }
+}
+
+/// Configuration for capabilities middleware behavior
+#[derive(Debug, Clone)]
+pub struct CapabilitiesConfig {
+    pub enabled: bool,
+    pub log_checks: bool,
+}
+
+impl Default for CapabilitiesConfig {
+    fn default() -> Self {
+        Self {
+            enabled: std::env::var("RBAC_ENABLED")
+                .map(|v| v.to_lowercase() == "true")
+                .unwrap_or(false),
+            log_checks: std::env::var("RBAC_LOG_CHECKS")
+                .map(|v| v.to_lowercase() == "true")
+                .unwrap_or(false),
+        }
+    }
+}
+
 /// Middleware to enforce capability checks (RBAC)
-/// Note: This is an example middleware. Real RBAC requires extracting the agent info from the token
-/// and then checking DB. Since checking DB requires async access and extracting Agent ID,
-/// we need a mechanism to map JWT sub -> Agent ID.
-/// For now, this is a placeholder stub for `rkm` task compliance.
+///
+/// Checks if the authenticated user has the required capability for a route.
+/// Configuration: RBAC_ENABLED=true to enable, RBAC_LOG_CHECKS=true to log.
 pub async fn capabilities_middleware(
-    State(_state): State<AppState>,
+    State(state): State<AppState>,
     req: Request<axum::body::Body>,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    // 1. Check if user is authenticated (usually runs after auth_middleware)
-    // 2. Extract Agent ID (from request extension set by auth_middleware)
-    // 3. Check requested resource/action against agent capabilities
-    
-    // For now, pass through as we don't have the granular permission mapping yet
-    Ok(next.run(req).await)
+    let config = CapabilitiesConfig::default();
+    if !config.enabled {
+        return Ok(next.run(req).await);
+    }
+
+    let path = req.uri().path();
+    let required_capability = match get_required_capability(path) {
+        Some(cap) => cap,
+        None => return Ok(next.run(req).await),
+    };
+
+    let auth_user = match req.extensions().get::<AuthenticatedUser>() {
+        Some(user) => user.clone(),
+        None => return Ok(next.run(req).await), // No auth, allow through (RBAC only for authenticated)
+    };
+
+    let agent_name = match &auth_user.agent_name {
+        Some(name) => name.clone(),
+        None => {
+            warn!("RBAC: No agent_name for {} (requires: {})", path, required_capability);
+            return Err(StatusCode::FORBIDDEN);
+        }
+    };
+
+    let mm = &state.mm;
+    let ctx = lib_core::Ctx::root_ctx();
+    let projects = lib_core::model::project::ProjectBmc::list_all(&ctx, mm).await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    for project in projects {
+        if let Ok(agent) = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &agent_name).await {
+            if let Ok(true) = lib_core::model::agent_capabilities::AgentCapabilityBmc::check(&ctx, mm, agent.id, required_capability).await {
+                if config.log_checks {
+                    info!("RBAC: {} has {} in {}", agent_name, required_capability, project.slug);
+                }
+                return Ok(next.run(req).await);
+            }
+        }
+    }
+
+    warn!("RBAC: {} denied {} (missing: {})", agent_name, path, required_capability);
+    Err(StatusCode::FORBIDDEN)
 }
 
 
