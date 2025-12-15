@@ -11,7 +11,7 @@ anyhow.workspace = true
 # Serialization
 serde.workspace = true
 serde_json.workspace = true
-config = "0.13"
+config = "0.15.19"
 
 # Tracing
 tracing.workspace = true

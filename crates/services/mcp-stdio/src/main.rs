@@ -78,7 +78,7 @@ async fn main() -> Result<()> {
                 _ => serde_json::to_string_pretty(&schemas)?,
             };
             if let Some(path) = output {
-                std::fs::write(path, &content)?;
+                std::fs::write(&path, &content)?;
                 eprintln!("Schema written to {}", path);
             } else {
                 println!("{}", content);

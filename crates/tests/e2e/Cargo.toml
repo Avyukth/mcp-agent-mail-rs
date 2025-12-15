@@ -24,6 +24,8 @@ uuid = { workspace = true }
 [dev-dependencies]
 # For integration with lib-core if needed
 lib-core = { path = "../../libs/lib-core" }
+assert_cmd = "2.0.16"
+predicates = "3.1.2"
 
 [[test]]
 name = "web_ui"
@@ -36,3 +38,7 @@ path = "tests/api.rs"
 [[test]]
 name = "walkthrough"
 path = "tests/walkthrough.rs"
+
+[[test]]
+name = "cli_tests"
+path = "tests/cli_tests.rs"

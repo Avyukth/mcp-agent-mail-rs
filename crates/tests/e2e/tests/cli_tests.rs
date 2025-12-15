@@ -1,0 +1,49 @@
+use assert_cmd::Command;
+use predicates::prelude::*;
+
+#[test]
+fn test_version_command() {
+    let mut cmd = Command::cargo_bin("mcp-agent-mail").unwrap();
+    cmd.arg("--version")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("mcp-agent-mail 0.1.0"));
+}
+
+#[test]
+fn test_help_command() {
+    let mut cmd = Command::cargo_bin("mcp-agent-mail").unwrap();
+    cmd.arg("--help")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Unified Server/CLI for Agent Mail"));
+}
+
+#[test]
+fn test_serve_http_command_dry_run() {
+    // We can't easily dry-run a server without it blocking, unless we use a timeout or specific verify mode.
+    // Clap parsing check is decent enough for "dry run" of args.
+    // Let's check bad arguments fail.
+    let mut cmd = Command::cargo_bin("mcp-agent-mail").unwrap();
+    cmd.args(["serve", "http", "--port", "invalid"])
+        .assert()
+        .failure();
+}
+
+#[test]
+fn test_schema_command() {
+    let mut cmd = Command::cargo_bin("mcp-agent-mail").unwrap();
+    cmd.args(["schema", "--format", "json"])
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("send_message")); // Expect at least one known tool
+}
+
+#[test]
+fn test_tools_command() {
+    let mut cmd = Command::cargo_bin("mcp-agent-mail").unwrap();
+    cmd.arg("tools")
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("MCP Agent Mail Tools"));
+}

@@ -16,7 +16,7 @@ schemars.workspace = true
 tokio.workspace = true
 axum.workspace = true
 tower-http.workspace = true
-tower = { version = "0.5", features = ["util"] }
+tower = { version = "0.5.2", features = ["util"] }
 
 # Tracing
 tracing.workspace = true
@@ -28,4 +28,4 @@ serde_json.workspace = true
 thiserror.workspace = true
 anyhow.workspace = true
 chrono.workspace = true
-url = "2.5"
+url = "2.5.7"

@@ -9,5 +9,6 @@ lib-server = { path = "../../libs/lib-server" }
 lib-common = { path = "../../libs/lib-common" }
 tokio.workspace = true
 tracing.workspace = true
+anyhow.workspace = true
 
 

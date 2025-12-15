@@ -5,7 +5,6 @@ use std::net::SocketAddr;
 use std::time::Instant;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
-use tracing_subscriber::EnvFilter;
 use std::sync::OnceLock;
 
 // Modules

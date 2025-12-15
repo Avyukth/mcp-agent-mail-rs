@@ -12,14 +12,14 @@ serde_json.workspace = true
 thiserror.workspace = true
 uuid.workspace = true
 git2.workspace = true
-slug = "0.1"
+slug = "0.1.6"
 
 # Crate-specific dependencies
-strum_macros = "0.25" # For AsRefStr derive
-tokio = { version = "1", features = ["macros"] }
+strum_macros = "0.27.2" # For AsRefStr derive
+tokio = { version = "1.48.0", features = ["macros"] }
 sha1 = "0.10.6"
 hex = "0.4.3"
 
 [dev-dependencies]
-tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
-tempfile = "3.20"
+tokio = { version = "1.48.0", features = ["rt-multi-thread", "macros"] }
+tempfile = "3.23.0"

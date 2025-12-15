@@ -1,8 +1,8 @@
-use lib_server::{run, ServerError};
-use lib_common::{config::{AppConfig, ServerConfig}, tracing::setup_tracing};
+use lib_server::run;
+use lib_common::{config::AppConfig, tracing::setup_tracing};
 
 #[tokio::main]
-async fn main() -> std::result::Result<(), ServerError> {
+async fn main() -> anyhow::Result<()> {
     // 1. Setup Logging
     setup_tracing(false);
 
@@ -16,9 +16,10 @@ async fn main() -> std::result::Result<(), ServerError> {
     // If they set `PORT`, we might lose it unless AppConfig checks it.
     // For now, let's just use AppConfig.
     
-    let config = AppConfig::load().map_err(ServerError::Config)?;
+    let config = AppConfig::load()?;
     tracing::info!("Loaded config: {:?}", config.server);
     
     // 3. Run Server
-    run(config.server).await
+    run(config.server).await?;
+    Ok(())
 }

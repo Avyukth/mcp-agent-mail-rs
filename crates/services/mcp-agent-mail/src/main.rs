@@ -1,7 +1,9 @@
 use clap::{Args, Parser, Subcommand};
-use lib_common::{
-    config::{AppConfig, McpConfig, ServerConfig},
-    tracing::setup_tracing,
+use lib_common::config::AppConfig;
+use lib_mcp::{
+    docs::generate_markdown_docs,
+    tools::get_tool_schemas,
+    run_stdio, run_sse,
 };
 use tracing::info;
 
@@ -28,6 +30,19 @@ enum Commands {
         #[arg(short, long, default_value = "http://localhost:8765")]
         url: String,
     },
+
+    /// Export JSON schemas for all tools
+    Schema {
+        /// Output format: json or markdown
+        #[arg(short, long, default_value = "json")]
+        format: String,
+        /// Output file (stdout if not specified)
+        #[arg(short, long)]
+        output: Option<String>,
+    },
+
+    /// List all available tools
+    Tools,
 
     /// Show version info
     Version,
@@ -90,16 +105,8 @@ async fn main() -> anyhow::Result<()> {
     // 3. Load Config
     // We load config, then override with CLI args if present
     let mut config = AppConfig::load().unwrap_or_else(|e| {
-        // Log warning but continue with defaults if config file fails? 
-        // AppConfig loads defaults so it might fail only on hard IO errors.
-        tracing::warn!("Failed to load config file: {}. Using CLI/Defaults.", e);
-        // We can't easily construct a default AppConfig without exposed defaults logic or Default impl.
-        // Let's assume AppConfig::load() handles it gracefullly or we crash.
-        // Actually AppConfig::load returns Result.
-        // Let's panic if we can't load basic config? Or construct a dummy?
-        // Let's modify AppConfig to derive Default if possible, but it uses `config` crate.
-        // For now, if load fails, we panic.
-        panic!("Config load failed: {}", e);
+        tracing::warn!("Failed to load config file: {}. Using defaults.", e);
+        AppConfig::default()
     });
 
     // 4. Execute Command
@@ -118,8 +125,8 @@ async fn main() -> anyhow::Result<()> {
 
                 info!("Starting MCP Server ({})", transport);
                 match transport.as_str() {
-                    "sse" => lib_mcp::run_sse(config.mcp).await?,
-                    _ => lib_mcp::run_stdio(config.mcp).await?,
+                    "sse" => run_sse(config.mcp).await?,
+                    _ => run_stdio(config.mcp).await?,
                 }
             }
         },
@@ -131,6 +138,28 @@ async fn main() -> anyhow::Result<()> {
             } else {
                 tracing::error!("Server is UNHEALTHY: Status {}", resp.status());
                 std::process::exit(1);
+            }
+        }
+        Commands::Schema { format, output } => {
+            let schemas = get_tool_schemas();
+            let content = match format.as_str() {
+                "markdown" | "md" => generate_markdown_docs(&schemas),
+                _ => serde_json::to_string_pretty(&schemas)?,
+            };
+            if let Some(path) = output {
+                std::fs::write(&path, &content)?;
+                eprintln!("Schema written to {}", path);
+            } else {
+                println!("{}", content);
+            }
+        }
+        Commands::Tools => {
+            let schemas = get_tool_schemas();
+            println!("MCP Agent Mail Tools ({} total)\n", schemas.len());
+            println!("{:<30} DESCRIPTION", "TOOL");
+            println!("{}", "-".repeat(80));
+            for schema in schemas {
+                println!("{:<30} {}", schema.name, schema.description);
             }
         }
         Commands::Version => {
