@@ -1,83 +1,36 @@
-# =============================================================================
-# MCP Agent Mail - Multi-stage Dockerfile
-# =============================================================================
-# Build stages:
-#   1. chef    - Install cargo-chef for dependency caching
-#   2. planner - Analyze dependencies and create recipe
-#   3. builder - Build the actual binary with cached dependencies
-#   4. runtime - Minimal runtime image
-# =============================================================================
+# Build Stage
+FROM rust:1.83-bookworm as builder
 
-# -----------------------------------------------------------------------------
-# Stage 1: Chef - Install cargo-chef
-# -----------------------------------------------------------------------------
-FROM rust:1.83-bookworm AS chef
-RUN cargo install cargo-chef
+WORKDIR /app
+COPY . .
+
+# Build specific package
+RUN cargo build --release -p mcp-agent-mail
+
+# Runtime Stage
+FROM debian:bookworm-slim
+
 WORKDIR /app
 
-# -----------------------------------------------------------------------------
-# Stage 2: Planner - Analyze dependencies
-# -----------------------------------------------------------------------------
-FROM chef AS planner
-COPY . .
-RUN cargo chef prepare --recipe-path recipe.json
-
-# -----------------------------------------------------------------------------
-# Stage 3: Builder - Build with cached dependencies
-# -----------------------------------------------------------------------------
-FROM chef AS builder
-
-# Install build dependencies
-RUN apt-get update && apt-get install -y \
-    pkg-config \
-    libssl-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy recipe and build dependencies (this layer is cached)
-COPY --from=planner /app/recipe.json recipe.json
-RUN cargo chef cook --release --recipe-path recipe.json
-
-# Copy source and build
-COPY . .
-RUN cargo build --release --bin mcp-server
-
-# -----------------------------------------------------------------------------
-# Stage 4: Runtime - Minimal image
-# -----------------------------------------------------------------------------
-FROM debian:bookworm-slim AS runtime
-
-# Install runtime dependencies
+# Install runtime dependencies (sqlite3, ca-certificates)
 RUN apt-get update && apt-get install -y \
     ca-certificates \
-    libssl3 \
-    && rm -rf /var/lib/apt/lists/* \
-    && useradd -r -s /bin/false mcp
+    libsqlite3-0 \
+    && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
+# Copy binary
+COPY --from=builder /app/target/release/mcp-agent-mail /usr/local/bin/mcp-agent-mail
 
-# Copy binary from builder
-COPY --from=builder /app/target/release/mcp-server /app/mcp-server
-
-# Copy migrations
-COPY --from=builder /app/migrations /app/migrations
-
-# Create data directories
-RUN mkdir -p /app/data/archive && chown -R mcp:mcp /app
-
-# Switch to non-root user
-USER mcp
+# Create data directory
+RUN mkdir -p /app/data
+VOLUME /app/data
 
 # Environment variables
-ENV RUST_LOG=info
-ENV LOG_FORMAT=json
-ENV PORT=8000
+ENV PORT=3000
+ENV HOST=0.0.0.0
 
 # Expose port
-EXPOSE 8000
+EXPOSE 3000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/health || exit 1
-
-# Run the server
-CMD ["/app/mcp-server"]
+# Run
+CMD ["mcp-agent-mail", "serve"]

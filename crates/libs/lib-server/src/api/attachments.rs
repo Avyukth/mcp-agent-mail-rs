@@ -13,21 +13,30 @@ use lib_core::model::project::ProjectBmc;
 use std::path::PathBuf;
 use tokio::fs;
 use base64::Engine;
+use utoipa::ToSchema;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, ToSchema)]
 pub struct AddAttachmentPayload {
     pub project_slug: String,
     pub filename: String,
     pub content_base64: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, ToSchema)]
 pub struct AddAttachmentResponse {
     pub id: i64,
     pub filename: String,
     pub size: i64,
 }
 
+#[utoipa::path(
+    post,
+    path = "/api/attachments/add",
+    request_body = AddAttachmentPayload,
+    responses(
+        (status = 200, description = "Attachment added", body = AddAttachmentResponse)
+    )
+)]
 pub async fn add_attachment(
     State(state): State<AppState>,
     Json(payload): Json<AddAttachmentPayload>,
@@ -92,11 +101,19 @@ pub async fn add_attachment(
     }).into_response())
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, utoipa::IntoParams)]
 pub struct ListAttachmentsParams {
     pub project_slug: String,
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/attachments",
+    params(ListAttachmentsParams),
+    responses(
+        (status = 200, description = "List attachments", body = Vec<lib_core::model::attachment::Attachment>)
+    )
+)]
 pub async fn list_attachments(
     State(state): State<AppState>,
     Query(params): Query<ListAttachmentsParams>,
@@ -107,6 +124,16 @@ pub async fn list_attachments(
     Ok(Json(items).into_response())
 }
 
+#[utoipa::path(
+    get,
+    path = "/api/attachments/{id}",
+    params(
+        ("id" = i64, Path, description = "Attachment ID")
+    ),
+    responses(
+        (status = 200, description = "Download attachment", body = String)
+    )
+)]
 pub async fn get_attachment(
     State(state): State<AppState>,
     Path(id): Path<i64>,

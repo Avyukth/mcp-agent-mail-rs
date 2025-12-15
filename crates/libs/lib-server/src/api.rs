@@ -5,10 +5,15 @@ use crate::tools;
 use crate::AppState;
 
 pub mod attachments;
+pub mod export;
 
 pub fn routes() -> Router<AppState> {
     Router::new()
         // Core
+        // ...
+        // Export
+        .route("/api/export", post(export::export_mailbox))
+        // Attachments
         .route("/api/health", get(tools::health_check))
         .route("/api/health_check", get(tools::health_check)) // Python alias
         .route("/api/project/ensure", post(tools::ensure_project))
@@ -115,6 +120,7 @@ pub fn routes() -> Router<AppState> {
         .route("/api/uninstall_guard", post(tools::uninstall_precommit_guard)) // Python alias (short)
         // Attachments
         // Attachments
+        .route("/api/attachments", get(attachments::list_attachments))
         .route("/api/attachments/add", post(attachments::add_attachment))
         .route("/api/add_attachment", post(attachments::add_attachment)) // Python alias
         .route("/api/attachments/get", get(attachments::get_attachment)) // Changed to GET

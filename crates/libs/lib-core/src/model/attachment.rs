@@ -1,8 +1,9 @@
 use crate::model::ModelManager;
 use crate::{Ctx, Result};
 use serde::{Deserialize, Serialize};
+use utoipa::ToSchema;
 
-#[derive(Debug, Clone, Serialize)] 
+#[derive(Debug, Clone, Serialize, ToSchema)] 
 // Note: We don't have db_macro::FromRow, we use manual implementation usually or sqlx (now libsql).
 // I will implement from_row manually as seen in other files.
 pub struct Attachment {

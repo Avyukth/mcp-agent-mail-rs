@@ -9,6 +9,8 @@ chrono.workspace = true
 libsql.workspace = true
 serde.workspace = true
 serde_json.workspace = true
+csv = "1.3"
+utoipa = { version = "5", features = ["uuid", "chrono"] }
 thiserror.workspace = true
 uuid.workspace = true
 git2.workspace = true

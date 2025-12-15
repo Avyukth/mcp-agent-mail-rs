@@ -1,20 +1,23 @@
 [Unit]
-Description=MCP Agent Mail Unified Service
+Description=MCP Agent Mail Service
 After=network.target
 
 [Service]
 Type=simple
-User=mcp
-Group=mcp
-# Adjust path to your binary
-ExecStart=/opt/mouchak/bin/mcp-agent-mail serve http
-# Adjust path to your env file
-EnvironmentFile=/etc/mouchak/env
-Restart=always
+User=mcp-agent
+Group=mcp-agent
+# Path to binary
+ExecStart=/usr/local/bin/mcp-agent-mail serve
+# Directory where 'data' folder is located/mounted relative to CWD if implied,
+# OR we should set working directory.
+WorkingDirectory=/var/lib/mcp-agent-mail
+# Environment variables
+EnvironmentFile=/etc/default/mcp-agent-mail
+# Restart on failure
+Restart=on-failure
 RestartSec=5
-StandardOutput=journal
-StandardError=journal
-SyslogIdentifier=mcp-agent-mail
+# Limits
+LimitNOFILE=65536
 
 [Install]
 WantedBy=multi-user.target

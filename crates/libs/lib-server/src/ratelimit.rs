@@ -56,7 +56,7 @@ impl RateLimitConfig {
 
 pub async fn rate_limit_middleware(
     State(config): State<RateLimitConfig>,
-    ConnectInfo(ip): ConnectInfo<SocketAddr>,
+    ConnectInfo(peer): ConnectInfo<SocketAddr>,
     req: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
@@ -64,19 +64,19 @@ pub async fn rate_limit_middleware(
         return Ok(next.run(req).await);
     }
 
-    // Extract IP
-    // 1. Try X-Forwarded-For if behind proxy (this is rudimentary, assuming trusted proxy for now)
-    // 2. Fallback to ConnectInfo
-    // 3. Fallback to 127.0.0.1
-    
-    // Note: For real production behind generic proxies, inspecting headers is needed.
-    // Ideally we trust ConnectInfo if Axum is configured correctly (e.g. valid proxy or direct).
-    
-    // IP is guaranteed by ConnectInfo if setup correctly using into_make_service_with_connect_info
-    let ip = ip.ip();
+    // Determine Client IP
+    // Prefer X-Forwarded-For header if present (standard for reverse proxies)
+    // Fallback to direct peer address (ConnectInfo)
+    let ip = if let Some(forwarded) = req.headers().get("x-forwarded-for") {
+        forwarded.to_str()
+            .ok()
+            .and_then(|s| s.split(',').next()) // Take the first IP in the list
+            .and_then(|s| s.trim().parse::<std::net::IpAddr>().ok())
+            .unwrap_or(peer.ip())
+    } else {
+        peer.ip()
+    };
 
-    // Check (allow localhost bypass logic? Assuming auth middleware handles that, or we treat localhost as just another IP)
-    
     match config.limiter.check_key(&ip) {
         Ok(_) => Ok(next.run(req).await),
         Err(_) => {

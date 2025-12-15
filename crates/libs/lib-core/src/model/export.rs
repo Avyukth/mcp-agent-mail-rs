@@ -15,6 +15,7 @@ pub enum ExportFormat {
     Html,
     Json,
     Markdown,
+    Csv,
 }
 
 impl std::str::FromStr for ExportFormat {
@@ -24,6 +25,7 @@ impl std::str::FromStr for ExportFormat {
         Ok(match s.to_lowercase().as_str() {
             "html" => Self::Html,
             "md" | "markdown" => Self::Markdown,
+            "csv" => Self::Csv,
             _ => Self::Json, // default
         })
     }
@@ -64,12 +66,14 @@ impl ExportBmc {
             ExportFormat::Html => Self::render_html(&project.slug, &messages),
             ExportFormat::Json => Self::render_json(&messages)?,
             ExportFormat::Markdown => Self::render_markdown(&project.slug, &messages),
+            ExportFormat::Csv => Self::render_csv(&messages)?,
         };
         
         let format_str = match format {
             ExportFormat::Html => "html",
             ExportFormat::Json => "json",
             ExportFormat::Markdown => "markdown",
+            ExportFormat::Csv => "csv",
         };
         
         Ok(ExportedMailbox {
@@ -130,6 +134,28 @@ body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; pad
         }
         
         md
+    }
+
+    fn render_csv(messages: &[crate::model::message::Message]) -> Result<String> {
+        let mut wtr = csv::Writer::from_writer(vec![]);
+        
+        // Header
+        wtr.write_record(&["id", "created_at", "sender", "subject", "body"])
+            .map_err(|e| crate::Error::InvalidInput(format!("CSV Error: {}", e)))?;
+            
+        // Rows
+        for msg in messages {
+            wtr.write_record(&[
+                msg.id.to_string(),
+                msg.created_ts.format("%Y-%m-%d %H:%M:%S").to_string(),
+                msg.sender_name.clone(),
+                msg.subject.clone(),
+                msg.body_md.clone(),
+            ]).map_err(|e| crate::Error::InvalidInput(format!("CSV Error: {}", e)))?;
+        }
+        
+        let data = wtr.into_inner().map_err(|e| crate::Error::InvalidInput(format!("CSV Error: {}", e)))?;
+        Ok(String::from_utf8(data).unwrap_or_default())
     }
 }
 

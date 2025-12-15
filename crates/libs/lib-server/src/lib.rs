@@ -13,6 +13,11 @@ pub mod api;
 pub mod auth;
 pub mod tools;
 pub mod ratelimit;
+pub mod openapi;
+
+use utoipa::{ToSchema, OpenApi};
+use utoipa_swagger_ui::SwaggerUi;
+
 
 pub use error::ServerError;
 pub use lib_core::ModelManager;
@@ -87,6 +92,8 @@ pub async fn run(config: ServerConfig) -> std::result::Result<(), ServerError> {
             auth_middleware,
         ))
         // Public routes (no auth)
+        // .merge(SwaggerUi::new("/swagger-ui").url("/api-docs/openapi.json", openapi::ApiDoc::openapi()))
+        .route("/api-docs/openapi.json", get(openapi_json))
         .route("/", get(root_handler))
         .route("/health", get(health_handler))
         .route("/ready", get(ready_handler))
@@ -100,6 +107,7 @@ pub async fn run(config: ServerConfig) -> std::result::Result<(), ServerError> {
             app_state.clone(),
             ratelimit::rate_limit_middleware,
         ))
+        .layer(cors) // Enable CORS
         .with_state(app_state);
 
 
@@ -117,6 +125,10 @@ pub async fn run(config: ServerConfig) -> std::result::Result<(), ServerError> {
         .await?;
 
     Ok(())
+}
+
+async fn openapi_json() -> impl IntoResponse {
+    axum::Json(openapi::ApiDoc::openapi())
 }
 
 async fn shutdown_signal() {
@@ -153,13 +165,21 @@ async fn mcp_handler() -> &'static str {
     "MCP endpoint - not yet implemented"
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, ToSchema)]
 struct HealthResponse {
     status: &'static str,
+    #[schema(example = 120)]
     uptime_seconds: u64,
 }
 
-async fn health_handler(State(state): State<AppState>) -> impl IntoResponse {
+#[utoipa::path(
+    get,
+    path = "/api/health",
+    responses(
+        (status = 200, description = "Server Health", body = HealthResponse)
+    )
+)]
+pub async fn health_handler(State(state): State<AppState>) -> impl IntoResponse {
     let uptime = state.start_time.elapsed().as_secs();
     let response = HealthResponse {
         status: "healthy",
@@ -168,13 +188,20 @@ async fn health_handler(State(state): State<AppState>) -> impl IntoResponse {
     (StatusCode::OK, axum::Json(response))
 }
 
-#[derive(serde::Serialize)]
+#[derive(serde::Serialize, ToSchema)]
 struct ReadyResponse {
     status: &'static str,
     database: &'static str,
 }
 
-async fn ready_handler(State(state): State<AppState>) -> impl IntoResponse {
+#[utoipa::path(
+    get,
+    path = "/api/ready",
+    responses(
+        (status = 200, description = "Readiness Check", body = ReadyResponse)
+    )
+)]
+pub async fn ready_handler(State(state): State<AppState>) -> impl IntoResponse {
     // Check database connectivity
     let db_status = match state.mm.health_check().await {
         Ok(true) => "connected",
