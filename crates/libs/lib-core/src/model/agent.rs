@@ -68,6 +68,9 @@ impl AgentBmc {
             return Err(crate::Error::ProjectNotFound(format!("ID: {}", agent_c.project_id)));
         };
 
+        // Git Operations - serialized to prevent lock contention
+        let _git_guard = mm.git_lock.lock().await;
+
         let repo_root = &mm.repo_root;
         let repo = git_store::open_repo(repo_root)?;
 
@@ -75,7 +78,7 @@ impl AgentBmc {
             .join(&project_slug)
             .join("agents")
             .join(&agent_c.name);
-            
+
         // File path relative to repo root
         let profile_rel_path = agent_dir.join("profile.json");
         let profile_json = serde_json::to_string_pretty(&agent_c)?;

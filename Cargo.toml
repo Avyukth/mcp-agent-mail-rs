@@ -13,6 +13,25 @@ members = [
     "crates/tests/e2e",
 ]
 
+# Root package for benchmarks
+[package]
+name = "mcp-agent-mail-benches"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "concurrent-agents-bench"
+path = "benches/concurrent_agents.rs"
+
+[dependencies]
+tokio = { workspace = true }
+reqwest = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+anyhow = { workspace = true }
+chrono = { workspace = true }
+
 [workspace.dependencies]
 # Web Framework
 axum = "0.8.7"

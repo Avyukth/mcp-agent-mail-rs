@@ -6,7 +6,10 @@ use crate::Result;
 /// If the repository already exists, it opens it.
 pub fn init_or_open_repo<P: AsRef<Path>>(path: P) -> Result<Repository> {
     let path_ref = path.as_ref();
-    if path_ref.exists() && Repository::discover(path_ref).is_ok() {
+    // Check if THIS directory is a git repo (has .git subdirectory),
+    // not just if `discover` can find a repo up the tree
+    let git_dir = path_ref.join(".git");
+    if git_dir.exists() {
         Repository::open(path_ref).map_err(crate::Error::from)
     } else {
         Repository::init(path).map_err(crate::Error::from)

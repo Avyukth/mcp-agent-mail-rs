@@ -173,10 +173,12 @@ impl ExportBmc {
         let now = chrono::Utc::now();
         let filename = format!("{}_{}.md", project_slug, now.format("%Y%m%d_%H%M%S"));
         let rel_path = std::path::Path::new("mailboxes").join(project_slug).join(&filename);
-        
-        // 3. Open Repo
+
+        // 3. Git Operations - serialized to prevent lock contention
+        let _git_guard = mm.git_lock.lock().await;
+
         let repo = crate::store::git_store::open_repo(&mm.repo_root)?;
-        
+
         // 4. Commit
         let oid = crate::store::git_store::commit_file(
             &repo,
@@ -186,7 +188,7 @@ impl ExportBmc {
             "MCP Agent Mail", // Committer name
             "mcp@generic-agent.ai", // Committer email
         )?;
-        
+
         Ok(oid.to_string())
     }
 }

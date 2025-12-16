@@ -35,16 +35,19 @@ impl Default for RateLimitConfig {
 impl RateLimitConfig {
     pub fn new() -> Self {
         let enabled = std::env::var("RATE_LIMIT_ENABLED").unwrap_or_else(|_| "true".into()) == "true";
-        
+
+        // Defaults sized for 100 concurrent agents:
+        // - 1000 RPS allows 10 requests/second per agent
+        // - 2000 burst handles initial connection spikes
         let rps = std::env::var("RATE_LIMIT_RPS")
-            .unwrap_or_else(|_| "100".into())
+            .unwrap_or_else(|_| "1000".into())
             .parse::<u32>()
-            .unwrap_or(100);
-            
+            .unwrap_or(1000);
+
         let burst = std::env::var("RATE_LIMIT_BURST")
-            .unwrap_or_else(|_| "200".into())
+            .unwrap_or_else(|_| "2000".into())
             .parse::<u32>()
-            .unwrap_or(200);
+            .unwrap_or(2000);
 
         let quota = Quota::per_second(NonZeroU32::new(rps).unwrap_or(NonZeroU32::new(100).unwrap()))
             .allow_burst(NonZeroU32::new(burst).unwrap_or(NonZeroU32::new(200).unwrap()));

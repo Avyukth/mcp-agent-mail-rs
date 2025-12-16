@@ -134,6 +134,9 @@ impl ProjectBmc {
             std::fs::create_dir_all(&project_root)?;
         }
 
+        // Git Operations - serialized to prevent lock contention
+        let _git_guard = mm.git_lock.lock().await;
+
         // Initialize or open repo at repo_root (not project_root, as per python code single global archive repo)
         // Wait, python code says "single global archive repo" at settings.storage.root
         // and "Project-specific root inside the single global archive repo".
@@ -250,15 +253,17 @@ impl ProjectBmc {
         let agents_path = project_root.join("agents.json");
         std::fs::write(&agents_path, agents_json)?;
 
-        // 4. Commit using git_store
+        // 4. Commit using git_store - serialized to prevent lock contention
+        let _git_guard = mm.git_lock.lock().await;
+
         // We need to pass paths relative to the repo root
         // Since we are inside repo_root, relative path is `projects/{slug}/mailbox.json`
         let relative_mailbox = Path::new("projects").join(&project.slug).join("mailbox.json");
         let relative_agents = Path::new("projects").join(&project.slug).join("agents.json");
-        
+
         // We open the repo at mm.repo_root
         let repo = git_store::open_repo(repo_root)?;
-        
+
         let oid = git_store::commit_paths(
             &repo,
             &[relative_mailbox, relative_agents],

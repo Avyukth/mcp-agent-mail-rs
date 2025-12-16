@@ -16,13 +16,29 @@ pub async fn new_db_pool() -> Result<Db> {
     let db = Builder::new_local(db_path).build().await?;
     let conn = db.connect()?;
     
-    // Basic manual migration for now since sqlx::migrate is gone
-    // In a real app, use a migration crate or custom logic
+    // SQLite concurrency optimizations for high-load scenarios
+    // WAL mode: enables concurrent reads during writes
     let _ = conn.execute("PRAGMA journal_mode=WAL;", ()).await;
-    
-    // Read and apply initial schema manually
-    let schema = include_str!("../../../../../migrations/001_initial_schema.sql");
-    conn.execute_batch(schema).await?;
+    // busy_timeout: wait up to 30 seconds when database is locked (instead of failing immediately)
+    // This is critical for 100+ concurrent agents writing simultaneously
+    let _ = conn.execute("PRAGMA busy_timeout=30000;", ()).await;
+    // synchronous=NORMAL: good balance of safety and performance with WAL
+    let _ = conn.execute("PRAGMA synchronous=NORMAL;", ()).await;
+    // cache_size: increase cache to reduce disk I/O (negative = KB, so -64000 = 64MB)
+    let _ = conn.execute("PRAGMA cache_size=-64000;", ()).await;
+
+    // Apply all migrations in order
+    // Note: SQLite's IF NOT EXISTS makes this idempotent for table creation
+    let migrations = [
+        include_str!("../../../../../migrations/001_initial_schema.sql"),
+        include_str!("../../../../../migrations/002_agent_capabilities.sql"),
+        include_str!("../../../../../migrations/003_tool_metrics.sql"),
+        include_str!("../../../../../migrations/004_attachments.sql"),
+    ];
+
+    for migration in &migrations {
+        conn.execute_batch(migration).await?;
+    }
 
     Ok(conn)
 }

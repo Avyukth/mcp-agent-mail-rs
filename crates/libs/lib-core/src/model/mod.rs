@@ -18,11 +18,17 @@ pub mod agent_capabilities;
 use crate::store::{self, Db};
 use crate::Result;
 use std::path::PathBuf;
+use std::sync::Arc;
+use tokio::sync::Mutex;
 
 #[derive(Clone)]
 pub struct ModelManager {
     pub(crate) db: Db,
     pub repo_root: PathBuf,
+    /// Mutex to serialize git operations - git2's index locking doesn't handle
+    /// high concurrency well, so we serialize commits at the application level.
+    /// This is critical for supporting 100+ concurrent agents.
+    pub git_lock: Arc<Mutex<()>>,
 }
 
 impl ModelManager {
@@ -36,13 +42,21 @@ impl ModelManager {
         // Auto-initialize git repository if not exists
         crate::store::git_store::init_or_open_repo(&repo_root)?;
 
-        Ok(ModelManager { db, repo_root })
+        Ok(ModelManager {
+            db,
+            repo_root,
+            git_lock: Arc::new(Mutex::new(())),
+        })
     }
 
     /// Constructor for testing with custom db connection and paths
     /// This is public so integration tests can use it
     pub fn new_for_test(db: Db, repo_root: PathBuf) -> Self {
-        ModelManager { db, repo_root }
+        ModelManager {
+            db,
+            repo_root,
+            git_lock: Arc::new(Mutex::new(())),
+        }
     }
 
     /// Returns the sqlx db pool reference.

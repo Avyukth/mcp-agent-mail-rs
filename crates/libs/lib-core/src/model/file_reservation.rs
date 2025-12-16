@@ -77,6 +77,9 @@ impl FileReservationBmc {
              return Err(crate::Error::AgentNotFound(format!("{}", fr_c.agent_id)));
         };
 
+        // Git Operations - serialized to prevent lock contention
+        let _git_guard = mm.git_lock.lock().await;
+
         let repo_root = &mm.repo_root;
         let repo = git_store::open_repo(repo_root)?;
 
@@ -101,7 +104,7 @@ impl FileReservationBmc {
             "created_ts": chrono::Utc::now().to_rfc3339(),
             "expires_ts": fr_c.expires_ts.format("%Y-%m-%dT%H:%M:%S").to_string(),
         });
-        
+
         let content = serde_json::to_string_pretty(&payload)?;
 
         git_store::commit_file(

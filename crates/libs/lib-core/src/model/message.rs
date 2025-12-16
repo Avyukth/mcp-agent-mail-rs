@@ -169,12 +169,15 @@ impl MessageBmc {
         });
         let content = format!("---json\n{}\n---\n\n{}", serde_json::to_string_pretty(&frontmatter)?, msg_c.body_md);
 
-        // Commit
+        // Git Operations - serialized to prevent lock contention under high concurrency
+        // We acquire the git_lock before any git2 operations to avoid .git/index.lock conflicts
+        let _git_guard = mm.git_lock.lock().await;
+
         let repo = git_store::open_repo(repo_root)?;
         let commit_msg = format!("mail: {} -> {} | {}", sender_name, recipient_names.join(", "), msg_c.subject);
 
         let workdir = repo.workdir().ok_or(crate::Error::InvalidInput("No workdir".into()))?;
-        
+
         fn write_file(root: &std::path::Path, rel: &std::path::Path, content: &str) -> Result<()> {
              let full = root.join(rel);
              if let Some(p) = full.parent() {
@@ -205,6 +208,8 @@ impl MessageBmc {
             "mcp-bot",
             "mcp-bot@localhost",
         )?;
+
+        // git_guard is dropped here, releasing the lock
 
         Ok(id)
     }
