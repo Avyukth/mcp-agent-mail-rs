@@ -5,8 +5,11 @@ use crate::store::git_store;
 use serde::{Deserialize, Serialize};
 use chrono::NaiveDateTime;
 use std::path::PathBuf;
+use std::sync::Arc;
 use uuid::Uuid;
 use serde_json::Value;
+use tokio::sync::Mutex;
+use tracing::{info, warn};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
@@ -41,7 +44,6 @@ pub struct MessageBmc;
 impl MessageBmc {
     pub async fn create(_ctx: &Ctx, mm: &ModelManager, msg_c: MessageForCreate) -> Result<i64> {
         let db = mm.db();
-        let repo_root = &mm.repo_root;
 
         // 1. Insert into DB
         let thread_id = msg_c.thread_id.unwrap_or_else(|| Uuid::new_v4().to_string());
@@ -106,8 +108,8 @@ impl MessageBmc {
             }
         }
 
-        // 3. Git Operations
-        // Need Project Slug
+        // 3. Git Operations - DEFERRED to background task for low latency
+        // Collect data needed for background git commit
         let stmt = db.prepare("SELECT slug FROM projects WHERE id = ?").await?;
         let mut rows = stmt.query([msg_c.project_id]).await?;
         let project_slug: String = if let Some(row) = rows.next().await? {
@@ -116,7 +118,6 @@ impl MessageBmc {
             return Err(crate::Error::ProjectNotFound(format!("ID: {}", msg_c.project_id)));
         };
 
-        // Need Sender Name
         let stmt = db.prepare("SELECT name FROM agents WHERE id = ?").await?;
         let mut rows = stmt.query([msg_c.sender_id]).await?;
         let sender_name: String = if let Some(row) = rows.next().await? {
@@ -125,7 +126,6 @@ impl MessageBmc {
             return Err(crate::Error::AgentNotFound(format!("ID: {}", msg_c.sender_id)));
         };
 
-        // Need Recipient Names
         let mut recipient_names = Vec::new();
         for recipient_id in &msg_c.recipient_ids {
             let stmt = db.prepare("SELECT name FROM agents WHERE id = ?").await?;
@@ -135,81 +135,30 @@ impl MessageBmc {
             }
         }
 
-        // Construct paths
-        let now = chrono::Utc::now();
-        let y_dir = now.format("%Y").to_string();
-        let m_dir = now.format("%m").to_string();
-        let created_iso = now.format("%Y-%m-%dT%H-%M-%SZ").to_string();
-        
-        let subject_slug = slug::slugify(&msg_c.subject);
-        let filename = format!("{}__{}__{}.md", created_iso, subject_slug, id);
+        // Spawn background task for git operations (non-blocking)
+        let git_lock = mm.git_lock.clone();
+        let repo_root = mm.repo_root.clone();
+        let subject = msg_c.subject.clone();
+        let body_md = msg_c.body_md.clone();
+        let thread_id_clone = thread_id.clone();
+        let importance_clone = importance.clone();
 
-        let project_root = PathBuf::from("projects").join(&project_slug);
-        let canonical_path = project_root.join("messages").join(&y_dir).join(&m_dir).join(&filename);
-        
-        let outbox_path = project_root.join("agents").join(&sender_name).join("outbox").join(&y_dir).join(&m_dir).join(&filename);
-
-        let mut inbox_paths = Vec::new();
-        for recipient_name in &recipient_names {
-            inbox_paths.push(
-                project_root.join("agents").join(recipient_name).join("inbox").join(&y_dir).join(&m_dir).join(&filename)
-            );
-        }
-
-        // Content
-        let frontmatter = serde_json::json!({
-            "id": id,
-            "project": project_slug,
-            "from": sender_name,
-            "to": recipient_names,
-            "subject": msg_c.subject,
-            "thread_id": thread_id,
-            "created": created_iso,
-            "importance": importance,
+        tokio::spawn(async move {
+            if let Err(e) = commit_message_to_git(
+                git_lock,
+                repo_root,
+                id,
+                &project_slug,
+                &sender_name,
+                &recipient_names,
+                &subject,
+                &body_md,
+                &thread_id_clone,
+                &importance_clone,
+            ).await {
+                warn!("Background git commit failed for message {}: {}", id, e);
+            }
         });
-        let content = format!("---json\n{}\n---\n\n{}", serde_json::to_string_pretty(&frontmatter)?, msg_c.body_md);
-
-        // Git Operations - serialized to prevent lock contention under high concurrency
-        // We acquire the git_lock before any git2 operations to avoid .git/index.lock conflicts
-        let _git_guard = mm.git_lock.lock().await;
-
-        let repo = git_store::open_repo(repo_root)?;
-        let commit_msg = format!("mail: {} -> {} | {}", sender_name, recipient_names.join(", "), msg_c.subject);
-
-        let workdir = repo.workdir().ok_or(crate::Error::InvalidInput("No workdir".into()))?;
-
-        fn write_file(root: &std::path::Path, rel: &std::path::Path, content: &str) -> Result<()> {
-             let full = root.join(rel);
-             if let Some(p) = full.parent() {
-                 std::fs::create_dir_all(p)?;
-             }
-             std::fs::write(full, content)?;
-             Ok(())
-        }
-
-        write_file(workdir, &canonical_path, &content)?;
-        write_file(workdir, &outbox_path, &content)?;
-        for inbox_path in &inbox_paths {
-            write_file(workdir, inbox_path, &content)?;
-        }
-
-        // Collect all paths to commit
-        let mut all_paths = vec![canonical_path.clone()]; // Canonical path for commit
-        all_paths.push(outbox_path.clone());
-        all_paths.extend(inbox_paths.clone());
-
-        // Convert PathBuf to AsRef<Path>
-        let all_paths_as_ref: Vec<&std::path::Path> = all_paths.iter().map(|p| p.as_path()).collect();
-
-        git_store::commit_paths(
-            &repo,
-            &all_paths_as_ref,
-            &commit_msg,
-            "mcp-bot",
-            "mcp-bot@localhost",
-        )?;
-
-        // git_guard is dropped here, releasing the lock
 
         Ok(id)
     }
@@ -614,4 +563,94 @@ pub struct ThreadSummary {
     pub subject: String,
     pub message_count: usize,
     pub last_message_ts: NaiveDateTime,
+}
+
+/// Background git commit for message archival
+/// This runs async after the DB commit returns, keeping API latency low
+async fn commit_message_to_git(
+    git_lock: Arc<Mutex<()>>,
+    repo_root: PathBuf,
+    id: i64,
+    project_slug: &str,
+    sender_name: &str,
+    recipient_names: &[String],
+    subject: &str,
+    body_md: &str,
+    thread_id: &str,
+    importance: &str,
+) -> Result<()> {
+    // Construct paths
+    let now = chrono::Utc::now();
+    let y_dir = now.format("%Y").to_string();
+    let m_dir = now.format("%m").to_string();
+    let created_iso = now.format("%Y-%m-%dT%H-%M-%SZ").to_string();
+
+    let subject_slug = slug::slugify(subject);
+    let filename = format!("{}__{}__{}.md", created_iso, subject_slug, id);
+
+    let project_root = PathBuf::from("projects").join(project_slug);
+    let canonical_path = project_root.join("messages").join(&y_dir).join(&m_dir).join(&filename);
+
+    let outbox_path = project_root.join("agents").join(sender_name).join("outbox").join(&y_dir).join(&m_dir).join(&filename);
+
+    let mut inbox_paths = Vec::new();
+    for recipient_name in recipient_names {
+        inbox_paths.push(
+            project_root.join("agents").join(recipient_name).join("inbox").join(&y_dir).join(&m_dir).join(&filename)
+        );
+    }
+
+    // Content
+    let frontmatter = serde_json::json!({
+        "id": id,
+        "project": project_slug,
+        "from": sender_name,
+        "to": recipient_names,
+        "subject": subject,
+        "thread_id": thread_id,
+        "created": created_iso,
+        "importance": importance,
+    });
+    let content = format!("---json\n{}\n---\n\n{}", serde_json::to_string_pretty(&frontmatter)?, body_md);
+
+    // Git Operations - serialized to prevent lock contention
+    let _git_guard = git_lock.lock().await;
+
+    let repo = git_store::open_repo(&repo_root)?;
+    let commit_msg = format!("mail: {} -> {} | {}", sender_name, recipient_names.join(", "), subject);
+
+    let workdir = repo.workdir().ok_or(crate::Error::InvalidInput("No workdir".into()))?;
+
+    fn write_file(root: &std::path::Path, rel: &std::path::Path, content: &str) -> Result<()> {
+         let full = root.join(rel);
+         if let Some(p) = full.parent() {
+             std::fs::create_dir_all(p)?;
+         }
+         std::fs::write(full, content)?;
+         Ok(())
+    }
+
+    write_file(workdir, &canonical_path, &content)?;
+    write_file(workdir, &outbox_path, &content)?;
+    for inbox_path in &inbox_paths {
+        write_file(workdir, inbox_path, &content)?;
+    }
+
+    // Collect all paths to commit
+    let mut all_paths = vec![canonical_path.clone()];
+    all_paths.push(outbox_path.clone());
+    all_paths.extend(inbox_paths.clone());
+
+    let all_paths_as_ref: Vec<&std::path::Path> = all_paths.iter().map(|p| p.as_path()).collect();
+
+    git_store::commit_paths(
+        &repo,
+        &all_paths_as_ref,
+        &commit_msg,
+        "mcp-bot",
+        "mcp-bot@localhost",
+    )?;
+
+    info!("Background git commit succeeded for message {}", id);
+    Ok(())
 }

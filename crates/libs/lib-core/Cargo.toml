@@ -14,6 +14,7 @@ utoipa = { version = "5", features = ["uuid", "chrono"] }
 thiserror.workspace = true
 uuid.workspace = true
 git2.workspace = true
+tracing.workspace = true
 slug = "0.1.6"
 
 # Crate-specific dependencies
