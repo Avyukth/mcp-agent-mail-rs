@@ -444,7 +444,8 @@ impl AgentMailService {
         Ok(Self { mm, tool_router })
     }
 
-    #[cfg(test)]
+    /// Create AgentMailService with an existing ModelManager
+    /// Use this to share the ModelManager with the main server to avoid migration conflicts
     pub fn new_with_mm(mm: Arc<ModelManager>) -> Self {
         let tool_router = Self::tool_router();
         Self { mm, tool_router }

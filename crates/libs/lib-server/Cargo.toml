@@ -7,6 +7,11 @@ edition = "2024"
 # Internal
 lib-core = { path = "../lib-core" }
 lib-common = { path = "../lib-common" }
+lib-mcp = { path = "../lib-mcp" }
+
+# MCP SDK
+rmcp.workspace = true
+http-body-util = "0.1"
 
 # Http
 axum = { workspace = true, features = ["macros"] }
@@ -54,3 +59,8 @@ tower = { version = "0.5", features = ["util"] }
 wiremock = "0.6"
 rand = "0.8"
 rsa = "0.9"
+hyper = { version = "1", features = ["full"] }
+http-body-util = "0.1"
+
+# MCP testing deps
+rmcp.workspace = true

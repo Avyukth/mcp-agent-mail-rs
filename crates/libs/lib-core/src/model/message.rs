@@ -567,6 +567,7 @@ pub struct ThreadSummary {
 
 /// Background git commit for message archival
 /// This runs async after the DB commit returns, keeping API latency low
+#[allow(clippy::too_many_arguments)]
 async fn commit_message_to_git(
     git_lock: Arc<Mutex<()>>,
     repo_root: PathBuf,

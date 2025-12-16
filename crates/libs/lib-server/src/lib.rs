@@ -1,4 +1,4 @@
-use axum::routing::{get, post};
+use axum::routing::get;
 use axum::{extract::State, http::StatusCode, response::IntoResponse, Router};
 use metrics_exporter_prometheus::{Matcher, PrometheusBuilder, PrometheusHandle};
 use std::net::SocketAddr;
@@ -14,6 +14,7 @@ pub mod auth;
 pub mod tools;
 pub mod ratelimit;
 pub mod openapi;
+pub mod mcp;
 
 use utoipa::{ToSchema, OpenApi};
 
@@ -61,7 +62,10 @@ pub async fn run(config: ServerConfig) -> std::result::Result<(), ServerError> {
 
     // Initialize ModelManager
     let mm = ModelManager::new().await?;
-    
+
+    // Create MCP routes with shared ModelManager (clone before move)
+    let mcp_routes = mcp::mcp_routes(mm.clone());
+
     // Initialize Auth
     let auth_config = AuthConfig::from_env();
     tracing::info!("Auth Mode: {:?}", auth_config.mode);
@@ -85,7 +89,7 @@ pub async fn run(config: ServerConfig) -> std::result::Result<(), ServerError> {
 
     let app = Router::new()
         .merge(api::routes())
-        .route("/mcp", post(mcp_handler))
+        .merge(mcp_routes)
         .route_layer(axum::middleware::from_fn_with_state(
             app_state.clone(),
             auth_middleware,
@@ -160,9 +164,6 @@ async fn root_handler() -> &'static str {
     "MCP Agent Mail Server is running!"
 }
 
-async fn mcp_handler() -> &'static str {
-    "MCP endpoint - not yet implemented"
-}
 
 #[derive(serde::Serialize, ToSchema)]
 struct HealthResponse {

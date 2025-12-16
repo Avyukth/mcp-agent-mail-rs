@@ -1,33 +1,39 @@
-//! Concurrent Agents Benchmark POC
+//! Full System Benchmark for MCP Agent Mail
 //!
-//! Tests system performance with > 10 concurrent agents sending messages.
+//! Replicates the load testing scenarios from `scripts/benchmark_concurrent_agents.sh`.
+//! Supports multi-phase testing: Health, Readiness, MCP Tool Calls, and Agent Conversation.
 //!
 //! Usage:
 //!   cargo run --release --bin concurrent-agents-bench -- [OPTIONS]
-//!
-//! Options:
-//!   --agents N      Number of concurrent agents (default: 20)
-//!   --messages N    Messages per agent (default: 10)
-//!   --url URL       Server URL (default: http://localhost:8765)
 
+use std::fs::OpenOptions;
+use std::io::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
+use anyhow::{Context, Result};
 use reqwest::Client;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use tokio::sync::Semaphore;
+use tokio::time::sleep;
 
-const DEFAULT_AGENTS: usize = 20;
-const DEFAULT_MESSAGES_PER_AGENT: usize = 10;
-const DEFAULT_URL: &str = "http://localhost:8765";
+// --- DTOs for MCP/Agent Requests ---
 
-#[derive(Debug, Serialize)]
+#[derive(Serialize)]
+struct JsonRpcRequest {
+    jsonrpc: String,
+    method: String,
+    params: serde_json::Value,
+    id: u64,
+}
+
+#[derive(Serialize)]
 struct EnsureProjectRequest {
     human_key: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Serialize)]
 struct RegisterAgentRequest {
     project_slug: String,
     name: String,
@@ -35,40 +41,34 @@ struct RegisterAgentRequest {
     model: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Serialize)]
 struct SendMessageRequest {
     project_slug: String,
     sender_name: String,
     recipient_names: Vec<String>,
     subject: String,
     body_md: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
     thread_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
     importance: Option<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(serde::Deserialize)]
 struct EnsureProjectResponse {
     slug: String,
 }
 
+// --- Stats ---
 
 #[derive(Debug)]
 struct BenchmarkStats {
-    total_messages: u64,
-    successful: u64,
-    failed: u64,
-    total_duration_ms: u64,
-    min_latency_ms: u64,
-    max_latency_ms: u64,
-    avg_latency_ms: f64,
-    p50_latency_ms: u64,
-    p95_latency_ms: u64,
+    label: String,
+    target_rate_str: String,
+    actual_rate: f64,
+    success_rate: f64,
     p99_latency_ms: u64,
+    result_status: String,
 }
 
-#[derive(Debug)]
 struct AtomicStats {
     successful: AtomicU64,
     failed: AtomicU64,
@@ -80,254 +80,424 @@ impl AtomicStats {
         Self {
             successful: AtomicU64::new(0),
             failed: AtomicU64::new(0),
-            latencies: tokio::sync::Mutex::new(Vec::new()),
+            latencies: tokio::sync::Mutex::new(Vec::with_capacity(10000)),
         }
     }
 
-    async fn record_success(&self, latency_ms: u64) {
-        self.successful.fetch_add(1, Ordering::Relaxed);
-        self.latencies.lock().await.push(latency_ms);
+    async fn record(&self, latency_ms: u64, success: bool) {
+        if success {
+            self.successful.fetch_add(1, Ordering::Relaxed);
+            // Optimization: Don't lock for every single request in ultra-high throughput if not needed,
+            // but for P99 we need samples. storing all might be heavy.
+            // For now, store all.
+            let mut l = self.latencies.lock().await;
+            l.push(latency_ms);
+        } else {
+            self.failed.fetch_add(1, Ordering::Relaxed);
+        }
     }
 
-    fn record_failure(&self) {
-        self.failed.fetch_add(1, Ordering::Relaxed);
-    }
-
-    async fn finalize(self, total_duration: Duration) -> BenchmarkStats {
+    async fn finalize(&self, duration: Duration, label: &str, target_rate_str: &str) -> BenchmarkStats {
         let successful = self.successful.load(Ordering::Relaxed);
         let failed = self.failed.load(Ordering::Relaxed);
-        let mut latencies = self.latencies.into_inner();
-        latencies.sort_unstable();
+        let total = successful + failed;
 
-        let total_messages = successful + failed;
-        let (min, max, avg, p50, p95, p99) = if !latencies.is_empty() {
-            let min = *latencies.first().unwrap();
-            let max = *latencies.last().unwrap();
-            let avg = latencies.iter().sum::<u64>() as f64 / latencies.len() as f64;
-            let p50 = latencies[latencies.len() * 50 / 100];
-            let p95 = latencies[latencies.len() * 95 / 100];
-            let p99 = latencies[latencies.len().saturating_sub(1).max(latencies.len() * 99 / 100)];
-            (min, max, avg, p50, p95, p99)
+        let success_rate = if total > 0 {
+            (successful as f64 / total as f64) * 100.0
         } else {
-            (0, 0, 0.0, 0, 0, 0)
+            0.0
+        };
+
+        let mut latencies = self.latencies.lock().await;
+        latencies.sort_unstable();
+        
+        // P99
+        let p99 = if !latencies.is_empty() {
+            let idx = (latencies.len() as f64 * 0.99) as usize;
+            latencies[idx.min(latencies.len() - 1)]
+        } else {
+            0
+        };
+
+        let duration_secs = duration.as_secs_f64();
+        let actual_rate = if duration_secs > 0.0 {
+            total as f64 / duration_secs
+        } else {
+            0.0
+        };
+
+        let result_status = if success_rate >= 100.0 {
+            "OK".to_string()
+        } else if success_rate >= 98.0 {
+            "EDGE".to_string()
+        } else {
+            "FAIL".to_string()
         };
 
         BenchmarkStats {
-            total_messages,
-            successful,
-            failed,
-            total_duration_ms: total_duration.as_millis() as u64,
-            min_latency_ms: min,
-            max_latency_ms: max,
-            avg_latency_ms: avg,
-            p50_latency_ms: p50,
-            p95_latency_ms: p95,
+            label: label.to_string(),
+            target_rate_str: target_rate_str.to_string(),
+            actual_rate,
+            success_rate,
             p99_latency_ms: p99,
+            result_status,
         }
     }
 }
 
-#[tokio::main]
-async fn main() -> anyhow::Result<()> {
-    // Parse args
-    let args: Vec<String> = std::env::args().collect();
-    let mut num_agents = DEFAULT_AGENTS;
-    let mut messages_per_agent = DEFAULT_MESSAGES_PER_AGENT;
-    let mut base_url = DEFAULT_URL.to_string();
+// --- Configuration ---
 
+#[derive(Clone)]
+struct Config {
+    base_url: String,
+    agents: usize,
+    duration_secs: u64,
+}
+
+// --- Benchmark Logic ---
+
+async fn run_load_test(
+    config: &Config,
+    client: &Client,
+    label: &str,
+    target_rate: Option<u64>,
+    task_fn: impl Fn(usize, Client, Arc<AtomicStats>) -> tokio::task::JoinHandle<()> + Send + Sync + Clone + 'static,
+) -> Result<BenchmarkStats> {
+    let target_rate_str = target_rate.map(|r| format!("{} req/s", r)).unwrap_or_else(|| "Full Speed".to_string());
+    println!("\nTesting: {} (rate: {})", label, target_rate_str);
+    println!("----------------------------------------");
+
+    let stats = Arc::new(AtomicStats::new());
+    
+    // Rate setup
+    // If target_rate is set, we need to throttle.
+    // simplistic approach: rate per agent = target_rate / agents.
+    // Interval between requests = 1 / rate_per_agent.
+    let interval_per_agent = if let Some(rate) = target_rate {
+        if rate == 0 { None } 
+        else {
+             let r_per_agent = rate as f64 / config.agents as f64;
+             if r_per_agent <= 0.0 { None }
+             else { Some(Duration::from_secs_f64(1.0 / r_per_agent)) }
+        }
+    } else {
+        None
+    };
+
+    // We run for a fixed duration.
+    // We can't just spawn N loops that check time, because we need to act like 'hey'.
+    // 'hey' spawns N workers and they run until duration expires.
+    
+    let start_time = Instant::now();
+    let duration_secs = config.duration_secs; // Extract Copy type to move into spawn
+    
+    // Shared flag for stopping
+    let running = Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let r_clone = running.clone();
+    
+    tokio::spawn(async move {
+        sleep(Duration::from_secs(duration_secs)).await;
+        r_clone.store(false, Ordering::Relaxed);
+    });
+
+    let mut handles = Vec::new();
+    let semaphore = Arc::new(Semaphore::new(config.agents));
+
+    // For the "Logic" function, we need to pass a generator that respects the interval
+    
+    for i in 0..config.agents {
+        let client_clone = client.clone();
+        let stats_clone = stats.clone();
+        let running_clone = running.clone();
+        let task_fn_clone = task_fn.clone();
+        let _permit = semaphore.clone().acquire_owned().await?;
+
+        // Wrapper to enforce loop and interval
+        let h = tokio::spawn(async move {
+            let mut tick_next = Instant::now();
+            
+            while running_clone.load(Ordering::Relaxed) {
+                // Throttle
+                if let Some(interval) = interval_per_agent {
+                    let now = Instant::now();
+                    if now < tick_next {
+                        tokio::time::sleep_until(tokio::time::Instant::from_std(tick_next)).await;
+                    }
+                    tick_next += interval;
+                }
+
+                // Execute ONE iteration of the task
+                let inner_h = task_fn_clone(i, client_clone.clone(), stats_clone.clone());
+                inner_h.await.unwrap();
+            }
+            drop(_permit);
+        });
+        handles.push(h);
+    }
+
+    // Wait for all to finish
+    // actually, they finish when time keeps up.
+    for h in handles {
+        let _ = h.await;
+    }
+    
+    let actual_duration = start_time.elapsed();
+    let result = stats.finalize(actual_duration, label, &target_rate_str).await;
+
+    // Print inline result
+    let color_code = match result.result_status.as_str() {
+        "OK" => "\x1b[0;32m", // Green
+        "EDGE" => "\x1b[1;33m", // Yellow
+        "FAIL" => "\x1b[0;31m", // Red
+        _ => "\x1b[0m",
+    };
+    let reset = "\x1b[0m";
+
+    println!(
+        "  Rate: {:.0} req/s | Success: {:.1}% | P99: {}ms | {}{}{}",
+        result.actual_rate, result.success_rate, result.p99_latency_ms, color_code, result.result_status, reset
+    );
+
+    Ok(result)
+}
+
+
+#[tokio::main]
+async fn main() -> Result<()> {
+    // 1. Parse Arguments (Manual parsing to match typical cli or keeping simple)
+    let args: Vec<String> = std::env::args().collect();
+    let mut port = 8765;
+    let mut agents = 100;
+    let mut duration = 10;
+    
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
+            "--port" => {
+                 if let Some(p) = args.get(i+1) { port = p.parse().unwrap_or(8765); }
+                 i += 2; 
+            },
             "--agents" => {
-                num_agents = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(DEFAULT_AGENTS);
-                i += 2;
-            }
-            "--messages" => {
-                messages_per_agent = args.get(i + 1).and_then(|s| s.parse().ok()).unwrap_or(DEFAULT_MESSAGES_PER_AGENT);
-                i += 2;
-            }
-            "--url" => {
-                base_url = args.get(i + 1).cloned().unwrap_or_else(|| DEFAULT_URL.to_string());
-                i += 2;
-            }
+                 if let Some(a) = args.get(i+1) { agents = a.parse().unwrap_or(100); }
+                 i += 2;
+            },
+            "--duration" => {
+                 if let Some(d) = args.get(i+1) { duration = d.parse().unwrap_or(10); }
+                 i += 2;
+            },
             "--help" | "-h" => {
-                println!("Concurrent Agents Benchmark POC");
-                println!();
-                println!("Usage: concurrent-agents-bench [OPTIONS]");
-                println!();
-                println!("Options:");
-                println!("  --agents N      Number of concurrent agents (default: {})", DEFAULT_AGENTS);
-                println!("  --messages N    Messages per agent (default: {})", DEFAULT_MESSAGES_PER_AGENT);
-                println!("  --url URL       Server URL (default: {})", DEFAULT_URL);
+                println!("Usage: concurrent-agents-bench [--port P] [--agents N] [--duration S]");
                 return Ok(());
-            }
+            },
             _ => i += 1,
         }
     }
 
-    println!("=== Concurrent Agents Benchmark POC ===");
-    println!();
-    println!("Configuration:");
-    println!("  Server URL:         {}", base_url);
-    println!("  Concurrent agents:  {}", num_agents);
-    println!("  Messages per agent: {}", messages_per_agent);
-    println!("  Total messages:     {}", num_agents * messages_per_agent);
-    println!();
+    let config = Config {
+        base_url: format!("http://127.0.0.1:{}", port),
+        agents,
+        duration_secs: duration,
+    };
+
+    println!("==============================================");
+    println!("MCP Agent Mail Benchmark - {} Concurrent Agents", agents);
+    println!("==============================================");
+    println!("Target: {}", config.base_url);
+    println!("Duration per test: {}s", duration);
+    println!("");
 
     let client = Client::builder()
         .timeout(Duration::from_secs(30))
+        .pool_max_idle_per_host(agents + 10) // Ensure large enough pool
         .build()?;
 
-    // Setup: Create project
-    println!("[1/4] Creating benchmark project...");
-    let human_key = format!("bench-concurrent-{}", chrono::Utc::now().timestamp());
-    let res = client
-        .post(format!("{}/api/project/ensure", base_url))
-        .json(&EnsureProjectRequest {
-            human_key: human_key.clone(),
-        })
-        .send()
-        .await?;
-
-    if !res.status().is_success() {
-        let text = res.text().await?;
-        anyhow::bail!("Failed to create project: {}", text);
-    }
-    let project: EnsureProjectResponse = res.json().await?;
-    let project_slug = project.slug;
-    println!("  Project '{}' created", project_slug);
-
-    // Setup: Register agents
-    println!("[2/4] Registering {} agents...", num_agents);
-    let agent_names: Vec<String> = (0..num_agents)
-        .map(|i| format!("agent-{:03}", i))
-        .collect();
-
-    for name in &agent_names {
-        let res = client
-            .post(format!("{}/api/agent/register", base_url))
-            .json(&RegisterAgentRequest {
-                project_slug: project_slug.clone(),
-                name: name.clone(),
-                program: "benchmark".to_string(),
-                model: "bench-model".to_string(),
-            })
-            .send()
-            .await?;
-
-        if !res.status().is_success() {
-            let text = res.text().await?;
-            eprintln!("  Warning: Failed to register {}: {}", name, text);
-        }
-    }
-    println!("  {} agents registered", num_agents);
-
-    // Run benchmark
-    println!("[3/4] Running benchmark...");
-    println!("  Sending {} messages with {} concurrent agents", num_agents * messages_per_agent, num_agents);
-
-    let stats = Arc::new(AtomicStats::new());
-    let semaphore = Arc::new(Semaphore::new(num_agents)); // Limit concurrent connections
-
-    let start = Instant::now();
-    let mut handles = Vec::new();
-
-    for agent_idx in 0..num_agents {
-        let client = client.clone();
-        let base_url = base_url.clone();
-        let project_slug = project_slug.clone();
-        let agent_name = agent_names[agent_idx].clone();
-        let recipient = agent_names[(agent_idx + 1) % num_agents].clone(); // Send to next agent
-        let stats = Arc::clone(&stats);
-        let semaphore = Arc::clone(&semaphore);
-
-        let handle = tokio::spawn(async move {
-            for msg_idx in 0..messages_per_agent {
-                let _permit = semaphore.acquire().await.unwrap();
-
-                let msg_start = Instant::now();
-                let res = client
-                    .post(format!("{}/api/message/send", base_url))
-                    .json(&SendMessageRequest {
-                        project_slug: project_slug.clone(),
-                        sender_name: agent_name.clone(),
-                        recipient_names: vec![recipient.clone()],
-                        subject: format!("Benchmark message {}-{}", agent_idx, msg_idx),
-                        body_md: format!(
-                            "This is a benchmark message from {} to {} (message {} of {})",
-                            agent_name, recipient, msg_idx + 1, messages_per_agent
-                        ),
-                        thread_id: None,
-                        importance: Some("normal".to_string()),
-                    })
-                    .send()
-                    .await;
-
-                let latency_ms = msg_start.elapsed().as_millis() as u64;
-
-                match res {
-                    Ok(response) if response.status().is_success() => {
-                        stats.record_success(latency_ms).await;
-                    }
-                    Ok(response) => {
-                        eprintln!("  [{}] Message {} failed: HTTP {}", agent_name, msg_idx, response.status());
-                        stats.record_failure();
-                    }
-                    Err(e) => {
-                        eprintln!("  [{}] Message {} error: {}", agent_name, msg_idx, e);
-                        stats.record_failure();
-                    }
-                }
+    // 2. Wait for Server
+    println!("Waiting for server to be ready...");
+    let mut ready = false;
+    for _ in 0..60 { // 60 attempts
+        if let Ok(res) = client.get(format!("{}/health", config.base_url)).send().await {
+            if res.status().is_success() {
+                ready = true;
+                break;
             }
-        });
-        handles.push(handle);
+        }
+        sleep(Duration::from_secs(1)).await;
+    }
+    
+    if !ready {
+        anyhow::bail!("Server did not become ready at {}", config.base_url);
+    }
+    println!("Server is ready!");
+    
+    // 3. Prepare Reporting
+    let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
+    let report_file = format!("benchmark_results_{}.md", timestamp);
+    let mut file = OpenOptions::new().create(true).write(true).truncate(true).open(&report_file)?;
+    
+    writeln!(file, "# Benchmark Results: {} Concurrent Agents", agents)?;
+    writeln!(file, "")?;
+    writeln!(file, "**Date**: {}", chrono::Local::now())?;
+    writeln!(file, "**Target**: {}", config.base_url)?;
+    writeln!(file, "**Duration**: {}s per test", duration)?;
+    writeln!(file, "**Concurrency**: {} agents", agents)?;
+    writeln!(file, "")?;
+    writeln!(file, "## Results")?;
+    writeln!(file, "")?;
+    writeln!(file, "| Test | Rate (req/s) | Success | P99 Latency | Result |")?;
+    writeln!(file, "|------|--------------|---------|-------------|--------|")?;
+
+    let mut results = Vec::new();
+
+    // 4. Phase 1: Health Liveness
+    println!("\n=== Phase 1: Health Endpoint (Raw HTTP throughput) ===");
+    let url_liveness = format!("{}/health", config.base_url);
+    let task_liveness = move |_, c: Client, s: Arc<AtomicStats>| {
+        let u = url_liveness.clone();
+        tokio::spawn(async move {
+            let start = Instant::now();
+            let res = c.get(&u).send().await;
+            let lat = start.elapsed().as_millis() as u64;
+            let success = matches!(res, Ok(r) if r.status().is_success());
+            s.record(lat, success).await;
+        })
+    };
+
+    let rates = [None, Some(5000), Some(3000), Some(2000), Some(1800), Some(1600), Some(1500), Some(1000)];
+    for r in rates {
+        let stats = run_load_test(&config, &client, "/health", r, task_liveness.clone()).await?;
+        writeln!(file, "| {} | {:.0} | {:.1}% | {}ms | {} |", 
+            stats.label, stats.actual_rate, stats.success_rate, stats.p99_latency_ms, stats.result_status)?;
+        results.push(stats);
     }
 
-    // Wait for all agents to complete
-    for handle in handles {
-        handle.await?;
+    // 5. Phase 2: Readiness (DB)
+    println!("\n=== Phase 2: Readiness Endpoint (DB connection test) ===");
+    let url_readiness = format!("{}/ready", config.base_url);
+    let task_readiness = move |_, c: Client, s: Arc<AtomicStats>| {
+        let u = url_readiness.clone();
+        tokio::spawn(async move {
+            let start = Instant::now();
+            let res = c.get(&u).send().await;
+            let lat = start.elapsed().as_millis() as u64;
+            let success = matches!(res, Ok(r) if r.status().is_success());
+            s.record(lat, success).await;
+        })
+    };
+    
+    let rates_db = [None, Some(2000), Some(1600), Some(1000)];
+    for r in rates_db {
+        let stats = run_load_test(&config, &client, "/ready", r, task_readiness.clone()).await?;
+        writeln!(file, "| {} | {:.0} | {:.1}% | {}ms | {} |", 
+            stats.label, stats.actual_rate, stats.success_rate, stats.p99_latency_ms, stats.result_status)?;
+        results.push(stats);
     }
 
-    let total_duration = start.elapsed();
-    let stats = Arc::try_unwrap(stats).unwrap().finalize(total_duration).await;
+    // 6. Phase 3: MCP Tool Call
+    println!("\n=== Phase 3: MCP Tool Calls (Realistic agent workload) ===");
+    let url_mcp = format!("{}/mcp", config.base_url);
+    let task_mcp = move |_, c: Client, s: Arc<AtomicStats>| {
+        let u = url_mcp.clone();
+        tokio::spawn(async move {
+            let body = JsonRpcRequest {
+                jsonrpc: "2.0".to_string(),
+                method: "tools/list".to_string(),
+                params: serde_json::json!({}),
+                id: 1,
+            };
+            let start = Instant::now();
+            let res = c.post(&u).json(&body).send().await;
+            let lat = start.elapsed().as_millis() as u64;
+            let success = matches!(res, Ok(r) if r.status().is_success());
+            s.record(lat, success).await;
+        })
+    };
+    
+    let rates_mcp = [None, Some(2000), Some(1600), Some(1000), Some(500)];
+    for r in rates_mcp {
+        let label = match r {
+             Some(_) => "MCP Tool Call",
+             None => "MCP Tool Call (Full Speed)"
+        };
+        let stats = run_load_test(&config, &client, label, r, task_mcp.clone()).await?;
+        writeln!(file, "| {} | {:.0} | {:.1}% | {}ms | {} |", 
+            stats.label, stats.actual_rate, stats.success_rate, stats.p99_latency_ms, stats.result_status)?;
+        results.push(stats);
+    }
 
-    // Print results
-    println!();
-    println!("[4/4] Results:");
-    println!("  =================================");
-    println!("  Total messages:     {}", stats.total_messages);
-    println!("  Successful:         {} ({:.1}%)", stats.successful,
-        stats.successful as f64 / stats.total_messages as f64 * 100.0);
-    println!("  Failed:             {} ({:.1}%)", stats.failed,
-        stats.failed as f64 / stats.total_messages as f64 * 100.0);
-    println!();
-    println!("  Duration:           {:.2}s", stats.total_duration_ms as f64 / 1000.0);
-    println!("  Throughput:         {:.1} msg/s",
-        stats.successful as f64 / (stats.total_duration_ms as f64 / 1000.0));
-    println!();
-    println!("  Latency (ms):");
-    println!("    Min:              {}ms", stats.min_latency_ms);
-    println!("    Avg:              {:.1}ms", stats.avg_latency_ms);
-    println!("    P50:              {}ms", stats.p50_latency_ms);
-    println!("    P95:              {}ms", stats.p95_latency_ms);
-    println!("    P99:              {}ms", stats.p99_latency_ms);
-    println!("    Max:              {}ms", stats.max_latency_ms);
-    println!("  =================================");
+    // 7. Phase 4: Full Agent Message Flow (Bonus/Verification)
+    println!("\n=== Phase 4: Full Agent Message Flow (Bonus) ===");
+    // Setup: Create project and agents first
+    let human_key = format!("bench-rust-{}", chrono::Utc::now().timestamp());
+    let ensure_resp = client.post(format!("{}/api/project/ensure", config.base_url))
+        .json(&EnsureProjectRequest { human_key }).send().await?;
+    
+    if ensure_resp.status().is_success() {
+        let project: EnsureProjectResponse = ensure_resp.json().await?;
+        let slug = project.slug;
 
-    // Evaluate against targets
-    println!();
-    println!("  Target Evaluation:");
-    let concurrent_pass = num_agents >= 10;
-    let latency_p99_pass = stats.p99_latency_ms < 500;
-    let error_rate_pass = (stats.failed as f64 / stats.total_messages as f64) < 0.01;
+        // Register agents
+        print!("Registering {} agents...", agents);
+        // Do this in parallel to be fast
+        let mut reg_futs = Vec::new();
+        for i in 0..agents {
+             let c = client.clone();
+             let u = config.base_url.clone();
+             let s = slug.clone();
+             let name = format!("agent-{:03}", i);
+             reg_futs.push(tokio::spawn(async move {
+                 c.post(format!("{}/api/agent/register", u))
+                  .json(&RegisterAgentRequest {
+                      project_slug: s, name, program: "bench".into(), model: "bench".into()
+                  })
+                  .send().await
+             }));
+        }
+        for f in reg_futs { let _ = f.await; }
+        println!(" Done.");
 
-    println!("    [{}] Concurrent agents >= 10: {} agents",
-        if concurrent_pass { "PASS" } else { "FAIL" }, num_agents);
-    println!("    [{}] P99 latency < 500ms: {}ms",
-        if latency_p99_pass { "PASS" } else { "FAIL" }, stats.p99_latency_ms);
-    println!("    [{}] Error rate < 1%: {:.2}%",
-        if error_rate_pass { "PASS" } else { "FAIL" },
-        stats.failed as f64 / stats.total_messages as f64 * 100.0);
+        // Msg Task
+        let url_send = format!("{}/api/message/send", config.base_url);
+        let task_msg = move |idx, c: Client, s: Arc<AtomicStats>| {
+            let u = url_send.clone();
+            let p_slug = slug.clone();
+            let sender = format!("agent-{:03}", idx); // Current agent is sender
+            let recipient = format!("agent-{:03}", (idx + 1) % agents); // Next is receiver
+            
+            tokio::spawn(async move {
+                let body = SendMessageRequest {
+                    project_slug: p_slug,
+                    sender_name: sender,
+                    recipient_names: vec![recipient],
+                    subject: "Bench".into(),
+                    body_md: "Benchmark".into(),
+                    thread_id: None,
+                    importance: Some("normal".into()),
+                };
+                let start = Instant::now();
+                let res = c.post(&u).json(&body).send().await;
+                let lat = start.elapsed().as_millis() as u64;
+                let success = matches!(res, Ok(r) if r.status().is_success());
+                s.record(lat, success).await;
+            })
+        };
+
+        // Run message bench
+        let stats = run_load_test(&config, &client, "Full Agent Message", Some(100), task_msg).await?; // 100 req/s conservative
+        writeln!(file, "| {} | {:.0} | {:.1}% | {}ms | {} |", 
+            stats.label, stats.actual_rate, stats.success_rate, stats.p99_latency_ms, stats.result_status)?;
+    } else {
+        println!("Skipping Phase 4: Could not create project.");
+    }
+
+    // Footer
+    writeln!(file, "")?;
+    writeln!(file, "## Analysis")?;
+    writeln!(file, "See `scripts/benchmark_concurrent_agents.sh` for interpretation.")?;
+
+    println!("\n==============================================");
+    println!("Benchmark Complete!");
+    println!("==============================================");
+    println!("Results saved to: {}", report_file);
 
     Ok(())
 }
