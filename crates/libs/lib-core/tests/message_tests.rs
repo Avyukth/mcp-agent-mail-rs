@@ -612,3 +612,196 @@ async fn test_empty_outbox() {
 
     assert_eq!(outbox.len(), 0, "Outbox should be empty");
 }
+
+/// Test message with multiple TO recipients (tests batch INSERT optimization)
+///
+/// This test exercises the batched SQL path in MessageBmc::create where
+/// multiple recipient rows are inserted with a single INSERT statement:
+/// `INSERT INTO message_recipients VALUES (?,?,?), (?,?,?), (?,?,?)`
+#[tokio::test]
+async fn test_multiple_to_recipients() {
+    let tc = TestContext::new().await.expect("Failed to create test context");
+    let human_key = "/batch/multi-to";
+    let slug = slugify(human_key);
+
+    let project_id = ProjectBmc::create(&tc.ctx, &tc.mm, &slug, human_key)
+        .await
+        .expect("Failed to create project");
+    let project = ProjectBmc::get(&tc.ctx, &tc.mm, project_id).await.unwrap();
+
+    // Create sender
+    let sender_c = AgentForCreate {
+        project_id: project.id,
+        name: "BatchSender".to_string(),
+        program: "test".to_string(),
+        model: "test".to_string(),
+        task_description: "Sender for batch test".to_string(),
+    };
+    let sender_id = AgentBmc::create(&tc.ctx, &tc.mm, sender_c).await.unwrap();
+
+    // Create 3 recipients to test batch insert
+    let mut recipient_ids = Vec::new();
+    for i in 1..=3 {
+        let recipient_c = AgentForCreate {
+            project_id: project.id,
+            name: format!("ToRecipient{}", i),
+            program: "test".to_string(),
+            model: "test".to_string(),
+            task_description: format!("TO recipient {}", i),
+        };
+        let rid = AgentBmc::create(&tc.ctx, &tc.mm, recipient_c).await.unwrap();
+        recipient_ids.push(rid);
+    }
+
+    // Send message with multiple TO recipients (no CC/BCC)
+    let msg_c = MessageForCreate {
+        project_id: project.id,
+        sender_id,
+        recipient_ids: recipient_ids.clone(),
+        cc_ids: None,
+        bcc_ids: None,
+        subject: "Batch TO Recipients Test".to_string(),
+        body_md: "Testing batch insert with multiple TO recipients".to_string(),
+        thread_id: None,
+        importance: None,
+    };
+    let msg_id = MessageBmc::create(&tc.ctx, &tc.mm, msg_c)
+        .await
+        .expect("Should create message with multiple TO recipients");
+
+    // Verify message was created
+    let message = MessageBmc::get(&tc.ctx, &tc.mm, msg_id).await.unwrap();
+    assert_eq!(message.subject, "Batch TO Recipients Test");
+
+    // Verify ALL 3 recipients received the message in their inbox
+    for (i, rid) in recipient_ids.iter().enumerate() {
+        let inbox = MessageBmc::list_inbox_for_agent(&tc.ctx, &tc.mm, project.id, *rid, 10)
+            .await
+            .expect("Should list inbox");
+        assert_eq!(
+            inbox.len(), 1,
+            "TO Recipient {} should have exactly 1 message in inbox", i + 1
+        );
+        assert_eq!(inbox[0].subject, "Batch TO Recipients Test");
+    }
+
+    // Verify sender's outbox has exactly 1 message
+    let outbox = MessageBmc::list_outbox_for_agent(&tc.ctx, &tc.mm, project.id, sender_id, 10)
+        .await
+        .expect("Should list outbox");
+    assert_eq!(outbox.len(), 1, "Sender should have 1 message in outbox");
+}
+
+/// Test message with multiple recipients across all types (TO, CC, BCC)
+///
+/// This tests the complete batch optimization path with mixed recipient types.
+#[tokio::test]
+async fn test_batch_mixed_recipient_types() {
+    let tc = TestContext::new().await.expect("Failed to create test context");
+    let human_key = "/batch/mixed-types";
+    let slug = slugify(human_key);
+
+    let project_id = ProjectBmc::create(&tc.ctx, &tc.mm, &slug, human_key)
+        .await
+        .expect("Failed to create project");
+    let project = ProjectBmc::get(&tc.ctx, &tc.mm, project_id).await.unwrap();
+
+    // Create sender
+    let sender_c = AgentForCreate {
+        project_id: project.id,
+        name: "MixedSender".to_string(),
+        program: "test".to_string(),
+        model: "test".to_string(),
+        task_description: "Sender for mixed batch test".to_string(),
+    };
+    let sender_id = AgentBmc::create(&tc.ctx, &tc.mm, sender_c).await.unwrap();
+
+    // Create 2 TO recipients
+    let mut to_ids = Vec::new();
+    for i in 1..=2 {
+        let c = AgentForCreate {
+            project_id: project.id,
+            name: format!("MixedTo{}", i),
+            program: "test".to_string(),
+            model: "test".to_string(),
+            task_description: format!("TO recipient {}", i),
+        };
+        to_ids.push(AgentBmc::create(&tc.ctx, &tc.mm, c).await.unwrap());
+    }
+
+    // Create 2 CC recipients
+    let mut cc_ids = Vec::new();
+    for i in 1..=2 {
+        let c = AgentForCreate {
+            project_id: project.id,
+            name: format!("MixedCc{}", i),
+            program: "test".to_string(),
+            model: "test".to_string(),
+            task_description: format!("CC recipient {}", i),
+        };
+        cc_ids.push(AgentBmc::create(&tc.ctx, &tc.mm, c).await.unwrap());
+    }
+
+    // Create 2 BCC recipients
+    let mut bcc_ids = Vec::new();
+    for i in 1..=2 {
+        let c = AgentForCreate {
+            project_id: project.id,
+            name: format!("MixedBcc{}", i),
+            program: "test".to_string(),
+            model: "test".to_string(),
+            task_description: format!("BCC recipient {}", i),
+        };
+        bcc_ids.push(AgentBmc::create(&tc.ctx, &tc.mm, c).await.unwrap());
+    }
+
+    // Send message with 2 TO, 2 CC, 2 BCC (6 total recipients)
+    let msg_c = MessageForCreate {
+        project_id: project.id,
+        sender_id,
+        recipient_ids: to_ids.clone(),
+        cc_ids: Some(cc_ids.clone()),
+        bcc_ids: Some(bcc_ids.clone()),
+        subject: "Mixed Batch Test".to_string(),
+        body_md: "Testing batch insert with 6 total recipients".to_string(),
+        thread_id: None,
+        importance: None,
+    };
+    let msg_id = MessageBmc::create(&tc.ctx, &tc.mm, msg_c)
+        .await
+        .expect("Should create message with 6 recipients");
+
+    // Verify message created
+    let message = MessageBmc::get(&tc.ctx, &tc.mm, msg_id).await.unwrap();
+    assert_eq!(message.subject, "Mixed Batch Test");
+
+    // Verify all TO recipients received it
+    for rid in &to_ids {
+        let inbox = MessageBmc::list_inbox_for_agent(&tc.ctx, &tc.mm, project.id, *rid, 10)
+            .await
+            .unwrap();
+        assert_eq!(inbox.len(), 1, "TO recipient should have message");
+    }
+
+    // Verify all CC recipients received it
+    for rid in &cc_ids {
+        let inbox = MessageBmc::list_inbox_for_agent(&tc.ctx, &tc.mm, project.id, *rid, 10)
+            .await
+            .unwrap();
+        assert_eq!(inbox.len(), 1, "CC recipient should have message");
+    }
+
+    // Verify all BCC recipients received it
+    for rid in &bcc_ids {
+        let inbox = MessageBmc::list_inbox_for_agent(&tc.ctx, &tc.mm, project.id, *rid, 10)
+            .await
+            .unwrap();
+        assert_eq!(inbox.len(), 1, "BCC recipient should have message");
+    }
+
+    // Verify sender has exactly 1 message in outbox
+    let outbox = MessageBmc::list_outbox_for_agent(&tc.ctx, &tc.mm, project.id, sender_id, 10)
+        .await
+        .unwrap();
+    assert_eq!(outbox.len(), 1, "Sender should have 1 outbox message");
+}
