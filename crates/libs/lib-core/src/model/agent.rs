@@ -1,3 +1,42 @@
+//! Agent management for AI coding agents.
+//!
+//! This module provides the BMC (Backend Model Controller) for managing AI agents
+//! within projects. Each agent represents an autonomous AI coding assistant.
+//!
+//! # Data Model
+//!
+//! - **Agent**: The main entity representing a registered AI agent
+//! - **AgentForCreate**: Input data for agent registration
+//! - **AgentProfileUpdate**: Partial update for agent profile fields
+//!
+//! # Example
+//!
+//! ```no_run
+//! use lib_core::model::agent::{AgentBmc, AgentForCreate};
+//! use lib_core::model::ModelManager;
+//! use lib_core::ctx::Ctx;
+//!
+//! # async fn example() -> lib_core::Result<()> {
+//! let mm = ModelManager::new().await?;
+//! let ctx = Ctx::root_ctx();
+//!
+//! // Register a new agent
+//! let agent_data = AgentForCreate {
+//!     project_id: 1,
+//!     name: "worker-1".to_string(),
+//!     program: "claude-code".to_string(),
+//!     model: "claude-sonnet-4-20250514".to_string(),
+//!     task_description: "Implement user auth".to_string(),
+//! };
+//! let agent_id = AgentBmc::create(&ctx, &mm, agent_data).await?;
+//!
+//! // Retrieve the agent
+//! let agent = AgentBmc::get(&ctx, &mm, agent_id).await?;
+//! println!("Agent {} registered", agent.name);
+//! # Ok(())
+//! # }
+//! ```
+
 use crate::Result;
 use crate::ctx::Ctx;
 use crate::model::ModelManager;
@@ -6,6 +45,24 @@ use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
+/// A registered AI coding agent.
+///
+/// Agents are AI assistants that work on tasks within a project. Each agent
+/// has a unique name within its project and maintains profile information
+/// including capabilities and policies.
+///
+/// # Fields
+///
+/// - `id` - Database primary key
+/// - `project_id` - Foreign key to the parent project
+/// - `name` - Unique agent name within the project (e.g., "worker-1")
+/// - `program` - Agent runtime (e.g., "claude-code", "cursor", "aider")
+/// - `model` - AI model identifier (e.g., "claude-sonnet-4-20250514")
+/// - `task_description` - Current task being worked on
+/// - `inception_ts` - When the agent was first registered
+/// - `last_active_ts` - Last activity timestamp
+/// - `attachments_policy` - How agent handles file attachments
+/// - `contact_policy` - Agent communication preferences
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Agent {
     pub id: i64,
@@ -20,12 +77,28 @@ pub struct Agent {
     pub contact_policy: String,
 }
 
+/// Input data for creating a new agent.
+///
+/// All fields are required for agent registration.
+///
+/// # Fields
+///
+/// - `project_id` - ID of the project to register the agent in
+/// - `name` - Unique name for the agent within the project
+/// - `program` - Runtime environment (e.g., "claude-code")
+/// - `model` - AI model to use (e.g., "claude-sonnet-4-20250514")
+/// - `task_description` - Initial task description
 #[derive(Deserialize, Serialize, Debug, Clone)]
 pub struct AgentForCreate {
+    /// Project database ID.
     pub project_id: i64,
+    /// Unique agent name within the project.
     pub name: String,
+    /// Agent runtime program.
     pub program: String,
+    /// AI model identifier.
     pub model: String,
+    /// Description of the agent's current task.
     pub task_description: String,
 }
 
@@ -309,6 +382,15 @@ impl AgentBmc {
         Ok(agents)
     }
 
+    /// Counts the total messages sent by an agent.
+    ///
+    /// # Arguments
+    /// * `_ctx` - Request context
+    /// * `mm` - ModelManager providing database access
+    /// * `agent_id` - Agent database ID
+    ///
+    /// # Returns
+    /// The count of messages where this agent is the sender.
     pub async fn count_messages_sent(_ctx: &Ctx, mm: &ModelManager, agent_id: i64) -> Result<i64> {
         let db = mm.db();
         let stmt = db
@@ -322,6 +404,15 @@ impl AgentBmc {
         }
     }
 
+    /// Counts the total messages received by an agent.
+    ///
+    /// # Arguments
+    /// * `_ctx` - Request context
+    /// * `mm` - ModelManager providing database access
+    /// * `agent_id` - Agent database ID
+    ///
+    /// # Returns
+    /// The count of messages where this agent is a recipient.
     pub async fn count_messages_received(
         _ctx: &Ctx,
         mm: &ModelManager,
@@ -393,9 +484,28 @@ impl AgentBmc {
     }
 }
 
+/// Partial update for agent profile fields.
+///
+/// Only non-None fields will be updated. This allows updating
+/// individual fields without affecting others.
+///
+/// # Example
+///
+/// ```
+/// use lib_core::model::agent::AgentProfileUpdate;
+///
+/// // Update only the task description
+/// let update = AgentProfileUpdate {
+///     task_description: Some("New task".to_string()),
+///     ..Default::default()
+/// };
+/// ```
 #[derive(Deserialize, Serialize, Debug, Clone, Default)]
 pub struct AgentProfileUpdate {
+    /// New task description (if updating).
     pub task_description: Option<String>,
+    /// New attachments policy (if updating).
     pub attachments_policy: Option<String>,
+    /// New contact policy (if updating).
     pub contact_policy: Option<String>,
 }

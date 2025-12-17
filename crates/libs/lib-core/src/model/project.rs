@@ -1,3 +1,42 @@
+//! Project management for multi-agent workspaces.
+//!
+//! Projects are the top-level organizational unit in MCP Agent Mail.
+//! Each project contains agents, messages, and configuration for a
+//! collaborative AI coding workspace.
+//!
+//! # Data Model
+//!
+//! - **Project**: Main entity with slug identifier and human-readable name
+//! - **ProjectBmc**: BMC with CRUD operations and Git archive management
+//!
+//! # Git Archive
+//!
+//! Each project maintains a Git archive for audit logging:
+//! - `projects/{slug}/agents/` - Agent profiles
+//! - `projects/{slug}/messages/` - Message history
+//! - `projects/{slug}/mailbox.json` - Full mailbox export
+//!
+//! # Example
+//!
+//! ```no_run
+//! use lib_core::model::project::ProjectBmc;
+//! use lib_core::model::ModelManager;
+//! use lib_core::ctx::Ctx;
+//!
+//! # async fn example() -> lib_core::Result<()> {
+//! let mm = ModelManager::new().await?;
+//! let ctx = Ctx::root_ctx();
+//!
+//! // Create a new project
+//! let id = ProjectBmc::create(&ctx, &mm, "my-app", "My Application").await?;
+//!
+//! // Retrieve by slug
+//! let project = ProjectBmc::get_by_slug(&ctx, &mm, "my-app").await?;
+//! println!("Project: {}", project.human_key);
+//! # Ok(())
+//! # }
+//! ```
+
 use crate::Result;
 use crate::model::ModelManager;
 use crate::store::git_store;
@@ -5,11 +44,26 @@ use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
+/// A project workspace for AI agents.
+///
+/// Projects provide isolation and organization for multi-agent collaboration.
+/// Each project has a unique slug (URL-safe) and human-readable key.
+///
+/// # Fields
+///
+/// - `id` - Database primary key
+/// - `slug` - URL-safe identifier (e.g., "my-project")
+/// - `human_key` - Human-readable name (e.g., "My Project")
+/// - `created_at` - Timestamp of project creation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Project {
+    /// Database primary key.
     pub id: i64,
+    /// URL-safe project identifier.
     pub slug: String,
+    /// Human-readable project name.
     pub human_key: String,
+    /// Project creation timestamp.
     pub created_at: NaiveDateTime,
 }
 
@@ -149,6 +203,18 @@ impl ProjectBmc {
         }
     }
 
+    /// Retrieves a project by its human-readable key.
+    ///
+    /// # Arguments
+    /// * `_ctx` - Request context
+    /// * `mm` - ModelManager
+    /// * `human_key` - Human-readable project name
+    ///
+    /// # Returns
+    /// The project data
+    ///
+    /// # Errors
+    /// Returns `Error::ProjectNotFound` if human_key doesn't exist
     pub async fn get_by_human_key(
         _ctx: &crate::Ctx,
         mm: &ModelManager,
@@ -221,6 +287,14 @@ impl ProjectBmc {
         )))
     }
 
+    /// Ensures the Git archive directory structure exists for a project.
+    ///
+    /// Creates the project directory and initializes `.gitattributes` if needed.
+    /// This is called automatically during project creation.
+    ///
+    /// # Arguments
+    /// * `mm` - ModelManager providing Git access
+    /// * `slug` - Project slug for directory naming
     pub async fn ensure_archive(mm: &ModelManager, slug: &str) -> Result<()> {
         let repo_root = &mm.repo_root;
         let project_root = repo_root.join("projects").join(slug);
@@ -255,6 +329,15 @@ impl ProjectBmc {
         Ok(())
     }
 
+    /// Counts total messages in a project.
+    ///
+    /// # Arguments
+    /// * `_ctx` - Request context
+    /// * `mm` - ModelManager
+    /// * `project_id` - Project database ID
+    ///
+    /// # Returns
+    /// The total message count for the project.
     pub async fn count_messages(
         _ctx: &crate::Ctx,
         mm: &ModelManager,
@@ -272,6 +355,18 @@ impl ProjectBmc {
         }
     }
 
+    /// Retrieves a project by its database ID.
+    ///
+    /// # Arguments
+    /// * `_ctx` - Request context
+    /// * `mm` - ModelManager
+    /// * `id` - Project database ID
+    ///
+    /// # Returns
+    /// The project data
+    ///
+    /// # Errors
+    /// Returns `Error::ProjectNotFound` if ID doesn't exist
     pub async fn get(_ctx: &crate::Ctx, mm: &ModelManager, id: i64) -> Result<Project> {
         let db = mm.db();
         let stmt = db

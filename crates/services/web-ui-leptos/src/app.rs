@@ -20,6 +20,7 @@ pub fn App() -> impl IntoView {
                     <Route path=path!("agents") view=Agents />
                     <Route path=path!("inbox") view=Inbox />
                     <Route path=path!("inbox/:id") view=MessageDetail />
+                    <Route path=path!("mail/unified") view=UnifiedInbox />
                 </ParentRoute>
             </Routes>
         </Router>

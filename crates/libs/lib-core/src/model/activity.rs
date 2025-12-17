@@ -1,19 +1,73 @@
+//! Unified activity feed for project events.
+//!
+//! This module provides a single chronological view of all project activity,
+//! combining messages, tool usage, and agent events into a unified feed.
+//!
+//! # Activity Types
+//!
+//! - **message**: Inter-agent messages
+//! - **tool**: MCP tool invocations with metrics
+//! - **agent**: Agent registration events
+//!
+//! # Example
+//!
+//! ```no_run
+//! use lib_core::model::activity::ActivityBmc;
+//! use lib_core::model::ModelManager;
+//! use lib_core::ctx::Ctx;
+//!
+//! # async fn example() -> lib_core::Result<()> {
+//! let mm = ModelManager::new().await?;
+//! let ctx = Ctx::root_ctx();
+//!
+//! // Get recent activity for a project
+//! let activity = ActivityBmc::list_recent(&ctx, &mm, 1, 50).await?;
+//! for item in activity {
+//!     println!("[{}] {}: {}", item.kind, item.created_at, item.title);
+//! }
+//! # Ok(())
+//! # }
+//! ```
+
 use crate::Result;
 use crate::ctx::Ctx;
 use crate::model::ModelManager;
 use serde::{Deserialize, Serialize};
-use serde_json::Value; // Correct import for JSON Value
+use serde_json::Value;
 
+/// A single activity item in the unified feed.
+///
+/// Activity items represent events from different sources (messages,
+/// tools, agents) with a common structure for display in a timeline.
+///
+/// # Fields
+///
+/// - `id` - Unique identifier with prefix (e.g., "msg:123", "tool:456")
+/// - `kind` - Activity type: "message", "tool", or "agent"
+/// - `project_id` - Associated project ID
+/// - `agent_id` - Related agent (if applicable)
+/// - `title` - Short summary for display
+/// - `description` - Optional detail text
+/// - `metadata` - Optional JSON metadata
+/// - `created_at` - ISO 8601 timestamp string
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ActivityItem {
+    /// Unique identifier with type prefix.
     pub id: String,
-    pub kind: String, // "message", "tool", "agent"
+    /// Activity type: "message", "tool", or "agent".
+    pub kind: String,
+    /// Associated project ID.
     pub project_id: i64,
+    /// Related agent ID (if applicable).
     pub agent_id: Option<i64>,
+    /// Short summary for display.
     pub title: String,
+    /// Optional detail text.
     pub description: Option<String>,
+    /// Optional JSON metadata.
     pub metadata: Option<Value>,
-    pub created_at: String, // ISO 8601 string for uniformity
+    /// ISO 8601 timestamp string.
+    pub created_at: String,
 }
 
 /// Backend Model Controller for Activity Feed operations.

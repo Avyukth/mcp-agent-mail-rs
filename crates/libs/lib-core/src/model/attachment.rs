@@ -1,27 +1,90 @@
+//! File attachment management for projects.
+//!
+//! This module handles file attachments that can be shared between agents
+//! in a project. Attachment metadata is stored in the database while the
+//! actual files are stored on disk.
+//!
+//! # Storage
+//!
+//! - **Database**: Stores metadata (filename, path, media type, size)
+//! - **Disk**: Actual file content at `stored_path`
+//!
+//! # Example
+//!
+//! ```no_run
+//! use lib_core::model::attachment::{AttachmentBmc, AttachmentForCreate};
+//! use lib_core::model::ModelManager;
+//! use lib_core::ctx::Ctx;
+//!
+//! # async fn example() -> lib_core::Result<()> {
+//! let mm = ModelManager::new().await?;
+//! let ctx = Ctx::root_ctx();
+//!
+//! // Create attachment record (file already written to disk)
+//! let attachment = AttachmentForCreate {
+//!     project_id: 1,
+//!     filename: "report.pdf".to_string(),
+//!     stored_path: "/data/uploads/abc123.pdf".to_string(),
+//!     media_type: "application/pdf".to_string(),
+//!     size_bytes: 1024,
+//! };
+//! let id = AttachmentBmc::create(&ctx, &mm, attachment).await?;
+//! # Ok(())
+//! # }
+//! ```
+
 use crate::model::ModelManager;
 use crate::{Ctx, Result};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
+/// File attachment metadata.
+///
+/// Represents a file that has been uploaded and stored. The actual file
+/// content is stored at `stored_path` on disk.
+///
+/// # Fields
+///
+/// - `id` - Database primary key
+/// - `project_id` - Associated project
+/// - `filename` - Original filename
+/// - `stored_path` - Path to file on disk
+/// - `media_type` - MIME type (e.g., "application/pdf")
+/// - `size_bytes` - File size in bytes
+/// - `created_ts` - Upload timestamp
 #[derive(Debug, Clone, Serialize, ToSchema)]
-// Note: We don't have db_macro::FromRow, we use manual implementation usually or sqlx (now libsql).
-// I will implement from_row manually as seen in other files.
 pub struct Attachment {
+    /// Database primary key.
     pub id: i64,
+    /// Associated project ID.
     pub project_id: i64,
+    /// Original filename.
     pub filename: String,
+    /// Path to file on disk.
     pub stored_path: String,
+    /// MIME type.
     pub media_type: String,
+    /// File size in bytes.
     pub size_bytes: i64,
+    /// Upload timestamp.
     pub created_ts: String,
 }
 
+/// Input data for creating an attachment record.
+///
+/// The file must already be written to disk at `stored_path` before
+/// creating the database record.
 #[derive(Deserialize)]
 pub struct AttachmentForCreate {
+    /// Project to associate with.
     pub project_id: i64,
+    /// Original filename.
     pub filename: String,
+    /// Path where file is stored.
     pub stored_path: String,
+    /// MIME type of the file.
     pub media_type: String,
+    /// File size in bytes.
     pub size_bytes: i64,
 }
 

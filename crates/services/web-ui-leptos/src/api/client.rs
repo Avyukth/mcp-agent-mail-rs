@@ -361,3 +361,80 @@ pub async fn send_message(
         })
     }
 }
+
+/// Unified inbox message (from GET /mail/api/unified-inbox).
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UnifiedInboxMessage {
+    pub id: i64,
+    pub project_id: i64,
+    pub sender_id: i64,
+    pub sender_name: String,
+    pub subject: String,
+    pub importance: String,
+    pub created_ts: String,
+    #[serde(default)]
+    pub thread_id: Option<String>,
+}
+
+/// Get unified inbox (all messages across all projects).
+pub async fn get_unified_inbox(
+    importance: Option<&str>,
+    limit: Option<i32>,
+) -> Result<Vec<UnifiedInboxMessage>, ApiError> {
+    let mut url = format!("{}/mail/api/unified-inbox", API_BASE_URL);
+
+    let mut params = Vec::new();
+    if let Some(imp) = importance {
+        params.push(format!("importance={}", imp));
+    }
+    if let Some(lim) = limit {
+        params.push(format!("limit={}", lim));
+    }
+    if !params.is_empty() {
+        url = format!("{}?{}", url, params.join("&"));
+    }
+
+    let response = Request::get(&url).send().await?;
+
+    if response.ok() {
+        Ok(response.json().await?)
+    } else {
+        Err(ApiError {
+            message: format!("Failed to get unified inbox: {}", response.status()),
+        })
+    }
+}
+
+/// Get messages in a thread.
+pub async fn get_thread(project_slug: &str, thread_id: &str) -> Result<Vec<Message>, ApiError> {
+    let url = format!(
+        "{}/api/projects/{}/threads/{}",
+        API_BASE_URL, project_slug, thread_id
+    );
+    let response = Request::get(&url).send().await?;
+
+    if response.ok() {
+        Ok(response.json().await?)
+    } else {
+        Err(ApiError {
+            message: format!("Failed to get thread: {}", response.status()),
+        })
+    }
+}
+
+/// Search messages.
+pub async fn search_messages(project_slug: &str, query: &str) -> Result<Vec<Message>, ApiError> {
+    let url = format!(
+        "{}/api/projects/{}/search?q={}",
+        API_BASE_URL, project_slug, query
+    );
+    let response = Request::get(&url).send().await?;
+
+    if response.ok() {
+        Ok(response.json().await?)
+    } else {
+        Err(ApiError {
+            message: format!("Failed to search: {}", response.status()),
+        })
+    }
+}
