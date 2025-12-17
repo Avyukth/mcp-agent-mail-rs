@@ -1,25 +1,91 @@
+//! CI/CD build slot coordination for agents.
+//!
+//! This module provides exclusive lock management for CI/CD build slots,
+//! preventing concurrent builds that could conflict. Slots use TTL-based
+//! expiration with optional renewal.
+//!
+//! # Coordination Pattern
+//!
+//! 1. Agent acquires slot with TTL
+//! 2. Agent periodically renews while building
+//! 3. Agent releases slot when done (or slot expires)
+//!
+//! # Example
+//!
+//! ```no_run
+//! use lib_core::model::build_slot::{BuildSlotBmc, BuildSlotForCreate};
+//! use lib_core::model::ModelManager;
+//! use lib_core::ctx::Ctx;
+//!
+//! # async fn example() -> lib_core::Result<()> {
+//! let mm = ModelManager::new().await?;
+//! let ctx = Ctx::root_ctx();
+//!
+//! // Acquire a build slot
+//! let slot = BuildSlotForCreate {
+//!     project_id: 1,
+//!     agent_id: 1,
+//!     slot_name: "ci-build".to_string(),
+//!     ttl_seconds: 3600,
+//! };
+//! let slot_id = BuildSlotBmc::acquire(&ctx, &mm, slot).await?;
+//!
+//! // ... perform build ...
+//!
+//! // Release when done
+//! BuildSlotBmc::release(&ctx, &mm, slot_id).await?;
+//! # Ok(())
+//! # }
+//! ```
+
 use crate::Result;
 use crate::ctx::Ctx;
 use crate::model::ModelManager;
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 
+/// An acquired build slot reservation.
+///
+/// Represents exclusive access to a named build slot for a specific agent.
+/// Slots expire automatically after TTL unless renewed or released.
+///
+/// # Fields
+///
+/// - `id` - Database primary key
+/// - `project_id` - Associated project
+/// - `agent_id` - Agent holding the slot
+/// - `slot_name` - Named slot (e.g., "ci-build", "deploy-prod")
+/// - `created_ts` - When slot was acquired
+/// - `expires_ts` - When slot will auto-expire
+/// - `released_ts` - When slot was released (None if active)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BuildSlot {
+    /// Database primary key.
     pub id: i64,
+    /// Associated project ID.
     pub project_id: i64,
+    /// Agent holding the slot.
     pub agent_id: i64,
+    /// Named slot identifier.
     pub slot_name: String,
+    /// Acquisition timestamp.
     pub created_ts: NaiveDateTime,
+    /// Expiration timestamp.
     pub expires_ts: NaiveDateTime,
+    /// Release timestamp (None if active).
     pub released_ts: Option<NaiveDateTime>,
 }
 
+/// Input data for acquiring a build slot.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BuildSlotForCreate {
+    /// Project to acquire slot in.
     pub project_id: i64,
+    /// Agent requesting the slot.
     pub agent_id: i64,
+    /// Named slot to acquire.
     pub slot_name: String,
+    /// Time-to-live in seconds.
     pub ttl_seconds: i64,
 }
 

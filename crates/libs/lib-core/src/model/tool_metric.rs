@@ -1,29 +1,100 @@
+//! MCP tool usage metrics and analytics.
+//!
+//! This module tracks every MCP tool invocation for performance monitoring,
+//! debugging, and usage analytics. Metrics include timing, status, and error
+//! information.
+//!
+//! # Use Cases
+//!
+//! - **Performance monitoring**: Track tool duration and identify slow tools
+//! - **Error tracking**: Monitor error rates and error codes
+//! - **Usage analytics**: See which tools are used most frequently
+//! - **Debugging**: Review tool arguments for failed invocations
+//!
+//! # Example
+//!
+//! ```no_run
+//! use lib_core::model::tool_metric::{ToolMetricBmc, ToolMetricForCreate};
+//! use lib_core::model::ModelManager;
+//! use lib_core::ctx::Ctx;
+//!
+//! # async fn example() -> lib_core::Result<()> {
+//! let mm = ModelManager::new().await?;
+//! let ctx = Ctx::root_ctx();
+//!
+//! // Record a tool invocation
+//! let metric = ToolMetricForCreate {
+//!     project_id: Some(1),
+//!     agent_id: Some(1),
+//!     tool_name: "send_message".to_string(),
+//!     args_json: Some(r#"{"to": "reviewer"}"#.to_string()),
+//!     status: "success".to_string(),
+//!     error_code: None,
+//!     duration_ms: 150,
+//! };
+//! let id = ToolMetricBmc::create(&ctx, &mm, metric).await?;
+//! # Ok(())
+//! # }
+//! ```
+
 use crate::Ctx;
 use crate::Result;
 use crate::model::ModelManager;
 use serde::{Deserialize, Serialize};
 
+/// A recorded MCP tool invocation metric.
+///
+/// Captures timing, status, and context for a single tool call.
+///
+/// # Fields
+///
+/// - `id` - Database primary key
+/// - `project_id` - Associated project (optional for global tools)
+/// - `agent_id` - Agent that invoked the tool (optional)
+/// - `tool_name` - MCP tool name (e.g., "send_message")
+/// - `args_json` - JSON-serialized tool arguments
+/// - `status` - Execution status ("success" or "error")
+/// - `error_code` - Error code if status is "error"
+/// - `duration_ms` - Execution time in milliseconds
+/// - `created_at` - Timestamp of invocation
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ToolMetric {
+    /// Database primary key.
     pub id: i64,
+    /// Associated project ID (optional).
     pub project_id: Option<i64>,
+    /// Agent that invoked the tool (optional).
     pub agent_id: Option<i64>,
+    /// MCP tool name.
     pub tool_name: String,
+    /// JSON-serialized arguments.
     pub args_json: Option<String>,
+    /// Execution status.
     pub status: String,
+    /// Error code (if failed).
     pub error_code: Option<String>,
+    /// Execution duration in milliseconds.
     pub duration_ms: i64,
+    /// Invocation timestamp.
     pub created_at: String,
 }
 
+/// Input data for creating a tool metric record.
 #[derive(Debug, Clone, Deserialize)]
 pub struct ToolMetricForCreate {
+    /// Associated project ID (optional).
     pub project_id: Option<i64>,
+    /// Agent that invoked the tool (optional).
     pub agent_id: Option<i64>,
+    /// MCP tool name.
     pub tool_name: String,
+    /// JSON-serialized arguments.
     pub args_json: Option<String>,
+    /// Execution status ("success" or "error").
     pub status: String,
+    /// Error code (if failed).
     pub error_code: Option<String>,
+    /// Execution duration in milliseconds.
     pub duration_ms: i64,
 }
 
@@ -198,10 +269,18 @@ impl ToolMetricBmc {
     }
 }
 
+/// Aggregated statistics for a single tool.
+///
+/// Provides summary metrics including usage count, average duration,
+/// and error rate for a specific tool.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ToolStat {
+    /// Tool name.
     pub tool_name: String,
+    /// Total invocation count.
     pub count: i64,
+    /// Average execution duration in milliseconds.
     pub avg_duration_ms: f64,
+    /// Count of failed invocations.
     pub error_count: i64,
 }
