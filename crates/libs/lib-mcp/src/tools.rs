@@ -1657,6 +1657,49 @@ pub struct InvokeMacroParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct ListBuiltinWorkflowsParams {
+    // No parameters needed
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct QuickStandupWorkflowParams {
+    /// Project slug
+    pub project_slug: String,
+    /// Sender agent name
+    pub sender_name: String,
+    /// Optional custom standup question
+    pub standup_question: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct QuickHandoffWorkflowParams {
+    /// Project slug
+    pub project_slug: String,
+    /// Agent handing off the task
+    pub from_agent: String,
+    /// Agent receiving the task
+    pub to_agent: String,
+    /// Task description
+    pub task_description: String,
+    /// Optional files being handed off
+    pub files: Option<Vec<String>>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct QuickReviewWorkflowParams {
+    /// Project slug
+    pub project_slug: String,
+    /// Agent requesting review
+    pub requester: String,
+    /// Agent who will review
+    pub reviewer: String,
+    /// Files to review
+    pub files_to_review: Vec<String>,
+    /// Review description
+    pub description: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct SummarizeThreadParams {
     /// Project slug
     pub project_slug: String,
@@ -3140,6 +3183,195 @@ impl AgentMailService {
             steps_json
         );
         Ok(CallToolResult::success(vec![Content::text(output)]))
+    }
+
+    /// List built-in workflow macros
+    #[tool(description = "List the 5 built-in workflow macros available in all projects.")]
+    async fn list_builtin_workflows(
+        &self,
+        _params: Parameters<ListBuiltinWorkflowsParams>,
+    ) -> Result<CallToolResult, McpError> {
+        let workflows = vec![
+            ("start_session", "Register agent and check inbox"),
+            ("prepare_thread", "Create thread and reserve files"),
+            ("file_reservation_cycle", "Reserve, work, release files"),
+            ("contact_handshake", "Establish cross-project contact"),
+            ("broadcast_message", "Send to multiple agents"),
+        ];
+        
+        let mut output = String::from("Built-in Workflows:\n\n");
+        for (name, desc) in workflows {
+            output.push_str(&format!("- {}: {}\n", name, desc));
+        }
+        
+        Ok(CallToolResult::success(vec![Content::text(output)]))
+    }
+
+    /// Quick standup workflow
+    #[tool(description = "Broadcast standup request to all agents in a project.")]
+    async fn quick_standup_workflow(
+        &self,
+        params: Parameters<QuickStandupWorkflowParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::agent::AgentBmc;
+        use lib_core::model::message::{MessageBmc, MessageForCreate};
+        use lib_core::model::project::ProjectBmc;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
+            .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
+
+        let sender = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.sender_name)
+            .await
+            .map_err(|e| McpError::invalid_params(format!("Sender not found: {}", e), None))?;
+
+        let agents = AgentBmc::list_all_for_project(&ctx, &self.mm, project.id)
+            .await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        let recipient_ids: Vec<i64> = agents.iter().map(|a| a.id).collect();
+        
+        let question = p.standup_question.unwrap_or_else(|| "What are you working on today?".to_string());
+        
+        let msg_c = MessageForCreate {
+            project_id: project.id,
+            sender_id: sender.id,
+            recipient_ids,
+            cc_ids: None,
+            bcc_ids: None,
+            subject: "Daily Standup".to_string(),
+            body_md: question,
+            thread_id: Some("STANDUP".to_string()),
+            importance: Some("normal".to_string()),
+        };
+
+        let msg_id = MessageBmc::create(&ctx, &self.mm, msg_c)
+            .await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        let msg = format!("Standup request sent to {} agents (message id: {})", agents.len(), msg_id);
+        Ok(CallToolResult::success(vec![Content::text(msg)]))
+    }
+
+    /// Quick handoff workflow
+    #[tool(description = "Facilitate task handoff from one agent to another.")]
+    async fn quick_handoff_workflow(
+        &self,
+        params: Parameters<QuickHandoffWorkflowParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::agent::AgentBmc;
+        use lib_core::model::message::{MessageBmc, MessageForCreate};
+        use lib_core::model::project::ProjectBmc;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
+            .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
+
+        let from_agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.from_agent)
+            .await
+            .map_err(|e| McpError::invalid_params(format!("From agent not found: {}", e), None))?;
+
+        let to_agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.to_agent)
+            .await
+            .map_err(|e| McpError::invalid_params(format!("To agent not found: {}", e), None))?;
+
+        let files_text = if let Some(files) = &p.files {
+            format!("\n\nFiles:\n{}", files.join("\n"))
+        } else {
+            String::new()
+        };
+
+        let msg_c = MessageForCreate {
+            project_id: project.id,
+            sender_id: from_agent.id,
+            recipient_ids: vec![to_agent.id],
+            cc_ids: None,
+            bcc_ids: None,
+            subject: format!("Task Handoff: {}", p.task_description),
+            body_md: format!("Taking over: {}{}", p.task_description, files_text),
+            thread_id: Some(format!("HANDOFF-{}", p.task_description.replace(" ", "-"))),
+            importance: Some("high".to_string()),
+        };
+
+        let msg_id = MessageBmc::create(&ctx, &self.mm, msg_c)
+            .await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        let msg = format!("Handoff message sent from '{}' to '{}' (id: {})", p.from_agent, p.to_agent, msg_id);
+        Ok(CallToolResult::success(vec![Content::text(msg)]))
+    }
+
+    /// Quick review workflow
+    #[tool(description = "Initiate code review process with file reservations.")]
+    async fn quick_review_workflow(
+        &self,
+        params: Parameters<QuickReviewWorkflowParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::agent::AgentBmc;
+        use lib_core::model::file_reservation::{FileReservationBmc, FileReservationForCreate};
+        use lib_core::model::message::{MessageBmc, MessageForCreate};
+        use lib_core::model::project::ProjectBmc;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
+            .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
+
+        let requester = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.requester)
+            .await
+            .map_err(|e| McpError::invalid_params(format!("Requester not found: {}", e), None))?;
+
+        let reviewer = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.reviewer)
+            .await
+            .map_err(|e| McpError::invalid_params(format!("Reviewer not found: {}", e), None))?;
+
+        // Reserve files for review (non-exclusive)
+        let expires_ts = chrono::Utc::now().naive_utc() + chrono::Duration::hours(2);
+        for file in &p.files_to_review {
+            let res_c = FileReservationForCreate {
+                project_id: project.id,
+                agent_id: reviewer.id,
+                path_pattern: file.clone(),
+                exclusive: false,
+                reason: "Code review".to_string(),
+                expires_ts,
+            };
+            FileReservationBmc::create(&ctx, &self.mm, res_c)
+                .await
+                .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+        }
+
+        let msg_c = MessageForCreate {
+            project_id: project.id,
+            sender_id: requester.id,
+            recipient_ids: vec![reviewer.id],
+            cc_ids: None,
+            bcc_ids: None,
+            subject: "Code Review Request".to_string(),
+            body_md: format!("Please review:\n{}\n\nFiles:\n{}", p.description, p.files_to_review.join("\n")),
+            thread_id: Some("CODE-REVIEW".to_string()),
+            importance: Some("normal".to_string()),
+        };
+
+        let msg_id = MessageBmc::create(&ctx, &self.mm, msg_c)
+            .await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        let msg = format!(
+            "Review request sent to '{}'. Reserved {} files for review (id: {})",
+            p.reviewer,
+            p.files_to_review.len(),
+            msg_id
+        );
+        Ok(CallToolResult::success(vec![Content::text(msg)]))
     }
 
     /// Summarize thread
