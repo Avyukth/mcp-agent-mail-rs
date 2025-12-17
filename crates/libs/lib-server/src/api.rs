@@ -1,8 +1,8 @@
-use axum::routing::{get, post};
 use axum::Router;
+use axum::routing::{get, post};
 
-use crate::tools;
 use crate::AppState;
+use crate::tools;
 
 pub mod attachments;
 pub mod export;
@@ -21,15 +21,24 @@ pub fn routes() -> Router<AppState> {
         .route("/api/projects", get(tools::list_all_projects))
         .route("/api/list_projects", get(tools::list_all_projects)) // Python alias
         .route("/api/list_all_projects", get(tools::list_all_projects)) // Python alias
-        .route("/api/projects/{project_slug}/agents", get(tools::list_all_agents_for_project))
+        .route(
+            "/api/projects/{project_slug}/agents",
+            get(tools::list_all_agents_for_project),
+        )
         .route("/api/list_agents", get(tools::list_all_agents_for_project)) // Python alias
         // Identity
         .route("/api/agent/register", post(tools::register_agent))
         .route("/api/register_agent", post(tools::register_agent)) // Python alias
         .route("/api/agent/whois", post(tools::whois))
         .route("/api/whois", post(tools::whois)) // Python alias
-        .route("/api/agent/create_identity", post(tools::create_agent_identity))
-        .route("/api/create_agent_identity", post(tools::create_agent_identity)) // Python alias
+        .route(
+            "/api/agent/create_identity",
+            post(tools::create_agent_identity),
+        )
+        .route(
+            "/api/create_agent_identity",
+            post(tools::create_agent_identity),
+        ) // Python alias
         // Messaging
         .route("/api/message/send", post(tools::send_message))
         .route("/api/send_message", post(tools::send_message)) // Python alias
@@ -56,19 +65,55 @@ pub fn routes() -> Router<AppState> {
         .route("/api/threads", post(tools::list_threads))
         .route("/api/list_threads", post(tools::list_threads)) // Python alias
         // File Reservations
-        .route("/api/file_reservations/paths", post(tools::file_reservation_paths))
-        .route("/api/file_reservation_paths", post(tools::file_reservation_paths)) // Python alias
-        .route("/api/file_reservations/list", post(tools::list_file_reservations))
-        .route("/api/list_file_reservations", post(tools::list_file_reservations)) // Python alias
+        .route(
+            "/api/file_reservations/paths",
+            post(tools::file_reservation_paths),
+        )
+        .route(
+            "/api/file_reservation_paths",
+            post(tools::file_reservation_paths),
+        ) // Python alias
+        .route(
+            "/api/file_reservations/list",
+            post(tools::list_file_reservations),
+        )
+        .route(
+            "/api/list_file_reservations",
+            post(tools::list_file_reservations),
+        ) // Python alias
         .route("/api/reservations", post(tools::list_file_reservations)) // Python alias (short)
-        .route("/api/file_reservations/release", post(tools::release_file_reservation))
-        .route("/api/release_file_reservation", post(tools::release_file_reservation)) // Python alias
-        .route("/api/release_file_reservations", post(tools::release_file_reservation)) // Python alias (plural)
-        .route("/api/file_reservations/force_release", post(tools::force_release_reservation))
-        .route("/api/force_release_file_reservation", post(tools::force_release_reservation)) // Python alias
-        .route("/api/force_release_reservation", post(tools::force_release_reservation)) // Python alias (short)
-        .route("/api/file_reservations/renew", post(tools::renew_file_reservation))
-        .route("/api/renew_file_reservation", post(tools::renew_file_reservation)) // Python alias
+        .route(
+            "/api/file_reservations/release",
+            post(tools::release_file_reservation),
+        )
+        .route(
+            "/api/release_file_reservation",
+            post(tools::release_file_reservation),
+        ) // Python alias
+        .route(
+            "/api/release_file_reservations",
+            post(tools::release_file_reservation),
+        ) // Python alias (plural)
+        .route(
+            "/api/file_reservations/force_release",
+            post(tools::force_release_reservation),
+        )
+        .route(
+            "/api/force_release_file_reservation",
+            post(tools::force_release_reservation),
+        ) // Python alias
+        .route(
+            "/api/force_release_reservation",
+            post(tools::force_release_reservation),
+        ) // Python alias (short)
+        .route(
+            "/api/file_reservations/renew",
+            post(tools::renew_file_reservation),
+        )
+        .route(
+            "/api/renew_file_reservation",
+            post(tools::renew_file_reservation),
+        ) // Python alias
         // Extended Info
         .route("/api/project/info", post(tools::get_project_info))
         .route("/api/get_project_info", post(tools::get_project_info)) // Python alias
@@ -76,8 +121,14 @@ pub fn routes() -> Router<AppState> {
         .route("/api/agent/profile", post(tools::get_agent_profile))
         .route("/api/get_agent_profile", post(tools::get_agent_profile)) // Python alias
         .route("/api/agent_profile", post(tools::get_agent_profile)) // Python alias (short)
-        .route("/api/agent/profile/update", post(tools::update_agent_profile))
-        .route("/api/update_agent_profile", post(tools::update_agent_profile)) // Python alias
+        .route(
+            "/api/agent/profile/update",
+            post(tools::update_agent_profile),
+        )
+        .route(
+            "/api/update_agent_profile",
+            post(tools::update_agent_profile),
+        ) // Python alias
         // Contacts
         .route("/api/contacts/request", post(tools::request_contact))
         .route("/api/request_contact", post(tools::request_contact)) // Python alias
@@ -96,7 +147,10 @@ pub fn routes() -> Router<AppState> {
         .route("/api/release_build_slot", post(tools::release_build_slot)) // Python alias
         // Overseer
         .route("/api/overseer/send", post(tools::send_overseer_message))
-        .route("/api/send_overseer_message", post(tools::send_overseer_message)) // Python alias
+        .route(
+            "/api/send_overseer_message",
+            post(tools::send_overseer_message),
+        ) // Python alias
         // Macros
         .route("/api/macros/list", post(tools::list_macros))
         .route("/api/list_macros", post(tools::list_macros)) // Python alias
@@ -112,12 +166,27 @@ pub fn routes() -> Router<AppState> {
         .route("/api/threads/summarize", post(tools::summarize_threads))
         .route("/api/summarize_threads", post(tools::summarize_threads)) // Python alias
         // Setup (Precommit Guard)
-        .route("/api/setup/install_guard", post(tools::install_precommit_guard))
-        .route("/api/install_precommit_guard", post(tools::install_precommit_guard)) // Python alias
+        .route(
+            "/api/setup/install_guard",
+            post(tools::install_precommit_guard),
+        )
+        .route(
+            "/api/install_precommit_guard",
+            post(tools::install_precommit_guard),
+        ) // Python alias
         .route("/api/install_guard", post(tools::install_precommit_guard)) // Python alias (short)
-        .route("/api/setup/uninstall_guard", post(tools::uninstall_precommit_guard))
-        .route("/api/uninstall_precommit_guard", post(tools::uninstall_precommit_guard)) // Python alias
-        .route("/api/uninstall_guard", post(tools::uninstall_precommit_guard)) // Python alias (short)
+        .route(
+            "/api/setup/uninstall_guard",
+            post(tools::uninstall_precommit_guard),
+        )
+        .route(
+            "/api/uninstall_precommit_guard",
+            post(tools::uninstall_precommit_guard),
+        ) // Python alias
+        .route(
+            "/api/uninstall_guard",
+            post(tools::uninstall_precommit_guard),
+        ) // Python alias (short)
         // Attachments
         // Attachments
         .route("/api/attachments", get(attachments::list_attachments))
@@ -131,7 +200,7 @@ pub fn routes() -> Router<AppState> {
         // My implementation in api/attachments.rs uses `Path(id)`.
         // So I must route to `/api/get_attachment/:id`.
         // But the previous API was POST with JSON body?
-        // tools.rs stub used Json body. 
+        // tools.rs stub used Json body.
         // My new implementation uses Path.
         // I should stick to one or the other or support both.
         // RESTful GET /.../:id is better for downloading files.
@@ -150,5 +219,8 @@ pub fn routes() -> Router<AppState> {
         .route("/api/commit_archive", post(tools::commit_archive)) // Python alias
         // Siblings
         .route("/api/project/siblings", post(tools::list_project_siblings))
-        .route("/api/list_project_siblings", post(tools::list_project_siblings)) // Python alias
+        .route(
+            "/api/list_project_siblings",
+            post(tools::list_project_siblings),
+        ) // Python alias
 }

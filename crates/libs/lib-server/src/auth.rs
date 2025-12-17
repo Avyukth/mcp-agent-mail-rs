@@ -4,12 +4,12 @@ use axum::{
     middleware::Next,
     response::Response,
 };
-use axum_extra::headers::{authorization::Bearer, Authorization, HeaderMapExt};
-use std::net::SocketAddr;
-use jsonwebtoken::{decode, decode_header, DecodingKey, Validation};
+use axum_extra::headers::{Authorization, HeaderMapExt, authorization::Bearer};
+use jsonwebtoken::{DecodingKey, Validation, decode, decode_header};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::RwLock;
@@ -166,14 +166,21 @@ impl JwksClient {
 
     async fn refresh_keys(&self) -> Result<(), anyhow::Error> {
         info!("Refreshing JWKS from {}", self.url);
-        let resp = self.client.get(&self.url).send().await?.json::<JwksResponse>().await?;
+        let resp = self
+            .client
+            .get(&self.url)
+            .send()
+            .await?
+            .json::<JwksResponse>()
+            .await?;
 
         let mut new_keys = HashMap::new();
         for jwk in resp.keys {
-            if jwk.kty == "RSA" 
-                && let Ok(decoding_key) = DecodingKey::from_rsa_components(&jwk.n, &jwk.e) {
-                    new_keys.insert(jwk.kid.clone(), decoding_key);
-                }
+            if jwk.kty == "RSA"
+                && let Ok(decoding_key) = DecodingKey::from_rsa_components(&jwk.n, &jwk.e)
+            {
+                new_keys.insert(jwk.kid.clone(), decoding_key);
+            }
         }
 
         // Update keys and refresh timestamp
@@ -185,7 +192,10 @@ impl JwksClient {
         let mut last_refresh = self.last_refresh.write().await;
         *last_refresh = Some(Instant::now());
 
-        info!("JWKS refreshed, loaded {} keys (TTL: {:?})", key_count, self.cache_ttl);
+        info!(
+            "JWKS refreshed, loaded {} keys (TTL: {:?})",
+            key_count, self.cache_ttl
+        );
         Ok(())
     }
 }
@@ -238,7 +248,10 @@ async fn validate_jwt_token(
 ) -> Result<AuthenticatedUser, StatusCode> {
     let header = decode_header(token).map_err(|_| StatusCode::UNAUTHORIZED)?;
     let kid = header.kid.ok_or(StatusCode::UNAUTHORIZED)?;
-    let key = jwks_client.get_verifying_key(&kid).await.ok_or(StatusCode::UNAUTHORIZED)?;
+    let key = jwks_client
+        .get_verifying_key(&kid)
+        .await
+        .ok_or(StatusCode::UNAUTHORIZED)?;
 
     let mut validation = Validation::new(header.alg);
     if let Some(ref audience) = auth_config.jwt_audience {
@@ -250,7 +263,10 @@ async fn validate_jwt_token(
 
     match decode::<Claims>(token, &key, &validation) {
         Ok(token_data) => {
-            info!("JWT validated successfully for subject: {}", token_data.claims.sub);
+            info!(
+                "JWT validated successfully for subject: {}",
+                token_data.claims.sub
+            );
             Ok(AuthenticatedUser {
                 subject: token_data.claims.sub.clone(),
                 agent_name: Some(token_data.claims.sub),
@@ -271,10 +287,14 @@ fn should_bypass_auth(req: &Request<axum::body::Body>, auth_config: &AuthConfig)
     }
     if auth_config.allow_localhost
         && let Some(connect_info) = req.extensions().get::<ConnectInfo<SocketAddr>>()
-            && is_localhost(&connect_info.0) {
-                info!("Localhost bypass: allowing unauthenticated request from {}", connect_info.0);
-                return true;
-            }
+        && is_localhost(&connect_info.0)
+    {
+        info!(
+            "Localhost bypass: allowing unauthenticated request from {}",
+            connect_info.0
+        );
+        return true;
+    }
     false
 }
 
@@ -290,7 +310,8 @@ pub async fn auth_middleware(
         return Ok(next.run(req).await);
     }
 
-    let token = req.headers()
+    let token = req
+        .headers()
         .typed_get::<Authorization<Bearer>>()
         .map(|auth| auth.token().to_string())
         .ok_or_else(|| {
@@ -325,17 +346,27 @@ pub fn get_required_capability(path: &str) -> Option<&'static str> {
         // Messaging operations
         "/api/message/send" | "/api/send_message" => Some("send_message"),
         "/api/message/reply" | "/api/reply_message" => Some("send_message"),
-        "/api/inbox" | "/api/fetch_inbox" | "/api/list_inbox" | "/api/get_inbox" => Some("fetch_inbox"),
-        "/api/outbox" | "/api/fetch_outbox" | "/api/list_outbox" | "/api/get_outbox" => Some("fetch_outbox"),
+        "/api/inbox" | "/api/fetch_inbox" | "/api/list_inbox" | "/api/get_inbox" => {
+            Some("fetch_inbox")
+        }
+        "/api/outbox" | "/api/fetch_outbox" | "/api/list_outbox" | "/api/get_outbox" => {
+            Some("fetch_outbox")
+        }
         "/api/message/acknowledge" | "/api/acknowledge_message" => Some("acknowledge_message"),
         "/api/message/read" | "/api/mark_message_read" => Some("fetch_inbox"),
         "/api/messages/search" | "/api/search_messages" => Some("fetch_inbox"),
         // File reservations
         "/api/file_reservations/paths" | "/api/file_reservation_paths" => Some("file_reservation"),
-        "/api/file_reservations/list" | "/api/list_file_reservations" | "/api/reservations" => Some("file_reservation"),
-        "/api/file_reservations/release" | "/api/release_file_reservation" => Some("file_reservation"),
+        "/api/file_reservations/list" | "/api/list_file_reservations" | "/api/reservations" => {
+            Some("file_reservation")
+        }
+        "/api/file_reservations/release" | "/api/release_file_reservation" => {
+            Some("file_reservation")
+        }
         "/api/file_reservations/renew" | "/api/renew_file_reservation" => Some("file_reservation"),
-        "/api/file_reservations/force_release" | "/api/force_release_file_reservation" => Some("admin"),
+        "/api/file_reservations/force_release" | "/api/force_release_file_reservation" => {
+            Some("admin")
+        }
         // Build slots
         "/api/build_slots/acquire" | "/api/acquire_build_slot" => Some("build"),
         "/api/build_slots/renew" | "/api/renew_build_slot" => Some("build"),
@@ -395,41 +426,64 @@ pub async fn capabilities_middleware(
     let agent_name = match &auth_user.agent_name {
         Some(name) => name.clone(),
         None => {
-            warn!("RBAC: No agent_name for {} (requires: {})", path, required_capability);
+            warn!(
+                "RBAC: No agent_name for {} (requires: {})",
+                path, required_capability
+            );
             return Err(StatusCode::FORBIDDEN);
         }
     };
 
     let mm = &state.mm;
     let ctx = lib_core::Ctx::root_ctx();
-    let projects = lib_core::model::project::ProjectBmc::list_all(&ctx, mm).await
+    let projects = lib_core::model::project::ProjectBmc::list_all(&ctx, mm)
+        .await
         .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
 
     for project in projects {
-        if let Ok(agent) = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &agent_name).await
-            && let Ok(true) = lib_core::model::agent_capabilities::AgentCapabilityBmc::check(&ctx, mm, agent.id, required_capability).await {
-                if config.log_checks {
-                    info!("RBAC: {} has {} in {}", agent_name, required_capability, project.slug);
-                }
-                return Ok(next.run(req).await);
+        if let Ok(agent) =
+            lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &agent_name).await
+            && let Ok(true) = lib_core::model::agent_capabilities::AgentCapabilityBmc::check(
+                &ctx,
+                mm,
+                agent.id,
+                required_capability,
+            )
+            .await
+        {
+            if config.log_checks {
+                info!(
+                    "RBAC: {} has {} in {}",
+                    agent_name, required_capability, project.slug
+                );
+            }
+            return Ok(next.run(req).await);
         }
     }
 
-    warn!("RBAC: {} denied {} (missing: {})", agent_name, path, required_capability);
+    warn!(
+        "RBAC: {} denied {} (missing: {})",
+        agent_name, path, required_capability
+    );
     Err(StatusCode::FORBIDDEN)
 }
-
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use axum::{body::Body, http::{Request, StatusCode}, middleware, routing::get, Router};
-    use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
-    use jsonwebtoken::{encode, Algorithm, EncodingKey, Header};
+    use axum::{
+        Router,
+        body::Body,
+        http::{Request, StatusCode},
+        middleware,
+        routing::get,
+    };
+    use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
+    use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
     use rand::rngs::OsRng;
-    use rsa::{pkcs1::EncodeRsaPrivateKey, traits::PublicKeyParts, RsaPrivateKey};
+    use rsa::{RsaPrivateKey, pkcs1::EncodeRsaPrivateKey, traits::PublicKeyParts};
     use tower::util::ServiceExt; // for oneshot
-    use wiremock::{matchers::path, Mock, MockServer, ResponseTemplate};
+    use wiremock::{Mock, MockServer, ResponseTemplate, matchers::path};
 
     async fn handler() -> &'static str {
         "OK"
@@ -606,7 +660,8 @@ mod tests {
             .layer(middleware::from_fn_with_state(app_state, auth_middleware));
 
         // Wrong token
-        let response = app.clone()
+        let response = app
+            .clone()
             .oneshot(
                 Request::builder()
                     .uri("/")
@@ -1153,7 +1208,11 @@ mod tests {
             .await
             .expect("Request failed");
 
-        assert_eq!(response.status().as_u16(), 200, "Localhost bypass should allow unauthenticated request");
+        assert_eq!(
+            response.status().as_u16(),
+            200,
+            "Localhost bypass should allow unauthenticated request"
+        );
     }
 
     #[tokio::test]
@@ -1210,7 +1269,11 @@ mod tests {
             .await
             .expect("Request failed");
 
-        assert_eq!(response.status().as_u16(), 401, "With localhost bypass disabled, request should be unauthorized");
+        assert_eq!(
+            response.status().as_u16(),
+            401,
+            "With localhost bypass disabled, request should be unauthorized"
+        );
     }
 
     #[test]
@@ -1218,10 +1281,16 @@ mod tests {
         use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
         let localhost = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 8080);
-        assert!(super::is_localhost(&localhost), "127.0.0.1 should be localhost");
+        assert!(
+            super::is_localhost(&localhost),
+            "127.0.0.1 should be localhost"
+        );
 
         let external = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 1, 1)), 8080);
-        assert!(!super::is_localhost(&external), "192.168.1.1 should not be localhost");
+        assert!(
+            !super::is_localhost(&external),
+            "192.168.1.1 should not be localhost"
+        );
     }
 
     #[test]
@@ -1231,7 +1300,13 @@ mod tests {
         let localhost = SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 8080);
         assert!(super::is_localhost(&localhost), "::1 should be localhost");
 
-        let external = SocketAddr::new(IpAddr::V6(Ipv6Addr::new(2001, 0x0db8, 0, 0, 0, 0, 0, 1)), 8080);
-        assert!(!super::is_localhost(&external), "2001:db8::1 should not be localhost");
+        let external = SocketAddr::new(
+            IpAddr::V6(Ipv6Addr::new(2001, 0x0db8, 0, 0, 0, 0, 0, 1)),
+            8080,
+        );
+        assert!(
+            !super::is_localhost(&external),
+            "2001:db8::1 should not be localhost"
+        );
     }
 }

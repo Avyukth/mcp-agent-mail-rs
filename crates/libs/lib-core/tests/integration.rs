@@ -5,8 +5,8 @@
 #![allow(clippy::duplicate_mod)]
 #![allow(clippy::duplicated_attributes)]
 
-mod common;
-mod project_tests;
 mod agent_tests;
-mod message_tests;
 mod cc_bcc_tests;
+mod common;
+mod message_tests;
+mod project_tests;

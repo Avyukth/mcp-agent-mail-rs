@@ -1,7 +1,7 @@
 //! HTTP client for MCP Agent Mail API.
 
-use serde::{Deserialize, Serialize};
 use gloo_net::http::Request;
+use serde::{Deserialize, Serialize};
 
 /// API base URL - defaults to localhost for development.
 pub const API_BASE_URL: &str = "http://127.0.0.1:8765";
@@ -101,10 +101,8 @@ pub struct Message {
 /// Check API health.
 pub async fn check_health() -> Result<HealthResponse, ApiError> {
     let url = format!("{}/api/health", API_BASE_URL);
-    let response = Request::get(&url)
-        .send()
-        .await?;
-    
+    let response = Request::get(&url).send().await?;
+
     if response.ok() {
         Ok(response.json().await?)
     } else {
@@ -117,10 +115,8 @@ pub async fn check_health() -> Result<HealthResponse, ApiError> {
 /// Get all projects.
 pub async fn get_projects() -> Result<Vec<Project>, ApiError> {
     let url = format!("{}/api/projects", API_BASE_URL);
-    let response = Request::get(&url)
-        .send()
-        .await?;
-    
+    let response = Request::get(&url).send().await?;
+
     if response.ok() {
         Ok(response.json().await?)
     } else {
@@ -159,10 +155,8 @@ pub async fn ensure_project(human_key: &str) -> Result<Project, ApiError> {
 /// Get project by slug.
 pub async fn get_project(slug: &str) -> Result<Project, ApiError> {
     let url = format!("{}/api/projects/{}", API_BASE_URL, slug);
-    let response = Request::get(&url)
-        .send()
-        .await?;
-    
+    let response = Request::get(&url).send().await?;
+
     if response.ok() {
         Ok(response.json().await?)
     } else {
@@ -175,10 +169,8 @@ pub async fn get_project(slug: &str) -> Result<Project, ApiError> {
 /// Get agents for a project.
 pub async fn get_agents(project_slug: &str) -> Result<Vec<Agent>, ApiError> {
     let url = format!("{}/api/projects/{}/agents", API_BASE_URL, project_slug);
-    let response = Request::get(&url)
-        .send()
-        .await?;
-    
+    let response = Request::get(&url).send().await?;
+
     if response.ok() {
         Ok(response.json().await?)
     } else {
@@ -203,7 +195,9 @@ impl BackendError {
     /// Returns a user-friendly error message.
     fn message(&self) -> String {
         self.error.clone().unwrap_or_else(|| {
-            self.code.clone().unwrap_or_else(|| "Unknown error".to_string())
+            self.code
+                .clone()
+                .unwrap_or_else(|| "Unknown error".to_string())
         })
     }
 }
@@ -260,10 +254,8 @@ pub async fn register_agent(
 /// Get all agents.
 pub async fn get_all_agents() -> Result<Vec<Agent>, ApiError> {
     let url = format!("{}/api/agents", API_BASE_URL);
-    let response = Request::get(&url)
-        .send()
-        .await?;
-    
+    let response = Request::get(&url).send().await?;
+
     if response.ok() {
         Ok(response.json().await?)
     } else {
@@ -274,22 +266,27 @@ pub async fn get_all_agents() -> Result<Vec<Agent>, ApiError> {
 }
 
 /// Get inbox messages for a specific project and agent.
-pub async fn get_inbox(project_slug: &str, agent_name: &str) -> Result<Vec<InboxMessage>, ApiError> {
+pub async fn get_inbox(
+    project_slug: &str,
+    agent_name: &str,
+) -> Result<Vec<InboxMessage>, ApiError> {
     let url = format!("{}/api/inbox", API_BASE_URL);
-    
+
     let payload = serde_json::json!({
         "project_slug": project_slug,
         "agent_name": agent_name,
         "limit": 50
     });
-    
+
     let response = Request::post(&url)
         .header("Content-Type", "application/json")
         .body(payload.to_string())
-        .map_err(|e| ApiError { message: e.to_string() })?
+        .map_err(|e| ApiError {
+            message: e.to_string(),
+        })?
         .send()
         .await?;
-    
+
     if response.ok() {
         Ok(response.json().await?)
     } else {
@@ -302,10 +299,8 @@ pub async fn get_inbox(project_slug: &str, agent_name: &str) -> Result<Vec<Inbox
 /// Get a single message by ID.
 pub async fn get_message(id: &str) -> Result<Message, ApiError> {
     let url = format!("{}/api/messages/{}", API_BASE_URL, id);
-    let response = Request::get(&url)
-        .send()
-        .await?;
-    
+    let response = Request::get(&url).send().await?;
+
     if response.ok() {
         Ok(response.json().await?)
     } else {
@@ -366,4 +361,3 @@ pub async fn send_message(
         })
     }
 }
-

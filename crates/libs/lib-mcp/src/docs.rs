@@ -7,7 +7,11 @@ pub fn generate_markdown_docs(schemas: &[ToolSchema]) -> String {
     md.push_str("## Table of Contents\n\n");
 
     for schema in schemas {
-        md.push_str(&format!("- [{}](#{})\n", schema.name, schema.name.replace('_', "-")));
+        md.push_str(&format!(
+            "- [{}](#{})\n",
+            schema.name,
+            schema.name.replace('_', "-")
+        ));
     }
 
     md.push_str("\n---\n\n");

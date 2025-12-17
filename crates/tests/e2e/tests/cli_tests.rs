@@ -17,7 +17,9 @@ fn test_help_command() {
     cmd.arg("--help")
         .assert()
         .success()
-        .stdout(predicate::str::contains("Unified Server/CLI for Agent Mail"));
+        .stdout(predicate::str::contains(
+            "Unified Server/CLI for Agent Mail",
+        ));
 }
 
 #[test]

@@ -1,8 +1,8 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use tracing_subscriber::{fmt, prelude::*, EnvFilter};
-use lib_mcp::{run_stdio, run_sse, tools::get_tool_schemas};
 use lib_common::config::McpConfig;
+use lib_mcp::{run_sse, run_stdio, tools::get_tool_schemas};
+use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
 #[derive(Parser)]
 #[command(name = "mcp-agent-mail")]
@@ -45,7 +45,10 @@ fn setup_logging() -> Result<()> {
 
 async fn handle_serve(transport: String, port: u16) -> Result<()> {
     setup_logging()?;
-    let config = McpConfig { transport: transport.clone(), port };
+    let config = McpConfig {
+        transport: transport.clone(),
+        port,
+    };
     if transport == "sse" {
         run_sse(config).await
     } else {
@@ -89,8 +92,13 @@ async fn main() -> Result<()> {
     });
 
     match cmd {
-        Commands::Serve { transport, port, .. } => handle_serve(transport, port).await,
+        Commands::Serve {
+            transport, port, ..
+        } => handle_serve(transport, port).await,
         Commands::Schema { format, output } => handle_schema(format, output),
-        Commands::Tools => { handle_tools(); Ok(()) }
+        Commands::Tools => {
+            handle_tools();
+            Ok(())
+        }
     }
 }

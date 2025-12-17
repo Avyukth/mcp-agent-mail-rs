@@ -1,8 +1,8 @@
 //! Dashboard page - main landing page with health status and quick stats.
 //! Digital Correspondence design - warm, inviting, purposeful.
 
-use leptos::prelude::*;
 use crate::api::client::{self, Project};
+use leptos::prelude::*;
 
 /// Dashboard page component with health check and project stats.
 #[component]
@@ -50,7 +50,7 @@ pub fn Dashboard() -> impl IntoView {
                 // Decorative elements
                 <div class="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-amber-200/20 to-transparent dark:from-amber-500/10 rounded-full -translate-y-1/2 translate-x-1/2"></div>
                 <div class="absolute bottom-0 left-0 w-48 h-48 bg-gradient-to-tr from-teal-200/20 to-transparent dark:from-teal-500/10 rounded-full translate-y-1/2 -translate-x-1/2"></div>
-                
+
                 <div class="relative">
                     <h1 class="font-display text-3xl font-bold text-charcoal-800 dark:text-cream-100 mb-2">
                         "Welcome to MCP Agent Mail"

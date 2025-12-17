@@ -1,9 +1,9 @@
+use crate::Result;
 use crate::ctx::Ctx;
 use crate::model::ModelManager;
-use crate::Result;
 use crate::store::git_store;
-use serde::{Deserialize, Serialize};
 use chrono::NaiveDateTime;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -36,21 +36,25 @@ impl AgentBmc {
         let db = mm.db();
 
         // 1. Insert into DB
-        let stmt = db.prepare(
-            r#"
+        let stmt = db
+            .prepare(
+                r#"
             INSERT INTO agents (project_id, name, program, model, task_description)
             VALUES (?, ?, ?, ?, ?)
             RETURNING id
-            "#
-        ).await?;
+            "#,
+            )
+            .await?;
 
-        let mut rows = stmt.query((
-            agent_c.project_id,
-            agent_c.name.as_str(),
-            agent_c.program.as_str(),
-            agent_c.model.as_str(),
-            agent_c.task_description.as_str(),
-        )).await?;
+        let mut rows = stmt
+            .query((
+                agent_c.project_id,
+                agent_c.name.as_str(),
+                agent_c.program.as_str(),
+                agent_c.model.as_str(),
+                agent_c.task_description.as_str(),
+            ))
+            .await?;
 
         let id = if let Some(row) = rows.next().await? {
             row.get::<i64>(0)?
@@ -61,11 +65,14 @@ impl AgentBmc {
         // 2. Write profile to Git
         let stmt = db.prepare("SELECT slug FROM projects WHERE id = ?").await?;
         let mut rows = stmt.query([agent_c.project_id]).await?;
-        
+
         let project_slug: String = if let Some(row) = rows.next().await? {
             row.get(0)?
         } else {
-            return Err(crate::Error::ProjectNotFound(format!("ID: {}", agent_c.project_id)));
+            return Err(crate::Error::ProjectNotFound(format!(
+                "ID: {}",
+                agent_c.project_id
+            )));
         };
 
         // Git Operations - serialized to prevent lock contention
@@ -110,11 +117,13 @@ impl AgentBmc {
             //                 5=task_description, 6=inception_ts, 7=last_active_ts,
             //                 8=attachments_policy, 9=contact_policy
             let inception_ts_str: String = row.get(6)?;
-            let inception_ts = NaiveDateTime::parse_from_str(&inception_ts_str, "%Y-%m-%d %H:%M:%S")
-                .unwrap_or_default();
+            let inception_ts =
+                NaiveDateTime::parse_from_str(&inception_ts_str, "%Y-%m-%d %H:%M:%S")
+                    .unwrap_or_default();
             let last_active_ts_str: String = row.get(7)?;
-            let last_active_ts = NaiveDateTime::parse_from_str(&last_active_ts_str, "%Y-%m-%d %H:%M:%S")
-                .unwrap_or_default();
+            let last_active_ts =
+                NaiveDateTime::parse_from_str(&last_active_ts_str, "%Y-%m-%d %H:%M:%S")
+                    .unwrap_or_default();
 
             Ok(Agent {
                 id: row.get(0)?,
@@ -133,7 +142,12 @@ impl AgentBmc {
         }
     }
 
-    pub async fn get_by_name(_ctx: &Ctx, mm: &ModelManager, project_id: i64, name: &str) -> Result<Agent> {
+    pub async fn get_by_name(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        project_id: i64,
+        name: &str,
+    ) -> Result<Agent> {
         let db = mm.db();
         let stmt = db.prepare(
             r#"
@@ -148,11 +162,13 @@ impl AgentBmc {
             //                 5=task_description, 6=inception_ts, 7=last_active_ts,
             //                 8=attachments_policy, 9=contact_policy
             let inception_ts_str: String = row.get(6)?;
-            let inception_ts = NaiveDateTime::parse_from_str(&inception_ts_str, "%Y-%m-%d %H:%M:%S")
-                .unwrap_or_default();
+            let inception_ts =
+                NaiveDateTime::parse_from_str(&inception_ts_str, "%Y-%m-%d %H:%M:%S")
+                    .unwrap_or_default();
             let last_active_ts_str: String = row.get(7)?;
-            let last_active_ts = NaiveDateTime::parse_from_str(&last_active_ts_str, "%Y-%m-%d %H:%M:%S")
-                .unwrap_or_default();
+            let last_active_ts =
+                NaiveDateTime::parse_from_str(&last_active_ts_str, "%Y-%m-%d %H:%M:%S")
+                    .unwrap_or_default();
 
             Ok(Agent {
                 id: row.get(0)?,
@@ -167,11 +183,18 @@ impl AgentBmc {
                 contact_policy: row.get(9)?,
             })
         } else {
-            Err(crate::Error::AgentNotFound(format!("Name: {} in Project ID: {}", name, project_id)))
+            Err(crate::Error::AgentNotFound(format!(
+                "Name: {} in Project ID: {}",
+                name, project_id
+            )))
         }
     }
 
-    pub async fn list_all_for_project(_ctx: &Ctx, mm: &ModelManager, project_id: i64) -> Result<Vec<Agent>> {
+    pub async fn list_all_for_project(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        project_id: i64,
+    ) -> Result<Vec<Agent>> {
         let db = mm.db();
         let stmt = db.prepare(
             r#"
@@ -187,11 +210,13 @@ impl AgentBmc {
             //                 5=task_description, 6=inception_ts, 7=last_active_ts,
             //                 8=attachments_policy, 9=contact_policy
             let inception_ts_str: String = row.get(6)?;
-            let inception_ts = NaiveDateTime::parse_from_str(&inception_ts_str, "%Y-%m-%d %H:%M:%S")
-                .unwrap_or_default();
+            let inception_ts =
+                NaiveDateTime::parse_from_str(&inception_ts_str, "%Y-%m-%d %H:%M:%S")
+                    .unwrap_or_default();
             let last_active_ts_str: String = row.get(7)?;
-            let last_active_ts = NaiveDateTime::parse_from_str(&last_active_ts_str, "%Y-%m-%d %H:%M:%S")
-                .unwrap_or_default();
+            let last_active_ts =
+                NaiveDateTime::parse_from_str(&last_active_ts_str, "%Y-%m-%d %H:%M:%S")
+                    .unwrap_or_default();
 
             agents.push(Agent {
                 id: row.get(0)?,
@@ -211,7 +236,9 @@ impl AgentBmc {
 
     pub async fn count_messages_sent(_ctx: &Ctx, mm: &ModelManager, agent_id: i64) -> Result<i64> {
         let db = mm.db();
-        let stmt = db.prepare("SELECT COUNT(*) FROM messages WHERE sender_id = ?").await?;
+        let stmt = db
+            .prepare("SELECT COUNT(*) FROM messages WHERE sender_id = ?")
+            .await?;
         let mut rows = stmt.query([agent_id]).await?;
         if let Some(row) = rows.next().await? {
             Ok(row.get(0)?)
@@ -220,9 +247,15 @@ impl AgentBmc {
         }
     }
 
-    pub async fn count_messages_received(_ctx: &Ctx, mm: &ModelManager, agent_id: i64) -> Result<i64> {
+    pub async fn count_messages_received(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        agent_id: i64,
+    ) -> Result<i64> {
         let db = mm.db();
-        let stmt = db.prepare("SELECT COUNT(*) FROM message_recipients WHERE agent_id = ?").await?;
+        let stmt = db
+            .prepare("SELECT COUNT(*) FROM message_recipients WHERE agent_id = ?")
+            .await?;
         let mut rows = stmt.query([agent_id]).await?;
         if let Some(row) = rows.next().await? {
             Ok(row.get(0)?)
@@ -231,28 +264,41 @@ impl AgentBmc {
         }
     }
 
-    pub async fn update_profile(_ctx: &Ctx, mm: &ModelManager, agent_id: i64, update: AgentProfileUpdate) -> Result<()> {
+    pub async fn update_profile(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        agent_id: i64,
+        update: AgentProfileUpdate,
+    ) -> Result<()> {
         let db = mm.db();
 
         if let Some(task_description) = update.task_description {
-            let stmt = db.prepare("UPDATE agents SET task_description = ? WHERE id = ?").await?;
+            let stmt = db
+                .prepare("UPDATE agents SET task_description = ? WHERE id = ?")
+                .await?;
             stmt.execute((task_description, agent_id)).await?;
         }
 
         if let Some(attachments_policy) = update.attachments_policy {
-            let stmt = db.prepare("UPDATE agents SET attachments_policy = ? WHERE id = ?").await?;
+            let stmt = db
+                .prepare("UPDATE agents SET attachments_policy = ? WHERE id = ?")
+                .await?;
             stmt.execute((attachments_policy, agent_id)).await?;
         }
 
         if let Some(contact_policy) = update.contact_policy {
-            let stmt = db.prepare("UPDATE agents SET contact_policy = ? WHERE id = ?").await?;
+            let stmt = db
+                .prepare("UPDATE agents SET contact_policy = ? WHERE id = ?")
+                .await?;
             stmt.execute((contact_policy, agent_id)).await?;
         }
 
         // Update last_active_ts
         let now = chrono::Utc::now().naive_utc();
         let now_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
-        let stmt = db.prepare("UPDATE agents SET last_active_ts = ? WHERE id = ?").await?;
+        let stmt = db
+            .prepare("UPDATE agents SET last_active_ts = ? WHERE id = ?")
+            .await?;
         stmt.execute((now_str, agent_id)).await?;
 
         Ok(())

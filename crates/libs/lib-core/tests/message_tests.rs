@@ -15,14 +15,14 @@ use lib_core::utils::slugify;
 async fn setup_messaging(tc: &TestContext) -> (i64, i64, i64) {
     let human_key = "/messaging/test";
     let slug = slugify(human_key);
-    
+
     // Create project
     let project_id = ProjectBmc::create(&tc.ctx, &tc.mm, &slug, human_key)
         .await
         .expect("Failed to create project");
-    
+
     let project = ProjectBmc::get(&tc.ctx, &tc.mm, project_id).await.unwrap();
-    
+
     // Create sender
     let sender_c = AgentForCreate {
         project_id: project.id,
@@ -32,7 +32,7 @@ async fn setup_messaging(tc: &TestContext) -> (i64, i64, i64) {
         task_description: "Sender agent".to_string(),
     };
     let sender_id = AgentBmc::create(&tc.ctx, &tc.mm, sender_c).await.unwrap();
-    
+
     // Create recipient
     let recipient_c = AgentForCreate {
         project_id: project.id,
@@ -41,17 +41,21 @@ async fn setup_messaging(tc: &TestContext) -> (i64, i64, i64) {
         model: "test".to_string(),
         task_description: "Recipient agent".to_string(),
     };
-    let recipient_id = AgentBmc::create(&tc.ctx, &tc.mm, recipient_c).await.unwrap();
-    
+    let recipient_id = AgentBmc::create(&tc.ctx, &tc.mm, recipient_c)
+        .await
+        .unwrap();
+
     (project.id, sender_id, recipient_id)
 }
 
 /// Test sending a simple message
 #[tokio::test]
 async fn test_send_message() {
-    let tc = TestContext::new().await.expect("Failed to create test context");
+    let tc = TestContext::new()
+        .await
+        .expect("Failed to create test context");
     let (project_id, sender_id, recipient_id) = setup_messaging(&tc).await;
-    
+
     let msg_c = MessageForCreate {
         project_id,
         sender_id,
@@ -63,20 +67,22 @@ async fn test_send_message() {
         thread_id: None,
         importance: None,
     };
-    
+
     let msg_id = MessageBmc::create(&tc.ctx, &tc.mm, msg_c)
         .await
         .expect("Failed to send message");
-    
+
     assert!(msg_id > 0, "Message should have valid ID");
 }
 
 /// Test getting a specific message
 #[tokio::test]
 async fn test_get_message() {
-    let tc = TestContext::new().await.expect("Failed to create test context");
+    let tc = TestContext::new()
+        .await
+        .expect("Failed to create test context");
     let (project_id, sender_id, recipient_id) = setup_messaging(&tc).await;
-    
+
     let msg_c = MessageForCreate {
         project_id,
         sender_id,
@@ -88,13 +94,13 @@ async fn test_get_message() {
         thread_id: None,
         importance: Some("high".to_string()),
     };
-    
+
     let msg_id = MessageBmc::create(&tc.ctx, &tc.mm, msg_c).await.unwrap();
-    
+
     let message = MessageBmc::get(&tc.ctx, &tc.mm, msg_id)
         .await
         .expect("Failed to get message");
-    
+
     assert_eq!(message.subject, "Important Message");
     assert_eq!(message.body_md, "This is important content.");
 }
@@ -102,9 +108,11 @@ async fn test_get_message() {
 /// Test thread replies maintain thread_id
 #[tokio::test]
 async fn test_message_threading() {
-    let tc = TestContext::new().await.expect("Failed to create test context");
+    let tc = TestContext::new()
+        .await
+        .expect("Failed to create test context");
     let (project_id, sender_id, recipient_id) = setup_messaging(&tc).await;
-    
+
     // Send initial message
     let initial_msg_c = MessageForCreate {
         project_id,
@@ -117,11 +125,13 @@ async fn test_message_threading() {
         thread_id: None,
         importance: None,
     };
-    let initial_id = MessageBmc::create(&tc.ctx, &tc.mm, initial_msg_c).await.unwrap();
-    
+    let initial_id = MessageBmc::create(&tc.ctx, &tc.mm, initial_msg_c)
+        .await
+        .unwrap();
+
     // Get initial message to get thread_id
     let initial = MessageBmc::get(&tc.ctx, &tc.mm, initial_id).await.unwrap();
-    
+
     // Send reply in same thread
     let reply_msg_c = MessageForCreate {
         project_id,
@@ -134,19 +144,26 @@ async fn test_message_threading() {
         thread_id: initial.thread_id.clone(),
         importance: None,
     };
-    let reply_id = MessageBmc::create(&tc.ctx, &tc.mm, reply_msg_c).await.unwrap();
-    
+    let reply_id = MessageBmc::create(&tc.ctx, &tc.mm, reply_msg_c)
+        .await
+        .unwrap();
+
     let reply = MessageBmc::get(&tc.ctx, &tc.mm, reply_id).await.unwrap();
-    
-    assert_eq!(initial.thread_id, reply.thread_id, "Thread IDs should match");
+
+    assert_eq!(
+        initial.thread_id, reply.thread_id,
+        "Thread IDs should match"
+    );
 }
 
 /// Test full-text search using FTS5
 #[tokio::test]
 async fn test_search_messages() {
-    let tc = TestContext::new().await.expect("Failed to create test context");
+    let tc = TestContext::new()
+        .await
+        .expect("Failed to create test context");
     let (project_id, sender_id, recipient_id) = setup_messaging(&tc).await;
-    
+
     // Send a few messages with different content
     let msg1_c = MessageForCreate {
         project_id,
@@ -160,7 +177,7 @@ async fn test_search_messages() {
         importance: None,
     };
     MessageBmc::create(&tc.ctx, &tc.mm, msg1_c).await.unwrap();
-    
+
     let msg2_c = MessageForCreate {
         project_id,
         sender_id,
@@ -173,7 +190,7 @@ async fn test_search_messages() {
         importance: None,
     };
     MessageBmc::create(&tc.ctx, &tc.mm, msg2_c).await.unwrap();
-    
+
     let msg3_c = MessageForCreate {
         project_id,
         sender_id,
@@ -186,24 +203,33 @@ async fn test_search_messages() {
         importance: None,
     };
     MessageBmc::create(&tc.ctx, &tc.mm, msg3_c).await.unwrap();
-    
+
     // Search for "full-text search" - should match msg1 and msg3
     let results = MessageBmc::search(&tc.ctx, &tc.mm, project_id, "full-text search", 10)
         .await
         .expect("Search should succeed");
-    
+
     // Verify search finds relevant messages
-    assert!(!results.is_empty(), "Should find at least one message containing 'full-text search'");
-    assert!(results.iter().any(|m| m.subject == "Database Migration" || m.subject == "Performance"),
-        "Should find messages about FTS");
+    assert!(
+        !results.is_empty(),
+        "Should find at least one message containing 'full-text search'"
+    );
+    assert!(
+        results
+            .iter()
+            .any(|m| m.subject == "Database Migration" || m.subject == "Performance"),
+        "Should find messages about FTS"
+    );
 }
 
 /// Test marking a message as read
 #[tokio::test]
 async fn test_mark_message_read() {
-    let tc = TestContext::new().await.expect("Failed to create test context");
+    let tc = TestContext::new()
+        .await
+        .expect("Failed to create test context");
     let (project_id, sender_id, recipient_id) = setup_messaging(&tc).await;
-    
+
     // Send a message
     let msg_c = MessageForCreate {
         project_id,
@@ -217,11 +243,11 @@ async fn test_mark_message_read() {
         importance: None,
     };
     let msg_id = MessageBmc::create(&tc.ctx, &tc.mm, msg_c).await.unwrap();
-    
+
     // Mark as read by recipient
     let result = MessageBmc::mark_read(&tc.ctx, &tc.mm, msg_id, recipient_id).await;
     assert!(result.is_ok(), "mark_read should succeed");
-    
+
     // Calling mark_read again should be idempotent (no error)
     let result2 = MessageBmc::mark_read(&tc.ctx, &tc.mm, msg_id, recipient_id).await;
     assert!(result2.is_ok(), "mark_read should be idempotent");
@@ -230,9 +256,11 @@ async fn test_mark_message_read() {
 /// Test acknowledging a message
 #[tokio::test]
 async fn test_acknowledge_message() {
-    let tc = TestContext::new().await.expect("Failed to create test context");
+    let tc = TestContext::new()
+        .await
+        .expect("Failed to create test context");
     let (project_id, sender_id, recipient_id) = setup_messaging(&tc).await;
-    
+
     // Send a message with ack_required
     let msg_c = MessageForCreate {
         project_id,
@@ -246,11 +274,11 @@ async fn test_acknowledge_message() {
         importance: Some("high".to_string()),
     };
     let msg_id = MessageBmc::create(&tc.ctx, &tc.mm, msg_c).await.unwrap();
-    
+
     // Acknowledge by recipient (also marks as read)
     let result = MessageBmc::acknowledge(&tc.ctx, &tc.mm, msg_id, recipient_id).await;
     assert!(result.is_ok(), "acknowledge should succeed");
-    
+
     // Calling acknowledge again should be idempotent
     let result2 = MessageBmc::acknowledge(&tc.ctx, &tc.mm, msg_id, recipient_id).await;
     assert!(result2.is_ok(), "acknowledge should be idempotent");
@@ -259,7 +287,9 @@ async fn test_acknowledge_message() {
 /// Test listing threads (summarization)
 #[tokio::test]
 async fn test_list_threads() {
-    let tc = TestContext::new().await.expect("Failed to create test context");
+    let tc = TestContext::new()
+        .await
+        .expect("Failed to create test context");
     let (project_id, sender_id, recipient_id) = setup_messaging(&tc).await;
 
     // Send messages in thread 1
@@ -322,7 +352,9 @@ async fn test_list_threads() {
 /// Test listing outbox messages for an agent
 #[tokio::test]
 async fn test_list_outbox() {
-    let tc = TestContext::new().await.expect("Failed to create test context");
+    let tc = TestContext::new()
+        .await
+        .expect("Failed to create test context");
     let (project_id, sender_id, recipient_id) = setup_messaging(&tc).await;
 
     // Send multiple messages from sender
@@ -361,19 +393,26 @@ async fn test_list_outbox() {
     assert_eq!(outbox.len(), 2, "Should have 2 messages in outbox");
 
     // Verify messages are ordered by created_ts DESC (newest first)
-    assert!(outbox[0].subject == "Outbox Test 2" || outbox[0].subject == "Outbox Test 1",
-        "Should contain expected subjects");
+    assert!(
+        outbox[0].subject == "Outbox Test 2" || outbox[0].subject == "Outbox Test 1",
+        "Should contain expected subjects"
+    );
 
     // Verify sender_id is correct
     for msg in &outbox {
-        assert_eq!(msg.sender_id, sender_id, "All messages should be from sender");
+        assert_eq!(
+            msg.sender_id, sender_id,
+            "All messages should be from sender"
+        );
     }
 }
 
 /// Test outbox filtering by project
 #[tokio::test]
 async fn test_outbox_project_filtering() {
-    let tc = TestContext::new().await.expect("Failed to create test context");
+    let tc = TestContext::new()
+        .await
+        .expect("Failed to create test context");
 
     // Create first project and agents
     let human_key1 = "/outbox/project1";
@@ -399,7 +438,9 @@ async fn test_outbox_project_filtering() {
         model: "test".to_string(),
         task_description: "Recipient in project 1".to_string(),
     };
-    let recipient1_id = AgentBmc::create(&tc.ctx, &tc.mm, recipient1_c).await.unwrap();
+    let recipient1_id = AgentBmc::create(&tc.ctx, &tc.mm, recipient1_c)
+        .await
+        .unwrap();
 
     // Create second project and agents
     let human_key2 = "/outbox/project2";
@@ -425,7 +466,9 @@ async fn test_outbox_project_filtering() {
         model: "test".to_string(),
         task_description: "Recipient in project 2".to_string(),
     };
-    let recipient2_id = AgentBmc::create(&tc.ctx, &tc.mm, recipient2_c).await.unwrap();
+    let recipient2_id = AgentBmc::create(&tc.ctx, &tc.mm, recipient2_c)
+        .await
+        .unwrap();
 
     // Send message in project 1
     let msg1_c = MessageForCreate {
@@ -466,8 +509,16 @@ async fn test_outbox_project_filtering() {
         .expect("Should list outbox for project 2");
 
     // Verify correct filtering
-    assert_eq!(outbox1.len(), 1, "Should have 1 message in project 1 outbox");
-    assert_eq!(outbox2.len(), 1, "Should have 1 message in project 2 outbox");
+    assert_eq!(
+        outbox1.len(),
+        1,
+        "Should have 1 message in project 1 outbox"
+    );
+    assert_eq!(
+        outbox2.len(),
+        1,
+        "Should have 1 message in project 2 outbox"
+    );
     assert_eq!(outbox1[0].subject, "Project 1 Message");
     assert_eq!(outbox2[0].subject, "Project 2 Message");
 }
@@ -475,7 +526,9 @@ async fn test_outbox_project_filtering() {
 /// Test outbox pagination with limit
 #[tokio::test]
 async fn test_outbox_pagination() {
-    let tc = TestContext::new().await.expect("Failed to create test context");
+    let tc = TestContext::new()
+        .await
+        .expect("Failed to create test context");
     let (project_id, sender_id, recipient_id) = setup_messaging(&tc).await;
 
     // Send 5 messages
@@ -495,9 +548,10 @@ async fn test_outbox_pagination() {
     }
 
     // List with limit of 3
-    let outbox_limited = MessageBmc::list_outbox_for_agent(&tc.ctx, &tc.mm, project_id, sender_id, 3)
-        .await
-        .expect("Should list outbox with limit");
+    let outbox_limited =
+        MessageBmc::list_outbox_for_agent(&tc.ctx, &tc.mm, project_id, sender_id, 3)
+            .await
+            .expect("Should list outbox with limit");
 
     // Verify limit is respected
     assert_eq!(outbox_limited.len(), 3, "Should return exactly 3 messages");
@@ -513,7 +567,9 @@ async fn test_outbox_pagination() {
 /// Test outbox with multiple recipients (including CC and BCC)
 #[tokio::test]
 async fn test_outbox_with_multiple_recipients() {
-    let tc = TestContext::new().await.expect("Failed to create test context");
+    let tc = TestContext::new()
+        .await
+        .expect("Failed to create test context");
     let human_key = "/outbox/multi-recipient";
     let slug = slugify(human_key);
 
@@ -539,7 +595,9 @@ async fn test_outbox_with_multiple_recipients() {
         model: "test".to_string(),
         task_description: "Recipient 1".to_string(),
     };
-    let recipient1_id = AgentBmc::create(&tc.ctx, &tc.mm, recipient1_c).await.unwrap();
+    let recipient1_id = AgentBmc::create(&tc.ctx, &tc.mm, recipient1_c)
+        .await
+        .unwrap();
 
     let recipient2_c = AgentForCreate {
         project_id: project.id,
@@ -548,7 +606,9 @@ async fn test_outbox_with_multiple_recipients() {
         model: "test".to_string(),
         task_description: "Recipient 2".to_string(),
     };
-    let recipient2_id = AgentBmc::create(&tc.ctx, &tc.mm, recipient2_c).await.unwrap();
+    let recipient2_id = AgentBmc::create(&tc.ctx, &tc.mm, recipient2_c)
+        .await
+        .unwrap();
 
     let recipient3_c = AgentForCreate {
         project_id: project.id,
@@ -557,7 +617,9 @@ async fn test_outbox_with_multiple_recipients() {
         model: "test".to_string(),
         task_description: "Recipient 3".to_string(),
     };
-    let recipient3_id = AgentBmc::create(&tc.ctx, &tc.mm, recipient3_c).await.unwrap();
+    let recipient3_id = AgentBmc::create(&tc.ctx, &tc.mm, recipient3_c)
+        .await
+        .unwrap();
 
     // Send message with multiple recipients (to, cc, bcc)
     let msg_c = MessageForCreate {
@@ -591,18 +653,28 @@ async fn test_outbox_with_multiple_recipients() {
     let inbox2 = MessageBmc::list_inbox_for_agent(&tc.ctx, &tc.mm, project.id, recipient2_id, 10)
         .await
         .expect("Should list inbox for recipient2");
-    assert_eq!(inbox2.len(), 1, "Recipient2 (CC) should have message in inbox");
+    assert_eq!(
+        inbox2.len(),
+        1,
+        "Recipient2 (CC) should have message in inbox"
+    );
 
     let inbox3 = MessageBmc::list_inbox_for_agent(&tc.ctx, &tc.mm, project.id, recipient3_id, 10)
         .await
         .expect("Should list inbox for recipient3");
-    assert_eq!(inbox3.len(), 1, "Recipient3 (BCC) should have message in inbox");
+    assert_eq!(
+        inbox3.len(),
+        1,
+        "Recipient3 (BCC) should have message in inbox"
+    );
 }
 
 /// Test empty outbox
 #[tokio::test]
 async fn test_empty_outbox() {
-    let tc = TestContext::new().await.expect("Failed to create test context");
+    let tc = TestContext::new()
+        .await
+        .expect("Failed to create test context");
     let (project_id, sender_id, _recipient_id) = setup_messaging(&tc).await;
 
     // List outbox without sending any messages
@@ -620,7 +692,9 @@ async fn test_empty_outbox() {
 /// `INSERT INTO message_recipients VALUES (?,?,?), (?,?,?), (?,?,?)`
 #[tokio::test]
 async fn test_multiple_to_recipients() {
-    let tc = TestContext::new().await.expect("Failed to create test context");
+    let tc = TestContext::new()
+        .await
+        .expect("Failed to create test context");
     let human_key = "/batch/multi-to";
     let slug = slugify(human_key);
 
@@ -649,7 +723,9 @@ async fn test_multiple_to_recipients() {
             model: "test".to_string(),
             task_description: format!("TO recipient {}", i),
         };
-        let rid = AgentBmc::create(&tc.ctx, &tc.mm, recipient_c).await.unwrap();
+        let rid = AgentBmc::create(&tc.ctx, &tc.mm, recipient_c)
+            .await
+            .unwrap();
         recipient_ids.push(rid);
     }
 
@@ -679,8 +755,10 @@ async fn test_multiple_to_recipients() {
             .await
             .expect("Should list inbox");
         assert_eq!(
-            inbox.len(), 1,
-            "TO Recipient {} should have exactly 1 message in inbox", i + 1
+            inbox.len(),
+            1,
+            "TO Recipient {} should have exactly 1 message in inbox",
+            i + 1
         );
         assert_eq!(inbox[0].subject, "Batch TO Recipients Test");
     }
@@ -697,7 +775,9 @@ async fn test_multiple_to_recipients() {
 /// This tests the complete batch optimization path with mixed recipient types.
 #[tokio::test]
 async fn test_batch_mixed_recipient_types() {
-    let tc = TestContext::new().await.expect("Failed to create test context");
+    let tc = TestContext::new()
+        .await
+        .expect("Failed to create test context");
     let human_key = "/batch/mixed-types";
     let slug = slugify(human_key);
 

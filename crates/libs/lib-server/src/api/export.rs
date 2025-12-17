@@ -1,13 +1,13 @@
+use crate::AppState;
+use axum::http::header;
 use axum::{
-    extract::{State},
     Json,
+    extract::State,
     response::{IntoResponse, Response},
 };
-use axum::http::header;
-use serde::{Deserialize};
-use crate::AppState;
 use lib_core::Ctx;
 use lib_core::model::export::{ExportBmc, ExportFormat};
+use serde::Deserialize;
 use utoipa::ToSchema;
 
 #[derive(Deserialize, ToSchema)]
@@ -30,18 +30,15 @@ pub async fn export_mailbox(
     Json(payload): Json<ExportPayload>,
 ) -> crate::error::Result<Response> {
     let ctx = Ctx::root_ctx();
-    
-    let format = payload.format.parse::<ExportFormat>()
+
+    let format = payload
+        .format
+        .parse::<ExportFormat>()
         .unwrap_or(ExportFormat::Json);
-        
-    let exported = ExportBmc::export_mailbox(
-        &ctx,
-        &state.mm,
-        &payload.project_slug,
-        format,
-        false
-    ).await?;
-    
+
+    let exported =
+        ExportBmc::export_mailbox(&ctx, &state.mm, &payload.project_slug, format, false).await?;
+
     // Determine content type and extension
     let (content_type, ext) = match format {
         ExportFormat::Html => ("text/html", "html"),
@@ -49,14 +46,17 @@ pub async fn export_mailbox(
         ExportFormat::Markdown => ("text/markdown", "md"),
         ExportFormat::Csv => ("text/csv", "csv"),
     };
-    
+
     let filename = format!("{}_mailbox.{}", payload.project_slug, ext);
-    
+
     let response = Response::builder()
         .header(header::CONTENT_TYPE, content_type)
-        .header(header::CONTENT_DISPOSITION, format!("attachment; filename=\"{}\"", filename))
+        .header(
+            header::CONTENT_DISPOSITION,
+            format!("attachment; filename=\"{}\"", filename),
+        )
         .body(exported.content)
         .map_err(|e| crate::ServerError::Internal(format!("Failed to build response: {}", e)))?;
-    
+
     Ok(response.into_response())
 }

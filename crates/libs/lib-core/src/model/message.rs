@@ -1,15 +1,15 @@
+use crate::Result;
 use crate::ctx::Ctx;
 use crate::model::ModelManager;
-use crate::Result;
 use crate::store::git_store;
-use serde::{Deserialize, Serialize};
 use chrono::NaiveDateTime;
+use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::path::PathBuf;
 use std::sync::Arc;
-use uuid::Uuid;
-use serde_json::Value;
 use tokio::sync::Mutex;
 use tracing::{info, warn};
+use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Message {
@@ -23,16 +23,16 @@ pub struct Message {
     pub ack_required: bool,
     pub created_ts: NaiveDateTime,
     pub attachments: Vec<Value>, // Use Vec<Value> for attachments
-    pub sender_name: String, // Added sender_name for inbox display
+    pub sender_name: String,     // Added sender_name for inbox display
 }
 
 #[derive(Deserialize, Serialize)]
 pub struct MessageForCreate {
     pub project_id: i64,
     pub sender_id: i64,
-    pub recipient_ids: Vec<i64>,     // "to" recipients
-    pub cc_ids: Option<Vec<i64>>,    // "cc" recipients
-    pub bcc_ids: Option<Vec<i64>>,   // "bcc" recipients
+    pub recipient_ids: Vec<i64>,   // "to" recipients
+    pub cc_ids: Option<Vec<i64>>,  // "cc" recipients
+    pub bcc_ids: Option<Vec<i64>>, // "bcc" recipients
     pub subject: String,
     pub body_md: String,
     pub thread_id: Option<String>,
@@ -46,7 +46,9 @@ impl MessageBmc {
         let db = mm.db();
 
         // 1. Insert into DB
-        let thread_id = msg_c.thread_id.unwrap_or_else(|| Uuid::new_v4().to_string());
+        let thread_id = msg_c
+            .thread_id
+            .unwrap_or_else(|| Uuid::new_v4().to_string());
         let importance = msg_c.importance.unwrap_or("normal".to_string());
 
         // Helper to serialize attachments (empty for now)
@@ -60,43 +62,62 @@ impl MessageBmc {
             "#
         ).await?;
 
-        let mut rows = stmt.query((
-            msg_c.project_id,
-            msg_c.sender_id,
-            thread_id.as_str(),
-            msg_c.subject.as_str(),
-            msg_c.body_md.as_str(),
-            importance.as_str(),
-            attachments_json
-        )).await?;
+        let mut rows = stmt
+            .query((
+                msg_c.project_id,
+                msg_c.sender_id,
+                thread_id.as_str(),
+                msg_c.subject.as_str(),
+                msg_c.body_md.as_str(),
+                importance.as_str(),
+                attachments_json,
+            ))
+            .await?;
 
         let id = if let Some(row) = rows.next().await? {
             row.get::<i64>(0)?
         } else {
-            return Err(crate::Error::InvalidInput("Failed to create message".into()));
+            return Err(crate::Error::InvalidInput(
+                "Failed to create message".into(),
+            ));
         };
 
         // 2. Insert Recipients with recipient_type (BATCHED)
         let mut recipient_tuples = Vec::new();
-        for rid in &msg_c.recipient_ids { recipient_tuples.push((*rid, "to")); }
-        if let Some(cc) = &msg_c.cc_ids { for rid in cc { recipient_tuples.push((*rid, "cc")); } }
-        if let Some(bcc) = &msg_c.bcc_ids { for rid in bcc { recipient_tuples.push((*rid, "bcc")); } }
+        for rid in &msg_c.recipient_ids {
+            recipient_tuples.push((*rid, "to"));
+        }
+        if let Some(cc) = &msg_c.cc_ids {
+            for rid in cc {
+                recipient_tuples.push((*rid, "cc"));
+            }
+        }
+        if let Some(bcc) = &msg_c.bcc_ids {
+            for rid in bcc {
+                recipient_tuples.push((*rid, "bcc"));
+            }
+        }
 
         if !recipient_tuples.is_empty() {
-             // Constuct batch insert query: ... VALUES (?, ?, ?), (?, ?, ?)
-             let mut query = String::from("INSERT INTO message_recipients (message_id, agent_id, recipient_type) VALUES ");
-             let mut params: Vec<libsql::Value> = Vec::with_capacity(recipient_tuples.len() * 3);
-             
-             for (i, (rid, rtype)) in recipient_tuples.iter().enumerate() {
-                 if i > 0 { query.push_str(", "); }
-                 query.push_str("(?, ?, ?)");
-                 params.push(id.into());
-                 params.push((*rid).into());
-                 params.push((*rtype).to_string().into());
-             }
+            // Constuct batch insert query: ... VALUES (?, ?, ?), (?, ?, ?)
+            let mut query = String::from(
+                "INSERT INTO message_recipients (message_id, agent_id, recipient_type) VALUES ",
+            );
+            let mut params: Vec<libsql::Value> = Vec::with_capacity(recipient_tuples.len() * 3);
 
-             let stmt = db.prepare(&query).await?;
-             stmt.execute(libsql::params::Params::Positional(params)).await?;
+            for (i, (rid, rtype)) in recipient_tuples.iter().enumerate() {
+                if i > 0 {
+                    query.push_str(", ");
+                }
+                query.push_str("(?, ?, ?)");
+                params.push(id.into());
+                params.push((*rid).into());
+                params.push((*rtype).to_string().into());
+            }
+
+            let stmt = db.prepare(&query).await?;
+            stmt.execute(libsql::params::Params::Positional(params))
+                .await?;
         }
 
         // 3. Git Operations - DEFERRED to background task for low latency
@@ -106,20 +127,25 @@ impl MessageBmc {
         let project_slug: String = if let Some(row) = rows.next().await? {
             row.get(0)?
         } else {
-            return Err(crate::Error::ProjectNotFound(format!("ID: {}", msg_c.project_id)));
+            return Err(crate::Error::ProjectNotFound(format!(
+                "ID: {}",
+                msg_c.project_id
+            )));
         };
 
         // Batch fetch sender and recipient names
         let mut needed_ids = vec![msg_c.sender_id];
         needed_ids.extend_from_slice(&msg_c.recipient_ids);
-        
+
         let placeholders = needed_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
         let query = format!("SELECT id, name FROM agents WHERE id IN ({})", placeholders);
-        
+
         let stmt = db.prepare(&query).await?;
         let params: Vec<libsql::Value> = needed_ids.iter().map(|&id| id.into()).collect();
-        let mut rows = stmt.query(libsql::params::Params::Positional(params)).await?;
-        
+        let mut rows = stmt
+            .query(libsql::params::Params::Positional(params))
+            .await?;
+
         let mut agent_map = std::collections::HashMap::new();
         while let Some(row) = rows.next().await? {
             let aid: i64 = row.get(0)?;
@@ -127,9 +153,9 @@ impl MessageBmc {
             agent_map.insert(aid, name);
         }
 
-        let sender_name = agent_map.remove(&msg_c.sender_id).ok_or_else(|| {
-            crate::Error::AgentNotFound(format!("ID: {}", msg_c.sender_id))
-        })?;
+        let sender_name = agent_map
+            .remove(&msg_c.sender_id)
+            .ok_or_else(|| crate::Error::AgentNotFound(format!("ID: {}", msg_c.sender_id)))?;
 
         let mut recipient_names = Vec::new();
         for recipient_id in &msg_c.recipient_ids {
@@ -161,7 +187,9 @@ impl MessageBmc {
                 &body_md,
                 &thread_id_clone,
                 &importance_clone,
-            ).await {
+            )
+            .await
+            {
                 warn!("Background git commit failed for message {}: {}", id, e);
             }
         });
@@ -169,7 +197,13 @@ impl MessageBmc {
         Ok(id)
     }
 
-    pub async fn list_inbox_for_agent(_ctx: &Ctx, mm: &ModelManager, project_id: i64, agent_id: i64, limit: i64) -> Result<Vec<Message>> {
+    pub async fn list_inbox_for_agent(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        project_id: i64,
+        agent_id: i64,
+        limit: i64,
+    ) -> Result<Vec<Message>> {
         let db = mm.db();
         let stmt = db.prepare(
             r#"
@@ -223,7 +257,13 @@ impl MessageBmc {
     }
 
     /// List outbox messages SENT BY an agent
-    pub async fn list_outbox_for_agent(_ctx: &Ctx, mm: &ModelManager, project_id: i64, agent_id: i64, limit: i64) -> Result<Vec<Message>> {
+    pub async fn list_outbox_for_agent(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        project_id: i64,
+        agent_id: i64,
+        limit: i64,
+    ) -> Result<Vec<Message>> {
         let db = mm.db();
         let stmt = db.prepare(
             r#"
@@ -325,7 +365,12 @@ impl MessageBmc {
         }
     }
 
-    pub async fn list_by_thread(_ctx: &Ctx, mm: &ModelManager, project_id: i64, thread_id: &str) -> Result<Vec<Message>> {
+    pub async fn list_by_thread(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        project_id: i64,
+        thread_id: &str,
+    ) -> Result<Vec<Message>> {
         let db = mm.db();
         let stmt = db.prepare(
             r#"
@@ -377,13 +422,19 @@ impl MessageBmc {
     }
 
     /// Full-text search messages using FTS5
-    pub async fn search(_ctx: &Ctx, mm: &ModelManager, project_id: i64, query: &str, limit: i64) -> Result<Vec<Message>> {
+    pub async fn search(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        project_id: i64,
+        query: &str,
+        limit: i64,
+    ) -> Result<Vec<Message>> {
         let db = mm.db();
 
         // Use FTS5 MATCH for full-text search, joining back to messages table
         // FTS5 MATCH interprets unquoted "term" as column:value - wrap in quotes for pure text search
         let fts_query = format!("\"{}\"", query.replace("\"", "\"\""));
-        
+
         let stmt = db.prepare(
             r#"
             SELECT
@@ -437,7 +488,12 @@ impl MessageBmc {
     }
 
     /// Mark a message as read by a recipient
-    pub async fn mark_read(_ctx: &Ctx, mm: &ModelManager, message_id: i64, agent_id: i64) -> Result<()> {
+    pub async fn mark_read(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        message_id: i64,
+        agent_id: i64,
+    ) -> Result<()> {
         let db = mm.db();
         let now = chrono::Utc::now().naive_utc();
         let now_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
@@ -452,29 +508,43 @@ impl MessageBmc {
     }
 
     /// Acknowledge a message by a recipient
-    pub async fn acknowledge(_ctx: &Ctx, mm: &ModelManager, message_id: i64, agent_id: i64) -> Result<()> {
+    pub async fn acknowledge(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        message_id: i64,
+        agent_id: i64,
+    ) -> Result<()> {
         let db = mm.db();
         let now = chrono::Utc::now().naive_utc();
         let now_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
 
         // Also mark as read if not already
-        let stmt = db.prepare(
-            r#"
+        let stmt = db
+            .prepare(
+                r#"
             UPDATE message_recipients
             SET ack_ts = ?, read_ts = COALESCE(read_ts, ?)
             WHERE message_id = ? AND agent_id = ?
-            "#
-        ).await?;
-        stmt.execute((now_str.as_str(), now_str.as_str(), message_id, agent_id)).await?;
+            "#,
+            )
+            .await?;
+        stmt.execute((now_str.as_str(), now_str.as_str(), message_id, agent_id))
+            .await?;
         Ok(())
     }
 
     /// List distinct threads for a project
-    pub async fn list_threads(_ctx: &Ctx, mm: &ModelManager, project_id: i64, limit: i64) -> Result<Vec<ThreadSummary>> {
+    pub async fn list_threads(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        project_id: i64,
+        limit: i64,
+    ) -> Result<Vec<ThreadSummary>> {
         let db = mm.db();
 
-        let stmt = db.prepare(
-            r#"
+        let stmt = db
+            .prepare(
+                r#"
             SELECT
                 m.thread_id,
                 MIN(m.subject) as subject,
@@ -485,8 +555,9 @@ impl MessageBmc {
             GROUP BY m.thread_id
             ORDER BY last_message_ts DESC
             LIMIT ?
-            "#
-        ).await?;
+            "#,
+            )
+            .await?;
 
         let mut rows = stmt.query((project_id, limit)).await?;
         let mut threads = Vec::new();
@@ -496,8 +567,9 @@ impl MessageBmc {
             let subject: String = row.get(1)?;
             let message_count: i64 = row.get(2)?;
             let last_message_ts_str: String = row.get(3)?;
-            let last_message_ts = NaiveDateTime::parse_from_str(&last_message_ts_str, "%Y-%m-%d %H:%M:%S")
-                .unwrap_or_default();
+            let last_message_ts =
+                NaiveDateTime::parse_from_str(&last_message_ts_str, "%Y-%m-%d %H:%M:%S")
+                    .unwrap_or_default();
 
             threads.push(ThreadSummary {
                 thread_id,
@@ -510,7 +582,12 @@ impl MessageBmc {
     }
 
     /// List recent messages for a project
-    pub async fn list_recent(_ctx: &Ctx, mm: &ModelManager, project_id: i64, limit: i64) -> Result<Vec<Message>> {
+    pub async fn list_recent(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        project_id: i64,
+        limit: i64,
+    ) -> Result<Vec<Message>> {
         let db = mm.db();
         let stmt = db.prepare(
             r#"
@@ -596,14 +673,30 @@ async fn commit_message_to_git(
     let filename = format!("{}__{}__{}.md", created_iso, subject_slug, id);
 
     let project_root = PathBuf::from("projects").join(project_slug);
-    let canonical_path = project_root.join("messages").join(&y_dir).join(&m_dir).join(&filename);
+    let canonical_path = project_root
+        .join("messages")
+        .join(&y_dir)
+        .join(&m_dir)
+        .join(&filename);
 
-    let outbox_path = project_root.join("agents").join(sender_name).join("outbox").join(&y_dir).join(&m_dir).join(&filename);
+    let outbox_path = project_root
+        .join("agents")
+        .join(sender_name)
+        .join("outbox")
+        .join(&y_dir)
+        .join(&m_dir)
+        .join(&filename);
 
     let mut inbox_paths = Vec::new();
     for recipient_name in recipient_names {
         inbox_paths.push(
-            project_root.join("agents").join(recipient_name).join("inbox").join(&y_dir).join(&m_dir).join(&filename)
+            project_root
+                .join("agents")
+                .join(recipient_name)
+                .join("inbox")
+                .join(&y_dir)
+                .join(&m_dir)
+                .join(&filename),
         );
     }
 
@@ -618,23 +711,34 @@ async fn commit_message_to_git(
         "created": created_iso,
         "importance": importance,
     });
-    let content = format!("---json\n{}\n---\n\n{}", serde_json::to_string_pretty(&frontmatter)?, body_md);
+    let content = format!(
+        "---json\n{}\n---\n\n{}",
+        serde_json::to_string_pretty(&frontmatter)?,
+        body_md
+    );
 
     // Git Operations - serialized to prevent lock contention
     let _git_guard = git_lock.lock().await;
 
     let repo = git_store::open_repo(&repo_root)?;
-    let commit_msg = format!("mail: {} -> {} | {}", sender_name, recipient_names.join(", "), subject);
+    let commit_msg = format!(
+        "mail: {} -> {} | {}",
+        sender_name,
+        recipient_names.join(", "),
+        subject
+    );
 
-    let workdir = repo.workdir().ok_or(crate::Error::InvalidInput("No workdir".into()))?;
+    let workdir = repo
+        .workdir()
+        .ok_or(crate::Error::InvalidInput("No workdir".into()))?;
 
     fn write_file(root: &std::path::Path, rel: &std::path::Path, content: &str) -> Result<()> {
-         let full = root.join(rel);
-         if let Some(p) = full.parent() {
-             std::fs::create_dir_all(p)?;
-         }
-         std::fs::write(full, content)?;
-         Ok(())
+        let full = root.join(rel);
+        if let Some(p) = full.parent() {
+            std::fs::create_dir_all(p)?;
+        }
+        std::fs::write(full, content)?;
+        Ok(())
     }
 
     write_file(workdir, &canonical_path, &content)?;

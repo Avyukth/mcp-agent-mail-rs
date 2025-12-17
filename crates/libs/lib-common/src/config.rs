@@ -1,5 +1,5 @@
-use serde::Deserialize;
 use config::{Config, File};
+use serde::Deserialize;
 use std::env;
 
 #[derive(Debug, Deserialize, Clone)]

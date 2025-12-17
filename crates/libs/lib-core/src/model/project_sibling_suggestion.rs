@@ -1,8 +1,8 @@
+use crate::Result;
 use crate::ctx::Ctx;
 use crate::model::ModelManager;
-use crate::Result;
-use serde::{Deserialize, Serialize};
 use chrono::NaiveDateTime;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ProjectSiblingSuggestion {
@@ -37,29 +37,35 @@ impl ProjectSiblingSuggestionBmc {
         let db = mm.db();
         let created_ts = chrono::Utc::now().naive_utc();
         let created_ts_str = created_ts.format("%Y-%m-%d %H:%M:%S").to_string();
-        
-        let stmt = db.prepare(
-            r#"
+
+        let stmt = db
+            .prepare(
+                r#"
             INSERT INTO project_sibling_suggestions 
             (project_a_id, project_b_id, score, status, rationale, created_ts, evaluated_ts)
             VALUES (?, ?, ?, 'pending', ?, ?, ?)
             RETURNING id
-            "#
-        ).await?;
+            "#,
+            )
+            .await?;
 
-        let mut rows = stmt.query((
-            sibling_c.project_a_id,
-            sibling_c.project_b_id,
-            sibling_c.score,
-            sibling_c.rationale,
-            created_ts_str.clone(),
-            created_ts_str,
-        )).await?;
+        let mut rows = stmt
+            .query((
+                sibling_c.project_a_id,
+                sibling_c.project_b_id,
+                sibling_c.score,
+                sibling_c.rationale,
+                created_ts_str.clone(),
+                created_ts_str,
+            ))
+            .await?;
 
         if let Some(row) = rows.next().await? {
             Ok(row.get(0)?)
         } else {
-            Err(crate::Error::InvalidInput("Failed to create sibling suggestion".into()))
+            Err(crate::Error::InvalidInput(
+                "Failed to create sibling suggestion".into(),
+            ))
         }
     }
 
@@ -89,16 +95,11 @@ impl ProjectSiblingSuggestionBmc {
         Ok(suggestions)
     }
 
-    pub async fn update_status(
-        _ctx: &Ctx,
-        mm: &ModelManager,
-        id: i64,
-        status: &str,
-    ) -> Result<()> {
+    pub async fn update_status(_ctx: &Ctx, mm: &ModelManager, id: i64, status: &str) -> Result<()> {
         let db = mm.db();
         let now = chrono::Utc::now().naive_utc();
         let now_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
-        
+
         // Logic for confirmed_ts/dismissed_ts
         let (confirmed_ts, dismissed_ts) = match status {
             "accepted" => (Some(now_str.clone()), None),
@@ -106,15 +107,18 @@ impl ProjectSiblingSuggestionBmc {
             _ => (None, None),
         };
 
-        let stmt = db.prepare(
-            r#"
+        let stmt = db
+            .prepare(
+                r#"
             UPDATE project_sibling_suggestions
             SET status = ?, confirmed_ts = ?, dismissed_ts = ?
             WHERE id = ?
-            "#
-        ).await?;
+            "#,
+            )
+            .await?;
 
-        stmt.execute((status, confirmed_ts, dismissed_ts, id)).await?;
+        stmt.execute((status, confirmed_ts, dismissed_ts, id))
+            .await?;
 
         Ok(())
     }
@@ -125,11 +129,15 @@ impl ProjectSiblingSuggestionBmc {
         let confirmed_ts_str: Option<String> = row.get(8).unwrap_or_default();
         let dismissed_ts_str: Option<String> = row.get(9).unwrap_or_default();
 
-        let created_ts = NaiveDateTime::parse_from_str(&created_ts_str, "%Y-%m-%d %H:%M:%S").unwrap_or_default();
-        let evaluated_ts = NaiveDateTime::parse_from_str(&evaluated_ts_str, "%Y-%m-%d %H:%M:%S").unwrap_or_default();
-        
-        let confirmed_ts = confirmed_ts_str.and_then(|s| NaiveDateTime::parse_from_str(&s, "%Y-%m-%d %H:%M:%S").ok());
-        let dismissed_ts = dismissed_ts_str.and_then(|s| NaiveDateTime::parse_from_str(&s, "%Y-%m-%d %H:%M:%S").ok());
+        let created_ts =
+            NaiveDateTime::parse_from_str(&created_ts_str, "%Y-%m-%d %H:%M:%S").unwrap_or_default();
+        let evaluated_ts = NaiveDateTime::parse_from_str(&evaluated_ts_str, "%Y-%m-%d %H:%M:%S")
+            .unwrap_or_default();
+
+        let confirmed_ts = confirmed_ts_str
+            .and_then(|s| NaiveDateTime::parse_from_str(&s, "%Y-%m-%d %H:%M:%S").ok());
+        let dismissed_ts = dismissed_ts_str
+            .and_then(|s| NaiveDateTime::parse_from_str(&s, "%Y-%m-%d %H:%M:%S").ok());
 
         Ok(ProjectSiblingSuggestion {
             id: row.get(0)?,

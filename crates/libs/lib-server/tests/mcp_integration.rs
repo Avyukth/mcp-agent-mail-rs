@@ -9,13 +9,13 @@ use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
 use lib_mcp::tools::AgentMailService;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::Arc;
 use tower::ServiceExt;
 
 use rmcp::transport::streamable_http_server::{
     session::local::LocalSessionManager,
-    tower::{StreamableHttpService, StreamableHttpServerConfig},
+    tower::{StreamableHttpServerConfig, StreamableHttpService},
 };
 
 /// Create MCP service with AgentMailService
@@ -208,7 +208,9 @@ async fn test_mcp_initialize_succeeds() {
             || init_body.contains(".lock")
             || init_body.contains("Locked"))
     {
-        println!("Note: Test detected resource conflict (database/git lock). Expected in parallel test execution.");
+        println!(
+            "Note: Test detected resource conflict (database/git lock). Expected in parallel test execution."
+        );
     } else {
         panic!(
             "initialize should succeed or show resource conflict, got status={init_status}, body={init_body}"

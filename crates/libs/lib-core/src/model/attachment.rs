@@ -3,7 +3,7 @@ use crate::{Ctx, Result};
 use serde::{Deserialize, Serialize};
 use utoipa::ToSchema;
 
-#[derive(Debug, Clone, Serialize, ToSchema)] 
+#[derive(Debug, Clone, Serialize, ToSchema)]
 // Note: We don't have db_macro::FromRow, we use manual implementation usually or sqlx (now libsql).
 // I will implement from_row manually as seen in other files.
 pub struct Attachment {
@@ -27,8 +27,6 @@ pub struct AttachmentForCreate {
 
 pub struct AttachmentBmc;
 
-
-
 impl AttachmentBmc {
     pub async fn create(
         _ctx: &Ctx,
@@ -42,28 +40,28 @@ impl AttachmentBmc {
         let stmt = db.prepare(
             "INSERT INTO attachments (project_id, filename, stored_path, media_type, size_bytes, created_ts) VALUES (?, ?, ?, ?, ?, ?) RETURNING id"
         ).await?;
-        
-        let mut rows = stmt.query((
-            attachment_c.project_id,
-            attachment_c.filename,
-            attachment_c.stored_path,
-            attachment_c.media_type,
-            attachment_c.size_bytes,
-            created_ts,
-        )).await?;
+
+        let mut rows = stmt
+            .query((
+                attachment_c.project_id,
+                attachment_c.filename,
+                attachment_c.stored_path,
+                attachment_c.media_type,
+                attachment_c.size_bytes,
+                created_ts,
+            ))
+            .await?;
 
         if let Some(row) = rows.next().await? {
             Ok(row.get(0)?)
         } else {
-            Err(crate::Error::InvalidInput("Failed to create attachment".into()))
+            Err(crate::Error::InvalidInput(
+                "Failed to create attachment".into(),
+            ))
         }
     }
 
-    pub async fn get(
-        _ctx: &Ctx,
-        mm: &ModelManager,
-        id: i64,
-    ) -> Result<Attachment> {
+    pub async fn get(_ctx: &Ctx, mm: &ModelManager, id: i64) -> Result<Attachment> {
         let db = mm.db();
         let stmt = db.prepare("SELECT id, project_id, filename, stored_path, media_type, size_bytes, created_ts FROM attachments WHERE id = ?").await?;
         let mut rows = stmt.query([id]).await?;
@@ -83,7 +81,7 @@ impl AttachmentBmc {
         let db = mm.db();
         let stmt = db.prepare("SELECT id, project_id, filename, stored_path, media_type, size_bytes, created_ts FROM attachments WHERE project_id = ? ORDER BY id DESC").await?;
         let mut rows = stmt.query([project_id]).await?;
-        
+
         let mut res = Vec::new();
         while let Some(row) = rows.next().await? {
             res.push(Self::from_row(row)?);

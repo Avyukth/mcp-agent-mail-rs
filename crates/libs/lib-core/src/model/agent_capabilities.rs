@@ -1,8 +1,8 @@
+use crate::Result;
 use crate::ctx::Ctx;
 use crate::model::ModelManager;
-use crate::Result;
-use serde::{Deserialize, Serialize};
 use chrono::NaiveDateTime;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentCapability {
@@ -25,11 +25,17 @@ pub struct AgentCapabilityForCreate {
 pub struct AgentCapabilityBmc;
 
 impl AgentCapabilityBmc {
-    pub async fn create(_ctx: &Ctx, mm: &ModelManager, capability_c: AgentCapabilityForCreate) -> Result<i64> {
+    pub async fn create(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        capability_c: AgentCapabilityForCreate,
+    ) -> Result<i64> {
         let db = mm.db();
         let now = chrono::Utc::now().naive_utc();
         let now_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
-        let expires_at_str = capability_c.expires_at.map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string());
+        let expires_at_str = capability_c
+            .expires_at
+            .map(|dt| dt.format("%Y-%m-%d %H:%M:%S").to_string());
 
         let stmt = db.prepare(
             r#"
@@ -39,29 +45,39 @@ impl AgentCapabilityBmc {
             "#
         ).await?;
 
-        let mut rows = stmt.query((
-            capability_c.agent_id,
-            capability_c.capability,
-            now_str,
-            capability_c.granted_by,
-            expires_at_str,
-        )).await?;
+        let mut rows = stmt
+            .query((
+                capability_c.agent_id,
+                capability_c.capability,
+                now_str,
+                capability_c.granted_by,
+                expires_at_str,
+            ))
+            .await?;
 
         if let Some(row) = rows.next().await? {
             Ok(row.get(0)?)
         } else {
-            Err(crate::Error::InvalidInput("Failed to create agent capability".into()))
+            Err(crate::Error::InvalidInput(
+                "Failed to create agent capability".into(),
+            ))
         }
     }
 
-    pub async fn list_for_agent(_ctx: &Ctx, mm: &ModelManager, agent_id: i64) -> Result<Vec<AgentCapability>> {
+    pub async fn list_for_agent(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        agent_id: i64,
+    ) -> Result<Vec<AgentCapability>> {
         let db = mm.db();
-        let stmt = db.prepare(
-            r#"
+        let stmt = db
+            .prepare(
+                r#"
             SELECT id, agent_id, capability, granted_at, granted_by, expires_at
             FROM agent_capabilities WHERE agent_id = ? ORDER BY capability ASC
-            "#
-        ).await?;
+            "#,
+            )
+            .await?;
         let mut rows = stmt.query([agent_id]).await?;
 
         let mut capabilities = Vec::new();
@@ -73,9 +89,8 @@ impl AgentCapabilityBmc {
             let granted_by: Option<i64> = row.get(4)?;
 
             let expires_at: Option<String> = row.get(5)?;
-            let expires_at = expires_at.and_then(|s| {
-                NaiveDateTime::parse_from_str(&s, "%Y-%m-%d %H:%M:%S").ok()
-            });
+            let expires_at = expires_at
+                .and_then(|s| NaiveDateTime::parse_from_str(&s, "%Y-%m-%d %H:%M:%S").ok());
 
             capabilities.push(AgentCapability {
                 id: row.get(0)?,
@@ -91,17 +106,26 @@ impl AgentCapabilityBmc {
 
     pub async fn revoke(_ctx: &Ctx, mm: &ModelManager, id: i64) -> Result<()> {
         let db = mm.db();
-        let stmt = db.prepare("DELETE FROM agent_capabilities WHERE id = ?").await?;
+        let stmt = db
+            .prepare("DELETE FROM agent_capabilities WHERE id = ?")
+            .await?;
         stmt.execute([id]).await?;
         Ok(())
     }
 
     /// Check if an agent has a specific capability
-    pub async fn check(_ctx: &Ctx, mm: &ModelManager, agent_id: i64, capability: &str) -> Result<bool> {
+    pub async fn check(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        agent_id: i64,
+        capability: &str,
+    ) -> Result<bool> {
         let db = mm.db();
-        let stmt = db.prepare(
-            "SELECT COUNT(*) FROM agent_capabilities WHERE agent_id = ? AND capability = ?"
-        ).await?;
+        let stmt = db
+            .prepare(
+                "SELECT COUNT(*) FROM agent_capabilities WHERE agent_id = ? AND capability = ?",
+            )
+            .await?;
         let mut rows = stmt.query((agent_id, capability)).await?;
 
         if let Some(row) = rows.next().await? {

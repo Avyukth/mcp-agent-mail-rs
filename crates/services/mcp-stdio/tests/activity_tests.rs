@@ -1,13 +1,12 @@
-
 #[cfg(test)]
 mod tests {
     use lib_core::ctx::Ctx;
     use lib_core::model::ModelManager;
-    use lib_core::model::project::ProjectBmc;
+    use lib_core::model::activity::ActivityBmc;
     use lib_core::model::agent::{AgentBmc, AgentForCreate};
     use lib_core::model::message::{MessageBmc, MessageForCreate};
+    use lib_core::model::project::ProjectBmc;
     use lib_core::model::tool_metric::{ToolMetricBmc, ToolMetricForCreate};
-    use lib_core::model::activity::ActivityBmc;
     use std::sync::Arc;
     use tempfile::TempDir;
 
@@ -43,7 +42,9 @@ mod tests {
         let ctx = Ctx::root_ctx();
 
         // 1. Create Project
-        let pid = ProjectBmc::create(&ctx, &mm, "act-test", "Activity Test").await.unwrap();
+        let pid = ProjectBmc::create(&ctx, &mm, "act-test", "Activity Test")
+            .await
+            .unwrap();
 
         // 2. Create Agent (Activity 1)
         // Sleep slightly to ensure distinct timestamps if ms precision
@@ -90,7 +91,7 @@ mod tests {
 
         // Verify count
         assert_eq!(activities.len(), 3);
-        
+
         // Verify Sort Order (Newest first)
         assert_eq!(activities[0].kind, "tool");
         assert_eq!(activities[1].kind, "message");

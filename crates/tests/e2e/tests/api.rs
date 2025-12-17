@@ -11,8 +11,8 @@
 //! cargo test -p e2e-tests --test api
 //! ```
 
-use e2e_tests::{TestConfig, TestFixtures};
 use e2e_tests::fixtures::{AgentResponse, MessageResponse, ProjectResponse};
+use e2e_tests::{TestConfig, TestFixtures};
 use reqwest::Client;
 use serde_json::json;
 
@@ -44,7 +44,10 @@ async fn test_health_endpoint() {
 
     match response {
         Ok(resp) => {
-            assert!(resp.status().is_success(), "Health endpoint should return 200");
+            assert!(
+                resp.status().is_success(),
+                "Health endpoint should return 200"
+            );
             println!("✓ Health endpoint responding");
         }
         Err(e) => {
@@ -59,14 +62,14 @@ async fn test_ready_endpoint() {
     let config = get_config();
     let client = create_client().await;
 
-    let response = client
-        .get(format!("{}/ready", config.api_url))
-        .send()
-        .await;
+    let response = client.get(format!("{}/ready", config.api_url)).send().await;
 
     match response {
         Ok(resp) => {
-            assert!(resp.status().is_success(), "Ready endpoint should return 200");
+            assert!(
+                resp.status().is_success(),
+                "Ready endpoint should return 200"
+            );
             println!("✓ Ready endpoint responding");
         }
         Err(e) => {
@@ -234,9 +237,15 @@ async fn test_send_message_flow() {
             assert!(resp.status().is_success(), "send_message should succeed");
 
             let message: MessageResponse = resp.json().await.expect("Should parse response");
-            assert!(!message.thread_id.is_empty(), "Message should have thread_id");
+            assert!(
+                !message.thread_id.is_empty(),
+                "Message should have thread_id"
+            );
 
-            println!("✓ Message sent: id={}, thread={}", message.id, message.thread_id);
+            println!(
+                "✓ Message sent: id={}, thread={}",
+                message.id, message.thread_id
+            );
         }
         Err(e) => {
             println!("⚠ Request failed: {}", e);
@@ -285,7 +294,8 @@ async fn test_check_inbox() {
         Ok(resp) => {
             assert!(resp.status().is_success(), "check_inbox should succeed");
 
-            let messages: Vec<serde_json::Value> = resp.json().await.expect("Should parse response");
+            let messages: Vec<serde_json::Value> =
+                resp.json().await.expect("Should parse response");
             println!("✓ Inbox checked: {} messages", messages.len());
         }
         Err(e) => {
@@ -386,7 +396,10 @@ async fn test_file_reservation_flow() {
 
     match response {
         Ok(resp) => {
-            assert!(resp.status().is_success(), "file_reservation should succeed");
+            assert!(
+                resp.status().is_success(),
+                "file_reservation should succeed"
+            );
             println!("✓ File reservation created");
 
             // List reservations
@@ -399,10 +412,13 @@ async fn test_file_reservation_flow() {
                 .await
                 .expect("Should list reservations");
 
-            let reservations: Vec<serde_json::Value> = list_resp.json().await
-                .expect("Should parse response");
+            let reservations: Vec<serde_json::Value> =
+                list_resp.json().await.expect("Should parse response");
 
-            assert!(!reservations.is_empty(), "Should have at least one reservation");
+            assert!(
+                !reservations.is_empty(),
+                "Should have at least one reservation"
+            );
             println!("✓ Found {} reservations", reservations.len());
         }
         Err(e) => {

@@ -1,8 +1,8 @@
 //! ComposeMessage modal component.
 
-use leptos::prelude::*;
-use crate::api::client::{self, Agent};
 use super::{Select, SelectOption};
+use crate::api::client::{self, Agent};
+use leptos::prelude::*;
 
 /// Props for ComposeMessage component.
 #[derive(Clone)]
@@ -34,7 +34,7 @@ pub fn ComposeMessage(
     let importance = RwSignal::new("normal".to_string());
     let ack_required = RwSignal::new(false);
     let thread_id = RwSignal::new(String::new());
-    
+
     let sending = RwSignal::new(false);
     let error = RwSignal::new(Option::<String>::None);
 
@@ -52,9 +52,10 @@ pub fn ComposeMessage(
 
     let project_slug = props.project_slug.clone();
     let sender_name = props.sender_name.clone();
-    
+
     // Available recipients (exclude sender)
-    let available_recipients: Vec<Agent> = props.agents
+    let available_recipients: Vec<Agent> = props
+        .agents
         .iter()
         .filter(|a| a.name != sender_name)
         .cloned()
@@ -79,7 +80,7 @@ pub fn ComposeMessage(
             let recips = recipients.get();
             let subj = subject.get();
             let bod = body.get();
-            
+
             if recips.is_empty() {
                 error.set(Some("Please select at least one recipient".to_string()));
                 return;
@@ -110,10 +111,16 @@ pub fn ComposeMessage(
                     &recips,
                     &subj,
                     &bod,
-                    if tid.is_empty() { None } else { Some(tid.as_str()) },
+                    if tid.is_empty() {
+                        None
+                    } else {
+                        Some(tid.as_str())
+                    },
                     &imp,
                     ack,
-                ).await {
+                )
+                .await
+                {
                     Ok(_) => {
                         on_sent.run(());
                     }

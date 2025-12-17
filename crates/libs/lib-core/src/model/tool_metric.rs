@@ -1,6 +1,6 @@
 use crate::Ctx;
-use crate::model::ModelManager;
 use crate::Result;
+use crate::model::ModelManager;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -30,10 +30,14 @@ pub struct ToolMetricForCreate {
 pub struct ToolMetricBmc;
 
 impl ToolMetricBmc {
-    pub async fn create(_ctx: &Ctx, mm: &ModelManager, metric_c: ToolMetricForCreate) -> Result<i64> {
+    pub async fn create(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        metric_c: ToolMetricForCreate,
+    ) -> Result<i64> {
         let db = mm.db();
         let created_at = chrono::Utc::now().naive_utc().to_string();
-        
+
         let stmt = db.prepare(
             r#"
             INSERT INTO tool_metrics (project_id, agent_id, tool_name, args_json, status, error_code, duration_ms, created_at)
@@ -41,7 +45,7 @@ impl ToolMetricBmc {
             RETURNING id
             "#
         ).await?;
-        
+
         let params: Vec<libsql::Value> = vec![
             metric_c.project_id.into(),
             metric_c.agent_id.into(),
@@ -53,8 +57,8 @@ impl ToolMetricBmc {
             created_at.into(),
         ];
         let mut rows = stmt.query(params).await?;
-        
-        let row = rows.next().await?.ok_or(crate::Error::NotFound)?; 
+
+        let row = rows.next().await?.ok_or(crate::Error::NotFound)?;
         let id: i64 = row.get(0)?;
         Ok(id)
     }
@@ -66,23 +70,25 @@ impl ToolMetricBmc {
         limit: i64,
     ) -> Result<Vec<ToolMetric>> {
         let db = mm.db();
-        
+
         let mut metrics = Vec::new();
-        
+
         if let Some(pid) = project_id {
             let stmt = db.prepare("SELECT id, project_id, agent_id, tool_name, args_json, status, error_code, duration_ms, created_at FROM tool_metrics WHERE project_id = ? ORDER BY created_at DESC LIMIT ?").await?;
-            let mut rows = stmt.query(vec![pid.into(), limit.into()] as Vec<libsql::Value>).await?;
-             while let Some(row) = rows.next().await? {
+            let mut rows = stmt
+                .query(vec![pid.into(), limit.into()] as Vec<libsql::Value>)
+                .await?;
+            while let Some(row) = rows.next().await? {
                 metrics.push(Self::row_to_metric(&row)?);
             }
         } else {
             let stmt = db.prepare("SELECT id, project_id, agent_id, tool_name, args_json, status, error_code, duration_ms, created_at FROM tool_metrics ORDER BY created_at DESC LIMIT ?").await?;
             let mut rows = stmt.query(vec![limit.into()] as Vec<libsql::Value>).await?;
-             while let Some(row) = rows.next().await? {
+            while let Some(row) = rows.next().await? {
                 metrics.push(Self::row_to_metric(&row)?);
             }
         }
-        
+
         Ok(metrics)
     }
 
@@ -106,11 +112,11 @@ impl ToolMetricBmc {
         project_id: Option<i64>,
     ) -> Result<Vec<ToolStat>> {
         let db = mm.db();
-        
+
         let mut stats = Vec::new();
 
         if let Some(pid) = project_id {
-             let sql = r#"
+            let sql = r#"
                 SELECT 
                     tool_name, 
                     COUNT(*) as count, 
@@ -126,7 +132,7 @@ impl ToolMetricBmc {
                 stats.push(Self::row_to_stat(&row)?);
             }
         } else {
-             let sql = r#"
+            let sql = r#"
                 SELECT 
                     tool_name, 
                     COUNT(*) as count, 
@@ -137,11 +143,11 @@ impl ToolMetricBmc {
             "#;
             let stmt = db.prepare(sql).await?;
             let mut rows = stmt.query(()).await?;
-             while let Some(row) = rows.next().await? {
+            while let Some(row) = rows.next().await? {
                 stats.push(Self::row_to_stat(&row)?);
             }
         }
-        
+
         Ok(stats)
     }
 

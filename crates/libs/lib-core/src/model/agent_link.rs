@@ -1,8 +1,8 @@
+use crate::Result;
 use crate::ctx::Ctx;
 use crate::model::ModelManager;
-use crate::Result;
-use serde::{Deserialize, Serialize};
 use chrono::NaiveDateTime;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AgentLink {
@@ -31,7 +31,11 @@ pub struct AgentLinkBmc;
 
 impl AgentLinkBmc {
     /// Request contact from agent A to agent B
-    pub async fn request_contact(_ctx: &Ctx, mm: &ModelManager, link_c: AgentLinkForCreate) -> Result<i64> {
+    pub async fn request_contact(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        link_c: AgentLinkForCreate,
+    ) -> Result<i64> {
         let db = mm.db();
 
         let stmt = db.prepare(
@@ -42,41 +46,57 @@ impl AgentLinkBmc {
             "#
         ).await?;
 
-        let mut rows = stmt.query((
-            link_c.a_project_id,
-            link_c.a_agent_id,
-            link_c.b_project_id,
-            link_c.b_agent_id,
-            link_c.reason.as_str(),
-        )).await?;
+        let mut rows = stmt
+            .query((
+                link_c.a_project_id,
+                link_c.a_agent_id,
+                link_c.b_project_id,
+                link_c.b_agent_id,
+                link_c.reason.as_str(),
+            ))
+            .await?;
 
         let id = if let Some(row) = rows.next().await? {
             row.get::<i64>(0)?
         } else {
-            return Err(crate::Error::InvalidInput("Failed to create contact request".into()));
+            return Err(crate::Error::InvalidInput(
+                "Failed to create contact request".into(),
+            ));
         };
 
         Ok(id)
     }
 
     /// Respond to a contact request (accept or reject)
-    pub async fn respond_contact(_ctx: &Ctx, mm: &ModelManager, link_id: i64, accept: bool) -> Result<()> {
+    pub async fn respond_contact(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        link_id: i64,
+        accept: bool,
+    ) -> Result<()> {
         let db = mm.db();
         let now = chrono::Utc::now().naive_utc();
         let now_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
         let status = if accept { "accepted" } else { "rejected" };
 
-        let stmt = db.prepare(
-            r#"
+        let stmt = db
+            .prepare(
+                r#"
             UPDATE agent_links SET status = ?, updated_ts = ? WHERE id = ?
-            "#
-        ).await?;
+            "#,
+            )
+            .await?;
         stmt.execute((status, now_str, link_id)).await?;
         Ok(())
     }
 
     /// List contacts for an agent (all accepted links where agent is either party)
-    pub async fn list_contacts(_ctx: &Ctx, mm: &ModelManager, project_id: i64, agent_id: i64) -> Result<Vec<AgentLink>> {
+    pub async fn list_contacts(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        project_id: i64,
+        agent_id: i64,
+    ) -> Result<Vec<AgentLink>> {
         let db = mm.db();
         let stmt = db.prepare(
             r#"
@@ -90,7 +110,9 @@ impl AgentLinkBmc {
             "#
         ).await?;
 
-        let mut rows = stmt.query((project_id, agent_id, project_id, agent_id)).await?;
+        let mut rows = stmt
+            .query((project_id, agent_id, project_id, agent_id))
+            .await?;
         let mut links = Vec::new();
 
         while let Some(row) = rows.next().await? {
@@ -100,7 +122,12 @@ impl AgentLinkBmc {
     }
 
     /// List pending contact requests for an agent (where agent is B)
-    pub async fn list_pending_requests(_ctx: &Ctx, mm: &ModelManager, project_id: i64, agent_id: i64) -> Result<Vec<AgentLink>> {
+    pub async fn list_pending_requests(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        project_id: i64,
+        agent_id: i64,
+    ) -> Result<Vec<AgentLink>> {
         let db = mm.db();
         let stmt = db.prepare(
             r#"
@@ -125,13 +152,12 @@ impl AgentLinkBmc {
         let updated_ts_str: String = row.get(8).unwrap_or_default();
         let expires_ts_str: Option<String> = row.get(9).unwrap_or_default();
 
-        let created_ts = NaiveDateTime::parse_from_str(&created_ts_str, "%Y-%m-%d %H:%M:%S")
-            .unwrap_or_default();
-        let updated_ts = NaiveDateTime::parse_from_str(&updated_ts_str, "%Y-%m-%d %H:%M:%S")
-            .unwrap_or_default();
-        let expires_ts = expires_ts_str.and_then(|s|
-            NaiveDateTime::parse_from_str(&s, "%Y-%m-%d %H:%M:%S").ok()
-        );
+        let created_ts =
+            NaiveDateTime::parse_from_str(&created_ts_str, "%Y-%m-%d %H:%M:%S").unwrap_or_default();
+        let updated_ts =
+            NaiveDateTime::parse_from_str(&updated_ts_str, "%Y-%m-%d %H:%M:%S").unwrap_or_default();
+        let expires_ts = expires_ts_str
+            .and_then(|s| NaiveDateTime::parse_from_str(&s, "%Y-%m-%d %H:%M:%S").ok());
 
         Ok(AgentLink {
             id: row.get(0)?,

@@ -5,20 +5,26 @@
 use anyhow::Result;
 use rmcp::{
     ErrorData as McpError,
-    tool, tool_router,
-    model::{
-        CallToolResult, CallToolRequestParam, Content, ListToolsResult, PaginatedRequestParam,
-        ListResourcesResult, ReadResourceResult, ReadResourceRequestParam, Resource, ResourceContents,
-        RawResource,
-    },
     handler::server::{ServerHandler, tool::ToolRouter, wrapper::Parameters},
+    model::{
+        CallToolRequestParam, CallToolResult, Content, ListResourcesResult, ListToolsResult,
+        PaginatedRequestParam, RawResource, ReadResourceRequestParam, ReadResourceResult, Resource,
+        ResourceContents,
+    },
     service::{RequestContext, RoleServer},
+    tool, tool_router,
 };
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
-use lib_core::{ctx::Ctx, model::{ModelManager, project::ProjectBmc, agent::AgentBmc, message::MessageBmc, file_reservation::FileReservationBmc, agent_capabilities::AgentCapabilityBmc}};
+use lib_core::{
+    ctx::Ctx,
+    model::{
+        ModelManager, agent::AgentBmc, agent_capabilities::AgentCapabilityBmc,
+        file_reservation::FileReservationBmc, message::MessageBmc, project::ProjectBmc,
+    },
+};
 
 // ============================================================================
 // Schema Export Types
@@ -46,52 +52,162 @@ pub fn get_tool_schemas() -> Vec<ToolSchema> {
             name: "ensure_project".into(),
             description: "Ensure a project exists, creating it if necessary.".into(),
             parameters: vec![
-                ParameterSchema { name: "slug".into(), param_type: "string".into(), required: true, description: "Project slug (URL-safe identifier)".into() },
-                ParameterSchema { name: "human_key".into(), param_type: "string".into(), required: true, description: "Human-readable project name".into() },
+                ParameterSchema {
+                    name: "slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug (URL-safe identifier)".into(),
+                },
+                ParameterSchema {
+                    name: "human_key".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Human-readable project name".into(),
+                },
             ],
         },
         ToolSchema {
             name: "register_agent".into(),
             description: "Register a new agent in a project.".into(),
             parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-                ParameterSchema { name: "name".into(), param_type: "string".into(), required: true, description: "Agent name".into() },
-                ParameterSchema { name: "program".into(), param_type: "string".into(), required: true, description: "Agent program name".into() },
-                ParameterSchema { name: "model".into(), param_type: "string".into(), required: true, description: "AI model used".into() },
-                ParameterSchema { name: "task_description".into(), param_type: "string".into(), required: true, description: "Agent's task description".into() },
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "name".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Agent name".into(),
+                },
+                ParameterSchema {
+                    name: "program".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Agent program name".into(),
+                },
+                ParameterSchema {
+                    name: "model".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "AI model used".into(),
+                },
+                ParameterSchema {
+                    name: "task_description".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Agent's task description".into(),
+                },
             ],
         },
         ToolSchema {
             name: "send_message".into(),
             description: "Send a message from one agent to others.".into(),
             parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-                ParameterSchema { name: "sender_name".into(), param_type: "string".into(), required: true, description: "Sender agent name".into() },
-                ParameterSchema { name: "to".into(), param_type: "string".into(), required: true, description: "Recipient agent names (comma-separated)".into() },
-                ParameterSchema { name: "cc".into(), param_type: "string".into(), required: false, description: "CC recipient agent names (comma-separated)".into() },
-                ParameterSchema { name: "bcc".into(), param_type: "string".into(), required: false, description: "BCC recipient agent names (comma-separated)".into() },
-                ParameterSchema { name: "subject".into(), param_type: "string".into(), required: true, description: "Message subject".into() },
-                ParameterSchema { name: "body_md".into(), param_type: "string".into(), required: true, description: "Message body in markdown".into() },
-                ParameterSchema { name: "importance".into(), param_type: "string".into(), required: false, description: "Message importance level".into() },
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "sender_name".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Sender agent name".into(),
+                },
+                ParameterSchema {
+                    name: "to".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Recipient agent names (comma-separated)".into(),
+                },
+                ParameterSchema {
+                    name: "cc".into(),
+                    param_type: "string".into(),
+                    required: false,
+                    description: "CC recipient agent names (comma-separated)".into(),
+                },
+                ParameterSchema {
+                    name: "bcc".into(),
+                    param_type: "string".into(),
+                    required: false,
+                    description: "BCC recipient agent names (comma-separated)".into(),
+                },
+                ParameterSchema {
+                    name: "subject".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Message subject".into(),
+                },
+                ParameterSchema {
+                    name: "body_md".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Message body in markdown".into(),
+                },
+                ParameterSchema {
+                    name: "importance".into(),
+                    param_type: "string".into(),
+                    required: false,
+                    description: "Message importance level".into(),
+                },
             ],
         },
         ToolSchema {
             name: "check_inbox".into(),
             description: "Check an agent's inbox for new messages.".into(),
             parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-                ParameterSchema { name: "agent_name".into(), param_type: "string".into(), required: true, description: "Agent name".into() },
-                ParameterSchema { name: "limit".into(), param_type: "integer".into(), required: false, description: "Maximum messages to return".into() },
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "agent_name".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Agent name".into(),
+                },
+                ParameterSchema {
+                    name: "limit".into(),
+                    param_type: "integer".into(),
+                    required: false,
+                    description: "Maximum messages to return".into(),
+                },
             ],
         },
         ToolSchema {
             name: "reply_message".into(),
             description: "Reply to an existing message in a thread.".into(),
             parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-                ParameterSchema { name: "sender_name".into(), param_type: "string".into(), required: true, description: "Sender agent name".into() },
-                ParameterSchema { name: "message_id".into(), param_type: "integer".into(), required: true, description: "Message ID to reply to".into() },
-                ParameterSchema { name: "body_md".into(), param_type: "string".into(), required: true, description: "Reply body in markdown".into() },
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "sender_name".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Sender agent name".into(),
+                },
+                ParameterSchema {
+                    name: "message_id".into(),
+                    param_type: "integer".into(),
+                    required: true,
+                    description: "Message ID to reply to".into(),
+                },
+                ParameterSchema {
+                    name: "body_md".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Reply body in markdown".into(),
+                },
             ],
         },
         ToolSchema {
@@ -102,149 +218,335 @@ pub fn get_tool_schemas() -> Vec<ToolSchema> {
         ToolSchema {
             name: "list_agents".into(),
             description: "List all agents in a project.".into(),
-            parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-            ],
+            parameters: vec![ParameterSchema {
+                name: "project_slug".into(),
+                param_type: "string".into(),
+                required: true,
+                description: "Project slug".into(),
+            }],
         },
         ToolSchema {
             name: "get_message".into(),
             description: "Get a specific message by ID.".into(),
-            parameters: vec![
-                ParameterSchema { name: "message_id".into(), param_type: "integer".into(), required: true, description: "Message ID".into() },
-            ],
+            parameters: vec![ParameterSchema {
+                name: "message_id".into(),
+                param_type: "integer".into(),
+                required: true,
+                description: "Message ID".into(),
+            }],
         },
         ToolSchema {
             name: "search_messages".into(),
             description: "Full-text search messages.".into(),
             parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-                ParameterSchema { name: "query".into(), param_type: "string".into(), required: true, description: "Search query".into() },
-                ParameterSchema { name: "limit".into(), param_type: "integer".into(), required: false, description: "Maximum results".into() },
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "query".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Search query".into(),
+                },
+                ParameterSchema {
+                    name: "limit".into(),
+                    param_type: "integer".into(),
+                    required: false,
+                    description: "Maximum results".into(),
+                },
             ],
         },
         ToolSchema {
             name: "reserve_file".into(),
             description: "Reserve a file path for exclusive editing.".into(),
             parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-                ParameterSchema { name: "agent_name".into(), param_type: "string".into(), required: true, description: "Agent name".into() },
-                ParameterSchema { name: "path_pattern".into(), param_type: "string".into(), required: true, description: "File path or glob pattern".into() },
-                ParameterSchema { name: "reason".into(), param_type: "string".into(), required: false, description: "Reason for reservation".into() },
-                ParameterSchema { name: "ttl_minutes".into(), param_type: "integer".into(), required: false, description: "Time-to-live in minutes".into() },
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "agent_name".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Agent name".into(),
+                },
+                ParameterSchema {
+                    name: "path_pattern".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "File path or glob pattern".into(),
+                },
+                ParameterSchema {
+                    name: "reason".into(),
+                    param_type: "string".into(),
+                    required: false,
+                    description: "Reason for reservation".into(),
+                },
+                ParameterSchema {
+                    name: "ttl_minutes".into(),
+                    param_type: "integer".into(),
+                    required: false,
+                    description: "Time-to-live in minutes".into(),
+                },
             ],
         },
         ToolSchema {
             name: "release_reservation".into(),
             description: "Release a file reservation by ID.".into(),
-            parameters: vec![
-                ParameterSchema { name: "reservation_id".into(), param_type: "integer".into(), required: true, description: "Reservation ID".into() },
-            ],
+            parameters: vec![ParameterSchema {
+                name: "reservation_id".into(),
+                param_type: "integer".into(),
+                required: true,
+                description: "Reservation ID".into(),
+            }],
         },
         ToolSchema {
             name: "list_file_reservations".into(),
             description: "List active file reservations in a project.".into(),
-            parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-            ],
+            parameters: vec![ParameterSchema {
+                name: "project_slug".into(),
+                param_type: "string".into(),
+                required: true,
+                description: "Project slug".into(),
+            }],
         },
         ToolSchema {
             name: "force_release_reservation".into(),
             description: "Force release a file reservation (emergency override).".into(),
-            parameters: vec![
-                ParameterSchema { name: "reservation_id".into(), param_type: "integer".into(), required: true, description: "Reservation ID".into() },
-            ],
+            parameters: vec![ParameterSchema {
+                name: "reservation_id".into(),
+                param_type: "integer".into(),
+                required: true,
+                description: "Reservation ID".into(),
+            }],
         },
         ToolSchema {
             name: "renew_file_reservation".into(),
             description: "Extend the TTL of a file reservation.".into(),
             parameters: vec![
-                ParameterSchema { name: "reservation_id".into(), param_type: "integer".into(), required: true, description: "Reservation ID".into() },
-                ParameterSchema { name: "ttl_seconds".into(), param_type: "integer".into(), required: false, description: "New TTL in seconds".into() },
+                ParameterSchema {
+                    name: "reservation_id".into(),
+                    param_type: "integer".into(),
+                    required: true,
+                    description: "Reservation ID".into(),
+                },
+                ParameterSchema {
+                    name: "ttl_seconds".into(),
+                    param_type: "integer".into(),
+                    required: false,
+                    description: "New TTL in seconds".into(),
+                },
             ],
         },
         ToolSchema {
             name: "request_contact".into(),
             description: "Request to add another agent as a contact.".into(),
             parameters: vec![
-                ParameterSchema { name: "from_project_slug".into(), param_type: "string".into(), required: true, description: "From project slug".into() },
-                ParameterSchema { name: "from_agent_name".into(), param_type: "string".into(), required: true, description: "From agent name".into() },
-                ParameterSchema { name: "to_project_slug".into(), param_type: "string".into(), required: true, description: "To project slug".into() },
-                ParameterSchema { name: "to_agent_name".into(), param_type: "string".into(), required: true, description: "To agent name".into() },
-                ParameterSchema { name: "reason".into(), param_type: "string".into(), required: true, description: "Reason for contact request".into() },
+                ParameterSchema {
+                    name: "from_project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "From project slug".into(),
+                },
+                ParameterSchema {
+                    name: "from_agent_name".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "From agent name".into(),
+                },
+                ParameterSchema {
+                    name: "to_project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "To project slug".into(),
+                },
+                ParameterSchema {
+                    name: "to_agent_name".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "To agent name".into(),
+                },
+                ParameterSchema {
+                    name: "reason".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Reason for contact request".into(),
+                },
             ],
         },
         ToolSchema {
             name: "respond_contact".into(),
             description: "Accept or reject a contact request.".into(),
             parameters: vec![
-                ParameterSchema { name: "link_id".into(), param_type: "integer".into(), required: true, description: "Agent link ID".into() },
-                ParameterSchema { name: "accept".into(), param_type: "boolean".into(), required: true, description: "Accept or reject".into() },
+                ParameterSchema {
+                    name: "link_id".into(),
+                    param_type: "integer".into(),
+                    required: true,
+                    description: "Agent link ID".into(),
+                },
+                ParameterSchema {
+                    name: "accept".into(),
+                    param_type: "boolean".into(),
+                    required: true,
+                    description: "Accept or reject".into(),
+                },
             ],
         },
         ToolSchema {
             name: "list_contacts".into(),
             description: "List all contacts for an agent.".into(),
             parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-                ParameterSchema { name: "agent_name".into(), param_type: "string".into(), required: true, description: "Agent name".into() },
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "agent_name".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Agent name".into(),
+                },
             ],
         },
         ToolSchema {
             name: "acquire_build_slot".into(),
             description: "Acquire an exclusive build slot for CI/CD isolation.".into(),
             parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-                ParameterSchema { name: "agent_name".into(), param_type: "string".into(), required: true, description: "Agent name".into() },
-                ParameterSchema { name: "slot_name".into(), param_type: "string".into(), required: true, description: "Slot name".into() },
-                ParameterSchema { name: "ttl_seconds".into(), param_type: "integer".into(), required: false, description: "TTL in seconds".into() },
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "agent_name".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Agent name".into(),
+                },
+                ParameterSchema {
+                    name: "slot_name".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Slot name".into(),
+                },
+                ParameterSchema {
+                    name: "ttl_seconds".into(),
+                    param_type: "integer".into(),
+                    required: false,
+                    description: "TTL in seconds".into(),
+                },
             ],
         },
         ToolSchema {
             name: "release_build_slot".into(),
             description: "Release a held build slot.".into(),
-            parameters: vec![
-                ParameterSchema { name: "slot_id".into(), param_type: "integer".into(), required: true, description: "Slot ID".into() },
-            ],
+            parameters: vec![ParameterSchema {
+                name: "slot_id".into(),
+                param_type: "integer".into(),
+                required: true,
+                description: "Slot ID".into(),
+            }],
         },
         ToolSchema {
             name: "list_macros".into(),
             description: "List all available macros in a project.".into(),
-            parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-            ],
+            parameters: vec![ParameterSchema {
+                name: "project_slug".into(),
+                param_type: "string".into(),
+                required: true,
+                description: "Project slug".into(),
+            }],
         },
         ToolSchema {
             name: "register_macro".into(),
             description: "Register a new macro definition.".into(),
             parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-                ParameterSchema { name: "name".into(), param_type: "string".into(), required: true, description: "Macro name".into() },
-                ParameterSchema { name: "description".into(), param_type: "string".into(), required: true, description: "Macro description".into() },
-                ParameterSchema { name: "steps".into(), param_type: "array".into(), required: true, description: "Macro steps as JSON array".into() },
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "name".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Macro name".into(),
+                },
+                ParameterSchema {
+                    name: "description".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Macro description".into(),
+                },
+                ParameterSchema {
+                    name: "steps".into(),
+                    param_type: "array".into(),
+                    required: true,
+                    description: "Macro steps as JSON array".into(),
+                },
             ],
         },
         ToolSchema {
             name: "invoke_macro".into(),
             description: "Execute a pre-defined macro and get its steps.".into(),
             parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-                ParameterSchema { name: "name".into(), param_type: "string".into(), required: true, description: "Macro name".into() },
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "name".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Macro name".into(),
+                },
             ],
         },
         ToolSchema {
             name: "ensure_product".into(),
             description: "Create or get a product for multi-repo coordination.".into(),
             parameters: vec![
-                ParameterSchema { name: "product_uid".into(), param_type: "string".into(), required: true, description: "Product UID".into() },
-                ParameterSchema { name: "name".into(), param_type: "string".into(), required: true, description: "Product name".into() },
+                ParameterSchema {
+                    name: "product_uid".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Product UID".into(),
+                },
+                ParameterSchema {
+                    name: "name".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Product name".into(),
+                },
             ],
         },
         ToolSchema {
             name: "link_project_to_product".into(),
             description: "Link a project to a product for unified messaging.".into(),
             parameters: vec![
-                ParameterSchema { name: "product_uid".into(), param_type: "string".into(), required: true, description: "Product UID".into() },
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
+                ParameterSchema {
+                    name: "product_uid".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Product UID".into(),
+                },
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
             ],
         },
         ToolSchema {
@@ -256,168 +558,403 @@ pub fn get_tool_schemas() -> Vec<ToolSchema> {
             name: "product_inbox".into(),
             description: "Get aggregated inbox across all projects in a product.".into(),
             parameters: vec![
-                ParameterSchema { name: "product_uid".into(), param_type: "string".into(), required: true, description: "Product UID".into() },
-                ParameterSchema { name: "limit".into(), param_type: "integer".into(), required: false, description: "Max messages per project".into() },
+                ParameterSchema {
+                    name: "product_uid".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Product UID".into(),
+                },
+                ParameterSchema {
+                    name: "limit".into(),
+                    param_type: "integer".into(),
+                    required: false,
+                    description: "Max messages per project".into(),
+                },
             ],
         },
         ToolSchema {
             name: "export_mailbox".into(),
             description: "Export a project's mailbox to HTML, JSON, or Markdown format.".into(),
             parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-                ParameterSchema { name: "format".into(), param_type: "string".into(), required: false, description: "Export format: html, json, or markdown".into() },
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "format".into(),
+                    param_type: "string".into(),
+                    required: false,
+                    description: "Export format: html, json, or markdown".into(),
+                },
             ],
         },
         ToolSchema {
             name: "get_project_info".into(),
             description: "Get detailed information about a project.".into(),
-            parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-            ],
+            parameters: vec![ParameterSchema {
+                name: "project_slug".into(),
+                param_type: "string".into(),
+                required: true,
+                description: "Project slug".into(),
+            }],
         },
         ToolSchema {
             name: "get_agent_profile".into(),
             description: "Get detailed profile information for an agent.".into(),
             parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-                ParameterSchema { name: "agent_name".into(), param_type: "string".into(), required: true, description: "Agent name".into() },
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "agent_name".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Agent name".into(),
+                },
             ],
         },
         ToolSchema {
             name: "list_threads".into(),
             description: "List all conversation threads in a project.".into(),
             parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-                ParameterSchema { name: "limit".into(), param_type: "integer".into(), required: false, description: "Maximum threads".into() },
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "limit".into(),
+                    param_type: "integer".into(),
+                    required: false,
+                    description: "Maximum threads".into(),
+                },
             ],
         },
         ToolSchema {
             name: "summarize_thread".into(),
             description: "Get a summary of a conversation thread.".into(),
             parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-                ParameterSchema { name: "thread_id".into(), param_type: "string".into(), required: true, description: "Thread ID".into() },
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "thread_id".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Thread ID".into(),
+                },
             ],
         },
         ToolSchema {
             name: "mark_message_read".into(),
             description: "Mark a message as read by a recipient.".into(),
             parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-                ParameterSchema { name: "agent_name".into(), param_type: "string".into(), required: true, description: "Agent name marking as read".into() },
-                ParameterSchema { name: "message_id".into(), param_type: "integer".into(), required: true, description: "Message ID".into() },
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "agent_name".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Agent name marking as read".into(),
+                },
+                ParameterSchema {
+                    name: "message_id".into(),
+                    param_type: "integer".into(),
+                    required: true,
+                    description: "Message ID".into(),
+                },
             ],
         },
         ToolSchema {
             name: "acknowledge_message".into(),
             description: "Acknowledge a message (sets both read and acknowledged).".into(),
             parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-                ParameterSchema { name: "agent_name".into(), param_type: "string".into(), required: true, description: "Agent name acknowledging".into() },
-                ParameterSchema { name: "message_id".into(), param_type: "integer".into(), required: true, description: "Message ID".into() },
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "agent_name".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Agent name acknowledging".into(),
+                },
+                ParameterSchema {
+                    name: "message_id".into(),
+                    param_type: "integer".into(),
+                    required: true,
+                    description: "Message ID".into(),
+                },
             ],
         },
         ToolSchema {
             name: "set_contact_policy".into(),
-            description: "Set an agent's contact policy (open, auto, contacts_only, block_all).".into(),
+            description: "Set an agent's contact policy (open, auto, contacts_only, block_all)."
+                .into(),
             parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-                ParameterSchema { name: "agent_name".into(), param_type: "string".into(), required: true, description: "Agent name".into() },
-                ParameterSchema { name: "contact_policy".into(), param_type: "string".into(), required: true, description: "Policy: open, auto, contacts_only, block_all".into() },
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "agent_name".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Agent name".into(),
+                },
+                ParameterSchema {
+                    name: "contact_policy".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Policy: open, auto, contacts_only, block_all".into(),
+                },
             ],
         },
         ToolSchema {
             name: "renew_build_slot".into(),
             description: "Extend the TTL of a build slot.".into(),
             parameters: vec![
-                ParameterSchema { name: "slot_id".into(), param_type: "integer".into(), required: true, description: "Slot ID".into() },
-                ParameterSchema { name: "ttl_seconds".into(), param_type: "integer".into(), required: false, description: "New TTL in seconds".into() },
+                ParameterSchema {
+                    name: "slot_id".into(),
+                    param_type: "integer".into(),
+                    required: true,
+                    description: "Slot ID".into(),
+                },
+                ParameterSchema {
+                    name: "ttl_seconds".into(),
+                    param_type: "integer".into(),
+                    required: false,
+                    description: "New TTL in seconds".into(),
+                },
             ],
         },
         ToolSchema {
             name: "list_outbox".into(),
             description: "List messages in an agent's outbox (sent messages).".into(),
             parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-                ParameterSchema { name: "agent_name".into(), param_type: "string".into(), required: true, description: "Agent name".into() },
-                ParameterSchema { name: "limit".into(), param_type: "integer".into(), required: false, description: "Maximum messages to return".into() },
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "agent_name".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Agent name".into(),
+                },
+                ParameterSchema {
+                    name: "limit".into(),
+                    param_type: "integer".into(),
+                    required: false,
+                    description: "Maximum messages to return".into(),
+                },
             ],
         },
         ToolSchema {
             name: "file_reservation_paths".into(),
             description: "Reserve multiple file paths with conflict detection.".into(),
             parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-                ParameterSchema { name: "agent_name".into(), param_type: "string".into(), required: true, description: "Agent name".into() },
-                ParameterSchema { name: "paths".into(), param_type: "array".into(), required: true, description: "File paths to reserve".into() },
-                ParameterSchema { name: "exclusive".into(), param_type: "boolean".into(), required: true, description: "Whether reservation is exclusive".into() },
-                ParameterSchema { name: "reason".into(), param_type: "string".into(), required: false, description: "Reason for reservation".into() },
-                ParameterSchema { name: "ttl_seconds".into(), param_type: "integer".into(), required: false, description: "TTL in seconds".into() },
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "agent_name".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Agent name".into(),
+                },
+                ParameterSchema {
+                    name: "paths".into(),
+                    param_type: "array".into(),
+                    required: true,
+                    description: "File paths to reserve".into(),
+                },
+                ParameterSchema {
+                    name: "exclusive".into(),
+                    param_type: "boolean".into(),
+                    required: true,
+                    description: "Whether reservation is exclusive".into(),
+                },
+                ParameterSchema {
+                    name: "reason".into(),
+                    param_type: "string".into(),
+                    required: false,
+                    description: "Reason for reservation".into(),
+                },
+                ParameterSchema {
+                    name: "ttl_seconds".into(),
+                    param_type: "integer".into(),
+                    required: false,
+                    description: "TTL in seconds".into(),
+                },
             ],
         },
         ToolSchema {
             name: "summarize_threads".into(),
             description: "Get summaries of multiple conversation threads.".into(),
             parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-                ParameterSchema { name: "limit".into(), param_type: "integer".into(), required: true, description: "Maximum threads".into() },
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "limit".into(),
+                    param_type: "integer".into(),
+                    required: true,
+                    description: "Maximum threads".into(),
+                },
             ],
         },
         ToolSchema {
             name: "install_precommit_guard".into(),
             description: "Install pre-commit guard for file reservation checks.".into(),
             parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-                ParameterSchema { name: "target_repo_path".into(), param_type: "string".into(), required: true, description: "Target repository path".into() },
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "target_repo_path".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Target repository path".into(),
+                },
             ],
         },
         ToolSchema {
             name: "uninstall_precommit_guard".into(),
             description: "Uninstall pre-commit guard.".into(),
-            parameters: vec![
-                ParameterSchema { name: "target_repo_path".into(), param_type: "string".into(), required: true, description: "Target repository path".into() },
-            ],
+            parameters: vec![ParameterSchema {
+                name: "target_repo_path".into(),
+                param_type: "string".into(),
+                required: true,
+                description: "Target repository path".into(),
+            }],
         },
         ToolSchema {
             name: "add_attachment".into(),
             description: "Add an attachment to a message.".into(),
             parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-                ParameterSchema { name: "message_id".into(), param_type: "integer".into(), required: true, description: "Message ID".into() },
-                ParameterSchema { name: "filename".into(), param_type: "string".into(), required: true, description: "Filename".into() },
-                ParameterSchema { name: "content_base64".into(), param_type: "string".into(), required: true, description: "Base64 encoded content".into() },
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "message_id".into(),
+                    param_type: "integer".into(),
+                    required: true,
+                    description: "Message ID".into(),
+                },
+                ParameterSchema {
+                    name: "filename".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Filename".into(),
+                },
+                ParameterSchema {
+                    name: "content_base64".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Base64 encoded content".into(),
+                },
             ],
         },
         ToolSchema {
             name: "get_attachment".into(),
             description: "Get an attachment from a message.".into(),
             parameters: vec![
-                ParameterSchema { name: "project_slug".into(), param_type: "string".into(), required: true, description: "Project slug".into() },
-                ParameterSchema { name: "attachment_id".into(), param_type: "string".into(), required: true, description: "Attachment ID".into() },
-                ParameterSchema { name: "filename".into(), param_type: "string".into(), required: true, description: "Filename".into() },
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "attachment_id".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Attachment ID".into(),
+                },
+                ParameterSchema {
+                    name: "filename".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Filename".into(),
+                },
             ],
         },
         ToolSchema {
             name: "list_tool_metrics".into(),
             description: "List recent tool usage metrics.".into(),
             parameters: vec![
-                ParameterSchema { name: "project_id".into(), param_type: "integer".into(), required: false, description: "Optional project ID filter".into() },
-                ParameterSchema { name: "limit".into(), param_type: "integer".into(), required: false, description: "Maximum results".into() },
+                ParameterSchema {
+                    name: "project_id".into(),
+                    param_type: "integer".into(),
+                    required: false,
+                    description: "Optional project ID filter".into(),
+                },
+                ParameterSchema {
+                    name: "limit".into(),
+                    param_type: "integer".into(),
+                    required: false,
+                    description: "Maximum results".into(),
+                },
             ],
         },
         ToolSchema {
             name: "get_tool_stats".into(),
             description: "Get aggregated tool usage statistics.".into(),
-            parameters: vec![
-                ParameterSchema { name: "project_id".into(), param_type: "integer".into(), required: false, description: "Optional project ID filter".into() },
-            ],
+            parameters: vec![ParameterSchema {
+                name: "project_id".into(),
+                param_type: "integer".into(),
+                required: false,
+                description: "Optional project ID filter".into(),
+            }],
         },
         ToolSchema {
             name: "list_activity".into(),
             description: "List recent activity for a project.".into(),
             parameters: vec![
-                ParameterSchema { name: "project_id".into(), param_type: "integer".into(), required: true, description: "Project ID".into() },
-                ParameterSchema { name: "limit".into(), param_type: "integer".into(), required: false, description: "Maximum results".into() },
+                ParameterSchema {
+                    name: "project_id".into(),
+                    param_type: "integer".into(),
+                    required: true,
+                    description: "Project ID".into(),
+                },
+                ParameterSchema {
+                    name: "limit".into(),
+                    param_type: "integer".into(),
+                    required: false,
+                    description: "Maximum results".into(),
+                },
             ],
         },
     ]
@@ -464,20 +1001,32 @@ impl AgentMailService {
             .map_err(|e| McpError::invalid_params(format!("Invalid URI: {}", e), None))?;
 
         if uri.scheme() != "agent-mail" {
-            return Err(McpError::invalid_params("URI scheme must be 'agent-mail'".to_string(), None));
+            return Err(McpError::invalid_params(
+                "URI scheme must be 'agent-mail'".to_string(),
+                None,
+            ));
         }
 
         // URI format: agent-mail://{project_slug}/{resource_type}/{optional_id}
-        let project_slug = uri.host_str()
-            .ok_or(McpError::invalid_params("URI missing host (project slug)".to_string(), None))?;
-        
+        let project_slug = uri.host_str().ok_or(McpError::invalid_params(
+            "URI missing host (project slug)".to_string(),
+            None,
+        ))?;
+
         // Path starts with /, so segments are after host
-        let segments: Vec<&str> = uri.path_segments()
-            .ok_or(McpError::invalid_params("Invalid URI path".to_string(), None))?
+        let segments: Vec<&str> = uri
+            .path_segments()
+            .ok_or(McpError::invalid_params(
+                "Invalid URI path".to_string(),
+                None,
+            ))?
             .collect();
 
         if segments.is_empty() {
-             return Err(McpError::invalid_params("URI path missing resource type".to_string(), None));
+            return Err(McpError::invalid_params(
+                "URI path missing resource type".to_string(),
+                None,
+            ));
         }
 
         let resource_type = segments[0];
@@ -487,53 +1036,83 @@ impl AgentMailService {
         let mm = &self.mm;
 
         // Resolve project ID
-        let project = ProjectBmc::get_by_slug(&ctx, mm, project_slug).await
-            .map_err(|_| McpError::invalid_params(format!("Project not found: {}", project_slug), None))?;
+        let project = ProjectBmc::get_by_slug(&ctx, mm, project_slug)
+            .await
+            .map_err(|_| {
+                McpError::invalid_params(format!("Project not found: {}", project_slug), None)
+            })?;
         let project_id = project.id;
 
         let content = match resource_type {
             "agents" => {
-                let agents = AgentBmc::list_all_for_project(&ctx, mm, project_id).await
+                let agents = AgentBmc::list_all_for_project(&ctx, mm, project_id)
+                    .await
                     .map_err(|e| McpError::internal_error(e.to_string(), None))?;
                 serde_json::to_string_pretty(&agents)
                     .map_err(|e| McpError::internal_error(e.to_string(), None))?
-            },
+            }
             "file_reservations" => {
-                let reservations = FileReservationBmc::list_active_for_project(&ctx, mm, project_id).await
-                    .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+                let reservations =
+                    FileReservationBmc::list_active_for_project(&ctx, mm, project_id)
+                        .await
+                        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
                 serde_json::to_string_pretty(&reservations)
                     .map_err(|e| McpError::internal_error(e.to_string(), None))?
-            },
+            }
             "inbox" => {
-                let agent_name = resource_id.ok_or(McpError::invalid_params("Missing agent name".to_string(), None))?;
-                let agent = AgentBmc::get_by_name(&ctx, mm, project_id, agent_name).await
-                    .map_err(|_| McpError::invalid_params(format!("Agent not found: {}", agent_name), None))?;
-                
+                let agent_name = resource_id.ok_or(McpError::invalid_params(
+                    "Missing agent name".to_string(),
+                    None,
+                ))?;
+                let agent = AgentBmc::get_by_name(&ctx, mm, project_id, agent_name)
+                    .await
+                    .map_err(|_| {
+                        McpError::invalid_params(format!("Agent not found: {}", agent_name), None)
+                    })?;
+
                 // Default limit 20
-                let messages = MessageBmc::list_inbox_for_agent(&ctx, mm, project_id, agent.id, 20).await
+                let messages = MessageBmc::list_inbox_for_agent(&ctx, mm, project_id, agent.id, 20)
+                    .await
                     .map_err(|e| McpError::internal_error(e.to_string(), None))?;
                 serde_json::to_string_pretty(&messages)
                     .map_err(|e| McpError::internal_error(e.to_string(), None))?
-            },
+            }
             "outbox" => {
-                let agent_name = resource_id.ok_or(McpError::invalid_params("Missing agent name".to_string(), None))?;
-                let agent = AgentBmc::get_by_name(&ctx, mm, project_id, agent_name).await
-                    .map_err(|_| McpError::invalid_params(format!("Agent not found: {}", agent_name), None))?;
-                
-                let messages = MessageBmc::list_outbox_for_agent(&ctx, mm, project_id, agent.id, 20).await
-                    .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-                serde_json::to_string_pretty(&messages)
-                    .map_err(|e| McpError::internal_error(e.to_string(), None))?
-            },
-            "thread" => {
-                let thread_id_str = resource_id.ok_or(McpError::invalid_params("Missing thread ID".to_string(), None))?;
-                let messages = MessageBmc::list_by_thread(&ctx, mm, project_id, thread_id_str).await
+                let agent_name = resource_id.ok_or(McpError::invalid_params(
+                    "Missing agent name".to_string(),
+                    None,
+                ))?;
+                let agent = AgentBmc::get_by_name(&ctx, mm, project_id, agent_name)
+                    .await
+                    .map_err(|_| {
+                        McpError::invalid_params(format!("Agent not found: {}", agent_name), None)
+                    })?;
+
+                let messages =
+                    MessageBmc::list_outbox_for_agent(&ctx, mm, project_id, agent.id, 20)
+                        .await
                         .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-                
                 serde_json::to_string_pretty(&messages)
                     .map_err(|e| McpError::internal_error(e.to_string(), None))?
-            },
-            _ => return Err(McpError::invalid_params(format!("Unknown resource type: {}", resource_type), None)),
+            }
+            "thread" => {
+                let thread_id_str = resource_id.ok_or(McpError::invalid_params(
+                    "Missing thread ID".to_string(),
+                    None,
+                ))?;
+                let messages = MessageBmc::list_by_thread(&ctx, mm, project_id, thread_id_str)
+                    .await
+                    .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+                serde_json::to_string_pretty(&messages)
+                    .map_err(|e| McpError::internal_error(e.to_string(), None))?
+            }
+            _ => {
+                return Err(McpError::invalid_params(
+                    format!("Unknown resource type: {}", resource_type),
+                    None,
+                ));
+            }
         };
 
         Ok(ReadResourceResult {
@@ -552,64 +1131,71 @@ impl AgentMailService {
         duration: std::time::Duration,
         result: &Result<CallToolResult, McpError>,
     ) {
-        use lib_core::model::tool_metric::{ToolMetricBmc, ToolMetricForCreate};
-        use lib_core::model::project::ProjectBmc;
         use lib_core::model::agent::AgentBmc;
+        use lib_core::model::project::ProjectBmc;
+        use lib_core::model::tool_metric::{ToolMetricBmc, ToolMetricForCreate};
 
         let (status, error_code) = match result {
             Ok(_) => ("success".to_string(), None),
-            Err(e) => ("error".to_string(), Some(format!("{:?}", e.code))), 
+            Err(e) => ("error".to_string(), Some(format!("{:?}", e.code))),
         };
 
         // Extract context
         let (project_slug, agent_name) = self.extract_context(args);
-        
+
         // Resolve IDs (best effort)
         let ctx = self.ctx();
         let mut project_id = None;
         let mut agent_id = None;
-        
-        if let Some(slug) = project_slug 
-             && let Ok(p) = ProjectBmc::get_by_slug(&ctx, &self.mm, &slug).await {
-                 project_id = Some(p.id);
-                 if let Some(name) = agent_name 
-                     && let Ok(a) = AgentBmc::get_by_name(&ctx, &self.mm, p.id, &name).await {
-                         agent_id = Some(a.id);
-                     }
-             }
-        
+
+        if let Some(slug) = project_slug
+            && let Ok(p) = ProjectBmc::get_by_slug(&ctx, &self.mm, &slug).await
+        {
+            project_id = Some(p.id);
+            if let Some(name) = agent_name
+                && let Ok(a) = AgentBmc::get_by_name(&ctx, &self.mm, p.id, &name).await
+            {
+                agent_id = Some(a.id);
+            }
+        }
+
         let metric = ToolMetricForCreate {
-             project_id,
-             agent_id,
-             tool_name: tool_name.to_string(),
-             args_json: args.as_ref().map(|v| v.to_string()),
-             status,
-             error_code,
-             duration_ms: duration.as_millis() as i64,
+            project_id,
+            agent_id,
+            tool_name: tool_name.to_string(),
+            args_json: args.as_ref().map(|v| v.to_string()),
+            status,
+            error_code,
+            duration_ms: duration.as_millis() as i64,
         };
-        
+
         if let Err(e) = ToolMetricBmc::create(&ctx, &self.mm, metric).await {
             tracing::error!("Failed to record tool metric: {}", e);
         }
     }
 
-    pub fn extract_context(&self, args: &Option<serde_json::Value>) -> (Option<String>, Option<String>) {
+    pub fn extract_context(
+        &self,
+        args: &Option<serde_json::Value>,
+    ) -> (Option<String>, Option<String>) {
         let val = guard_unwrap!(args.as_ref(), return (None, None));
         let obj = guard_unwrap!(val.as_object(), return (None, None));
 
         // Try to find project slug
-        let project_slug = obj.get("project_slug")
+        let project_slug = obj
+            .get("project_slug")
             .or_else(|| obj.get("slug")) // For EnsureProjectParams
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
 
         // Try to find agent name
-        let agent_name = obj.get("agent_name")
+        let agent_name = obj
+            .get("agent_name")
             .or_else(|| obj.get("sender_name")) // For SendMessageParams
             .or_else(|| obj.get("name")) // For RegisterAgentParams
             .and_then(|v| v.as_str())
             .map(|s| s.to_string());
-            
+
         (project_slug, agent_name)
     }
 }
@@ -639,18 +1225,20 @@ impl ServerHandler for AgentMailService {
             let start = std::time::Instant::now();
             let tool_name = request.name.clone();
             let args = request.arguments.clone();
-            
-            let tool_context = rmcp::handler::server::tool::ToolCallContext::new(self, request, context);
+
+            let tool_context =
+                rmcp::handler::server::tool::ToolCallContext::new(self, request, context);
             let result = self.tool_router.call(tool_context).await;
-            
+
             let duration = start.elapsed();
-            
+
             // Fire and forget metric recording (spawn generic task or just await since we are async)
-            // Awaiting is safer to ensure it's recorded before response? 
+            // Awaiting is safer to ensure it's recorded before response?
             // Better to spawn to avoid latency, but for now await is fine as DB write is fast.
             let args_val = args.map(serde_json::Value::Object);
-            self.record_tool_metric(&tool_name, &args_val, duration, &result).await;
-            
+            self.record_tool_metric(&tool_name, &args_val, duration, &result)
+                .await;
+
             result
         }
     }
@@ -663,14 +1251,15 @@ impl ServerHandler for AgentMailService {
         async move {
             // List project-rooted resources for all projects
             let ctx = self.ctx();
-            let projects = ProjectBmc::list_all(&ctx, &self.mm).await
+            let projects = ProjectBmc::list_all(&ctx, &self.mm)
+                .await
                 .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
             let mut resources = Vec::new();
 
             for project in projects {
                 let slug = &project.slug;
-                
+
                 // Agents list
                 resources.push(Resource {
                     raw: RawResource {
@@ -691,7 +1280,10 @@ impl ServerHandler for AgentMailService {
                     raw: RawResource {
                         uri: format!("agent-mail://{}/file_reservations", slug),
                         name: format!("File Reservations ({})", slug),
-                        description: Some(format!("Active file reservations in project '{}'", slug)),
+                        description: Some(format!(
+                            "Active file reservations in project '{}'",
+                            slug
+                        )),
                         mime_type: Some("application/json".to_string()),
                         size: None,
                         icons: None,
@@ -710,7 +1302,6 @@ impl ServerHandler for AgentMailService {
         }
     }
 
-
     fn read_resource(
         &self,
         request: ReadResourceRequestParam,
@@ -718,11 +1309,6 @@ impl ServerHandler for AgentMailService {
     ) -> impl std::future::Future<Output = Result<ReadResourceResult, McpError>> + Send + '_ {
         self.read_resource_impl(request)
     }
-
-
-
-
-
 }
 
 // ============================================================================
@@ -1214,7 +1800,9 @@ pub struct ListActivityParams {
 #[tool_router]
 impl AgentMailService {
     /// Ensure a project exists, creating it if necessary
-    #[tool(description = "Create or get a project. Projects are workspaces that contain agents and their messages.")]
+    #[tool(
+        description = "Create or get a project. Projects are workspaces that contain agents and their messages."
+    )]
     async fn ensure_project(
         &self,
         params: Parameters<EnsureProjectParams>,
@@ -1235,7 +1823,8 @@ impl AgentMailService {
             }
             Err(_) => {
                 // Create new project
-                let id = ProjectBmc::create(&ctx, &self.mm, &p.slug, &p.human_key).await
+                let id = ProjectBmc::create(&ctx, &self.mm, &p.slug, &p.human_key)
+                    .await
                     .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
                 let msg = format!(
@@ -1260,7 +1849,8 @@ impl AgentMailService {
         let p = params.0;
 
         // Get project
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
         // Check if agent exists
@@ -1281,7 +1871,8 @@ impl AgentMailService {
                     task_description: p.task_description,
                 };
 
-                let id = AgentBmc::create(&ctx, &self.mm, agent_c).await
+                let id = AgentBmc::create(&ctx, &self.mm, agent_c)
+                    .await
                     .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
                 let msg = format!("Registered agent '{}' with id {}", p.name, id);
@@ -1291,7 +1882,9 @@ impl AgentMailService {
     }
 
     /// Send a message to one or more agents
-    #[tool(description = "Send a message from one agent to another. Creates a new thread or continues an existing one.")]
+    #[tool(
+        description = "Send a message from one agent to another. Creates a new thread or continues an existing one."
+    )]
     async fn send_message(
         &self,
         params: Parameters<SendMessageParams>,
@@ -1304,45 +1897,67 @@ impl AgentMailService {
         let p = params.0;
 
         // Get project and sender
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let sender = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.sender_name).await
+        let sender = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.sender_name)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Sender not found: {}", e), None))?;
 
-        if !AgentCapabilityBmc::check(&ctx, &self.mm, sender.id, "send_message").await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))? {
-            return Err(McpError::invalid_params(format!("Agent '{}' does not have 'send_message' capability", p.sender_name), None));
+        if !AgentCapabilityBmc::check(&ctx, &self.mm, sender.id, "send_message")
+            .await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?
+        {
+            return Err(McpError::invalid_params(
+                format!(
+                    "Agent '{}' does not have 'send_message' capability",
+                    p.sender_name
+                ),
+                None,
+            ));
         }
 
         // Helper to resolve list of names to IDs
-        async fn resolve_agents(ctx: &lib_core::Ctx, mm: &lib_core::ModelManager, project_id: i64, names_str: &str) -> Result<Vec<i64>, McpError> {
-             use lib_core::model::agent::AgentBmc;
-             let names: Vec<&str> = names_str.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()).collect();
-             let mut ids = Vec::new();
-             for name in names {
-                 let agent = AgentBmc::get_by_name(ctx, mm, project_id, name).await
-                     .map_err(|e| McpError::invalid_params(format!("Agent '{}' not found: {}", name, e), None))?;
-                 ids.push(agent.id);
-             }
-             Ok(ids)
+        async fn resolve_agents(
+            ctx: &lib_core::Ctx,
+            mm: &lib_core::ModelManager,
+            project_id: i64,
+            names_str: &str,
+        ) -> Result<Vec<i64>, McpError> {
+            use lib_core::model::agent::AgentBmc;
+            let names: Vec<&str> = names_str
+                .split(',')
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .collect();
+            let mut ids = Vec::new();
+            for name in names {
+                let agent = AgentBmc::get_by_name(ctx, mm, project_id, name)
+                    .await
+                    .map_err(|e| {
+                        McpError::invalid_params(format!("Agent '{}' not found: {}", name, e), None)
+                    })?;
+                ids.push(agent.id);
+            }
+            Ok(ids)
         }
 
         // Parse recipients
         let recipient_ids = resolve_agents(&ctx, &self.mm, project.id, &p.to).await?;
-        
+
         let cc_ids = if let Some(cc) = &p.cc {
-             let ids = resolve_agents(&ctx, &self.mm, project.id, cc).await?;
-             if ids.is_empty() { None } else { Some(ids) }
+            let ids = resolve_agents(&ctx, &self.mm, project.id, cc).await?;
+            if ids.is_empty() { None } else { Some(ids) }
         } else {
-             None
+            None
         };
 
         let bcc_ids = if let Some(bcc) = &p.bcc {
-             let ids = resolve_agents(&ctx, &self.mm, project.id, bcc).await?;
-             if ids.is_empty() { None } else { Some(ids) }
+            let ids = resolve_agents(&ctx, &self.mm, project.id, bcc).await?;
+            if ids.is_empty() { None } else { Some(ids) }
         } else {
-             None
+            None
         };
 
         // Create message
@@ -1358,7 +1973,8 @@ impl AgentMailService {
             importance: p.importance,
         };
 
-        let msg_id = MessageBmc::create(&ctx, &self.mm, msg_c).await
+        let msg_id = MessageBmc::create(&ctx, &self.mm, msg_c)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let msg = format!(
@@ -1381,21 +1997,42 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name).await
+        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
 
-        if !AgentCapabilityBmc::check(&ctx, &self.mm, agent.id, "fetch_inbox").await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))? {
-            return Err(McpError::invalid_params(format!("Agent '{}' does not have 'fetch_inbox' capability", p.agent_name), None));
+        if !AgentCapabilityBmc::check(&ctx, &self.mm, agent.id, "fetch_inbox")
+            .await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?
+        {
+            return Err(McpError::invalid_params(
+                format!(
+                    "Agent '{}' does not have 'fetch_inbox' capability",
+                    p.agent_name
+                ),
+                None,
+            ));
         }
 
-        let messages = MessageBmc::list_inbox_for_agent(&ctx, &self.mm, project.id, agent.id, p.limit.unwrap_or(50)).await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+        let messages = MessageBmc::list_inbox_for_agent(
+            &ctx,
+            &self.mm,
+            project.id,
+            agent.id,
+            p.limit.unwrap_or(50),
+        )
+        .await
+        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let mut output = format!("Inbox for '{}' ({} messages):\n\n", p.agent_name, messages.len());
+        let mut output = format!(
+            "Inbox for '{}' ({} messages):\n\n",
+            p.agent_name,
+            messages.len()
+        );
         for m in &messages {
             output.push_str(&format!(
                 "- [{}] {} (from: {}, thread: {:?}, {})\n",
@@ -1417,7 +2054,8 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let message = MessageBmc::get(&ctx, &self.mm, p.message_id).await
+        let message = MessageBmc::get(&ctx, &self.mm, p.message_id)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Message not found: {}", e), None))?;
 
         let output = format!(
@@ -1435,21 +2073,22 @@ impl AgentMailService {
     }
 
     /// Look up information about an agent
-    #[tool(description = "Get information about an agent including their program, model, and task description.")]
-    async fn whois(
-        &self,
-        params: Parameters<WhoisParams>,
-    ) -> Result<CallToolResult, McpError> {
+    #[tool(
+        description = "Get information about an agent including their program, model, and task description."
+    )]
+    async fn whois(&self, params: Parameters<WhoisParams>) -> Result<CallToolResult, McpError> {
         use lib_core::model::agent::AgentBmc;
         use lib_core::model::project::ProjectBmc;
 
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name).await
+        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
 
         let output = format!(
@@ -1478,13 +2117,20 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let messages = MessageBmc::search(&ctx, &self.mm, project.id, &p.query, p.limit.unwrap_or(20)).await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+        let messages =
+            MessageBmc::search(&ctx, &self.mm, project.id, &p.query, p.limit.unwrap_or(20))
+                .await
+                .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let mut output = format!("Search results for '{}' ({} matches):\n\n", p.query, messages.len());
+        let mut output = format!(
+            "Search results for '{}' ({} matches):\n\n",
+            p.query,
+            messages.len()
+        );
         for m in &messages {
             output.push_str(&format!(
                 "- [{}] {} (from: {}, thread: {:?})\n",
@@ -1507,13 +2153,19 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let messages = MessageBmc::list_by_thread(&ctx, &self.mm, project.id, &p.thread_id).await
+        let messages = MessageBmc::list_by_thread(&ctx, &self.mm, project.id, &p.thread_id)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let mut output = format!("Thread '{}' ({} messages):\n\n", p.thread_id, messages.len());
+        let mut output = format!(
+            "Thread '{}' ({} messages):\n\n",
+            p.thread_id,
+            messages.len()
+        );
         for m in &messages {
             output.push_str(&format!(
                 "---\n[{}] From: {} | {}\nSubject: {}\n\n{}\n\n",
@@ -1531,12 +2183,16 @@ impl AgentMailService {
 
         let ctx = self.ctx();
 
-        let projects = ProjectBmc::list_all(&ctx, &self.mm).await
+        let projects = ProjectBmc::list_all(&ctx, &self.mm)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let mut output = format!("Projects ({}):\n\n", projects.len());
         for p in &projects {
-            output.push_str(&format!("- {} (slug: {}, created: {})\n", p.human_key, p.slug, p.created_at));
+            output.push_str(&format!(
+                "- {} (slug: {}, created: {})\n",
+                p.human_key, p.slug, p.created_at
+            ));
         }
 
         Ok(CallToolResult::success(vec![Content::text(output)]))
@@ -1554,10 +2210,12 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let agents = AgentBmc::list_all_for_project(&ctx, &self.mm, project.id).await
+        let agents = AgentBmc::list_all_for_project(&ctx, &self.mm, project.id)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let mut output = format!("Agents in '{}' ({}):\n\n", p.project_slug, agents.len());
@@ -1584,15 +2242,25 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name).await
+        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
 
-        if !AgentCapabilityBmc::check(&ctx, &self.mm, agent.id, "file_reservation_paths").await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))? {
-            return Err(McpError::invalid_params(format!("Agent '{}' does not have 'file_reservation_paths' capability", p.agent_name), None));
+        if !AgentCapabilityBmc::check(&ctx, &self.mm, agent.id, "file_reservation_paths")
+            .await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?
+        {
+            return Err(McpError::invalid_params(
+                format!(
+                    "Agent '{}' does not have 'file_reservation_paths' capability",
+                    p.agent_name
+                ),
+                None,
+            ));
         }
 
         let ttl = p.ttl_seconds.unwrap_or(3600);
@@ -1607,7 +2275,8 @@ impl AgentMailService {
             expires_ts,
         };
 
-        let id = FileReservationBmc::create(&ctx, &self.mm, res_c).await
+        let id = FileReservationBmc::create(&ctx, &self.mm, res_c)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let msg = format!(
@@ -1629,13 +2298,19 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let reservations = FileReservationBmc::list_active_for_project(&ctx, &self.mm, project.id).await
+        let reservations = FileReservationBmc::list_active_for_project(&ctx, &self.mm, project.id)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let mut output = format!("Active reservations in '{}' ({}):\n\n", p.project_slug, reservations.len());
+        let mut output = format!(
+            "Active reservations in '{}' ({}):\n\n",
+            p.project_slug,
+            reservations.len()
+        );
         for r in &reservations {
             output.push_str(&format!(
                 "- [{}] {} (agent_id: {}, exclusive: {}, expires: {})\n",
@@ -1657,7 +2332,8 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        FileReservationBmc::release(&ctx, &self.mm, p.reservation_id).await
+        FileReservationBmc::release(&ctx, &self.mm, p.reservation_id)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let msg = format!("Released reservation {}", p.reservation_id);
@@ -1665,7 +2341,9 @@ impl AgentMailService {
     }
 
     /// Force release a file reservation (emergency override)
-    #[tool(description = "Force release a file reservation by ID. Use for emergencies when an agent has abandoned work.")]
+    #[tool(
+        description = "Force release a file reservation by ID. Use for emergencies when an agent has abandoned work."
+    )]
     async fn force_release_reservation(
         &self,
         params: Parameters<ForceReleaseReservationParams>,
@@ -1675,7 +2353,8 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        FileReservationBmc::force_release(&ctx, &self.mm, p.reservation_id).await
+        FileReservationBmc::force_release(&ctx, &self.mm, p.reservation_id)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let msg = format!("Force released reservation {}", p.reservation_id);
@@ -1683,7 +2362,9 @@ impl AgentMailService {
     }
 
     /// Renew a file reservation TTL
-    #[tool(description = "Extend the TTL of a file reservation. Keeps the lock active for more work.")]
+    #[tool(
+        description = "Extend the TTL of a file reservation. Keeps the lock active for more work."
+    )]
     async fn renew_file_reservation(
         &self,
         params: Parameters<RenewFileReservationParams>,
@@ -1696,10 +2377,14 @@ impl AgentMailService {
         let ttl = p.ttl_seconds.unwrap_or(3600);
         let new_expires = chrono::Utc::now().naive_utc() + chrono::Duration::seconds(ttl);
 
-        FileReservationBmc::renew(&ctx, &self.mm, p.reservation_id, new_expires).await
+        FileReservationBmc::renew(&ctx, &self.mm, p.reservation_id, new_expires)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let msg = format!("Renewed reservation {} until {}", p.reservation_id, new_expires);
+        let msg = format!(
+            "Renewed reservation {} until {}",
+            p.reservation_id, new_expires
+        );
         Ok(CallToolResult::success(vec![Content::text(msg)]))
     }
 
@@ -1716,18 +2401,29 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let sender = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.sender_name).await
+        let sender = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.sender_name)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Sender not found: {}", e), None))?;
 
-        if !AgentCapabilityBmc::check(&ctx, &self.mm, sender.id, "send_message").await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))? {
-            return Err(McpError::invalid_params(format!("Agent '{}' does not have 'send_message' capability", p.sender_name), None));
+        if !AgentCapabilityBmc::check(&ctx, &self.mm, sender.id, "send_message")
+            .await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?
+        {
+            return Err(McpError::invalid_params(
+                format!(
+                    "Agent '{}' does not have 'send_message' capability",
+                    p.sender_name
+                ),
+                None,
+            ));
         }
 
-        let original_msg = MessageBmc::get(&ctx, &self.mm, p.message_id).await
+        let original_msg = MessageBmc::get(&ctx, &self.mm, p.message_id)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Message not found: {}", e), None))?;
 
         let subject = if original_msg.subject.starts_with("Re: ") {
@@ -1748,7 +2444,8 @@ impl AgentMailService {
             importance: p.importance,
         };
 
-        let msg_id = MessageBmc::create(&ctx, &self.mm, msg_c).await
+        let msg_id = MessageBmc::create(&ctx, &self.mm, msg_c)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let msg = format!("Reply sent (id: {}) with subject '{}'", msg_id, subject);
@@ -1768,16 +2465,22 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name).await
+        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
 
-        MessageBmc::mark_read(&ctx, &self.mm, p.message_id, agent.id).await
+        MessageBmc::mark_read(&ctx, &self.mm, p.message_id, agent.id)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let msg = format!("Message {} marked as read by '{}'", p.message_id, p.agent_name);
+        let msg = format!(
+            "Message {} marked as read by '{}'",
+            p.message_id, p.agent_name
+        );
         Ok(CallToolResult::success(vec![Content::text(msg)]))
     }
 
@@ -1794,21 +2497,35 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name).await
+        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
 
-        if !AgentCapabilityBmc::check(&ctx, &self.mm, agent.id, "acknowledge_message").await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))? {
-            return Err(McpError::invalid_params(format!("Agent '{}' does not have 'acknowledge_message' capability", p.agent_name), None));
+        if !AgentCapabilityBmc::check(&ctx, &self.mm, agent.id, "acknowledge_message")
+            .await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?
+        {
+            return Err(McpError::invalid_params(
+                format!(
+                    "Agent '{}' does not have 'acknowledge_message' capability",
+                    p.agent_name
+                ),
+                None,
+            ));
         }
 
-        MessageBmc::acknowledge(&ctx, &self.mm, p.message_id, agent.id).await
+        MessageBmc::acknowledge(&ctx, &self.mm, p.message_id, agent.id)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let msg = format!("Message {} acknowledged by '{}'", p.message_id, p.agent_name);
+        let msg = format!(
+            "Message {} acknowledged by '{}'",
+            p.message_id, p.agent_name
+        );
         Ok(CallToolResult::success(vec![Content::text(msg)]))
     }
 
@@ -1823,8 +2540,8 @@ impl AgentMailService {
         use std::collections::HashSet;
 
         const ADJECTIVES: &[&str] = &[
-            "Blue", "Green", "Red", "Golden", "Silver", "Crystal", "Dark", "Bright",
-            "Swift", "Calm", "Bold", "Wise", "Noble", "Grand", "Mystic", "Ancient",
+            "Blue", "Green", "Red", "Golden", "Silver", "Crystal", "Dark", "Bright", "Swift",
+            "Calm", "Bold", "Wise", "Noble", "Grand", "Mystic", "Ancient",
         ];
         const NOUNS: &[&str] = &[
             "Mountain", "Castle", "River", "Forest", "Valley", "Harbor", "Tower", "Bridge",
@@ -1834,12 +2551,15 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let existing_agents = AgentBmc::list_all_for_project(&ctx, &self.mm, project.id).await
+        let existing_agents = AgentBmc::list_all_for_project(&ctx, &self.mm, project.id)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-        let existing_names: HashSet<String> = existing_agents.iter().map(|a| a.name.clone()).collect();
+        let existing_names: HashSet<String> =
+            existing_agents.iter().map(|a| a.name.clone()).collect();
 
         let mut alternatives = Vec::new();
         let mut rng_seed = std::time::SystemTime::now()
@@ -1865,8 +2585,15 @@ impl AgentMailService {
             }
         }
 
-        let suggested = alternatives.first().cloned().unwrap_or_else(|| "Agent1".to_string());
-        let output = format!("Suggested: {}\nAlternatives: {}", suggested, alternatives.join(", "));
+        let suggested = alternatives
+            .first()
+            .cloned()
+            .unwrap_or_else(|| "Agent1".to_string());
+        let output = format!(
+            "Suggested: {}\nAlternatives: {}",
+            suggested,
+            alternatives.join(", ")
+        );
         Ok(CallToolResult::success(vec![Content::text(output)]))
     }
 
@@ -1882,10 +2609,12 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name).await
+        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
 
         let update = AgentProfileUpdate {
@@ -1894,7 +2623,8 @@ impl AgentMailService {
             contact_policy: p.contact_policy,
         };
 
-        AgentBmc::update_profile(&ctx, &self.mm, agent.id, update).await
+        AgentBmc::update_profile(&ctx, &self.mm, agent.id, update)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let msg = format!("Updated profile for agent '{}'", p.agent_name);
@@ -1913,18 +2643,26 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let agents = AgentBmc::list_all_for_project(&ctx, &self.mm, project.id).await
+        let agents = AgentBmc::list_all_for_project(&ctx, &self.mm, project.id)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let message_count = ProjectBmc::count_messages(&ctx, &self.mm, project.id).await
+        let message_count = ProjectBmc::count_messages(&ctx, &self.mm, project.id)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let output = format!(
             "Project: {} ({})\nID: {}\nAgents: {}\nMessages: {}\nCreated: {}",
-            project.human_key, project.slug, project.id, agents.len(), message_count, project.created_at
+            project.human_key,
+            project.slug,
+            project.id,
+            agents.len(),
+            message_count,
+            project.created_at
         );
         Ok(CallToolResult::success(vec![Content::text(output)]))
     }
@@ -1942,27 +2680,43 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name).await
+        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
 
-        let sent_count = AgentBmc::count_messages_sent(&ctx, &self.mm, agent.id).await
+        let sent_count = AgentBmc::count_messages_sent(&ctx, &self.mm, agent.id)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-        let received_count = AgentBmc::count_messages_received(&ctx, &self.mm, agent.id).await
+        let received_count = AgentBmc::count_messages_received(&ctx, &self.mm, agent.id)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let reservations = FileReservationBmc::list_active_for_project(&ctx, &self.mm, project.id).await
+        let reservations = FileReservationBmc::list_active_for_project(&ctx, &self.mm, project.id)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-        let active_reservations = reservations.iter().filter(|r| r.agent_id == agent.id).count();
+        let active_reservations = reservations
+            .iter()
+            .filter(|r| r.agent_id == agent.id)
+            .count();
 
         let output = format!(
             "Agent: {}\nID: {}\nProgram: {}\nModel: {}\nTask: {}\nContact Policy: {}\nAttachments Policy: {}\nMessages Sent: {}\nMessages Received: {}\nActive Reservations: {}\nInception: {}\nLast Active: {}",
-            agent.name, agent.id, agent.program, agent.model, agent.task_description,
-            agent.contact_policy, agent.attachments_policy,
-            sent_count, received_count, active_reservations,
-            agent.inception_ts, agent.last_active_ts
+            agent.name,
+            agent.id,
+            agent.program,
+            agent.model,
+            agent.task_description,
+            agent.contact_policy,
+            agent.attachments_policy,
+            sent_count,
+            received_count,
+            active_reservations,
+            agent.inception_ts,
+            agent.last_active_ts
         );
         Ok(CallToolResult::success(vec![Content::text(output)]))
     }
@@ -1979,10 +2733,12 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let threads = MessageBmc::list_threads(&ctx, &self.mm, project.id, p.limit.unwrap_or(50)).await
+        let threads = MessageBmc::list_threads(&ctx, &self.mm, project.id, p.limit.unwrap_or(50))
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let mut output = format!("Threads in '{}' ({}):\n\n", p.project_slug, threads.len());
@@ -2008,14 +2764,20 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let from_project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.from_project_slug).await
-            .map_err(|e| McpError::invalid_params(format!("From project not found: {}", e), None))?;
-        let from_agent = AgentBmc::get_by_name(&ctx, &self.mm, from_project.id, &p.from_agent_name).await
+        let from_project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.from_project_slug)
+            .await
+            .map_err(|e| {
+                McpError::invalid_params(format!("From project not found: {}", e), None)
+            })?;
+        let from_agent = AgentBmc::get_by_name(&ctx, &self.mm, from_project.id, &p.from_agent_name)
+            .await
             .map_err(|e| McpError::invalid_params(format!("From agent not found: {}", e), None))?;
 
-        let to_project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.to_project_slug).await
+        let to_project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.to_project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("To project not found: {}", e), None))?;
-        let to_agent = AgentBmc::get_by_name(&ctx, &self.mm, to_project.id, &p.to_agent_name).await
+        let to_agent = AgentBmc::get_by_name(&ctx, &self.mm, to_project.id, &p.to_agent_name)
+            .await
             .map_err(|e| McpError::invalid_params(format!("To agent not found: {}", e), None))?;
 
         let link_c = AgentLinkForCreate {
@@ -2026,10 +2788,14 @@ impl AgentMailService {
             reason: p.reason,
         };
 
-        let link_id = AgentLinkBmc::request_contact(&ctx, &self.mm, link_c).await
+        let link_id = AgentLinkBmc::request_contact(&ctx, &self.mm, link_c)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let msg = format!("Contact request sent (link_id: {}, status: pending)", link_id);
+        let msg = format!(
+            "Contact request sent (link_id: {}, status: pending)",
+            link_id
+        );
         Ok(CallToolResult::success(vec![Content::text(msg)]))
     }
 
@@ -2044,7 +2810,8 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        AgentLinkBmc::respond_contact(&ctx, &self.mm, p.link_id, p.accept).await
+        AgentLinkBmc::respond_contact(&ctx, &self.mm, p.link_id, p.accept)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let status = if p.accept { "accepted" } else { "rejected" };
@@ -2065,13 +2832,16 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name).await
+        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
 
-        let links = AgentLinkBmc::list_contacts(&ctx, &self.mm, project.id, agent.id).await
+        let links = AgentLinkBmc::list_contacts(&ctx, &self.mm, project.id, agent.id)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let mut output = format!("Contacts for '{}' ({}):\n\n", p.agent_name, links.len());
@@ -2101,10 +2871,12 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name).await
+        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
 
         let update = AgentProfileUpdate {
@@ -2113,10 +2885,14 @@ impl AgentMailService {
             contact_policy: Some(p.contact_policy.clone()),
         };
 
-        AgentBmc::update_profile(&ctx, &self.mm, agent.id, update).await
+        AgentBmc::update_profile(&ctx, &self.mm, agent.id, update)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let msg = format!("Contact policy for '{}' set to '{}'", p.agent_name, p.contact_policy);
+        let msg = format!(
+            "Contact policy for '{}' set to '{}'",
+            p.agent_name, p.contact_policy
+        );
         Ok(CallToolResult::success(vec![Content::text(msg)]))
     }
 
@@ -2133,10 +2909,12 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name).await
+        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
 
         let ttl = p.ttl_seconds.unwrap_or(1800);
@@ -2147,11 +2925,15 @@ impl AgentMailService {
             ttl_seconds: ttl,
         };
 
-        let slot_id = BuildSlotBmc::acquire(&ctx, &self.mm, slot_c).await
+        let slot_id = BuildSlotBmc::acquire(&ctx, &self.mm, slot_c)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let expires = chrono::Utc::now().naive_utc() + chrono::Duration::seconds(ttl);
-        let msg = format!("Acquired build slot '{}' (id: {}, expires: {})", p.slot_name, slot_id, expires);
+        let msg = format!(
+            "Acquired build slot '{}' (id: {}, expires: {})",
+            p.slot_name, slot_id, expires
+        );
         Ok(CallToolResult::success(vec![Content::text(msg)]))
     }
 
@@ -2167,10 +2949,14 @@ impl AgentMailService {
         let p = params.0;
 
         let ttl = p.ttl_seconds.unwrap_or(1800);
-        let new_expires = BuildSlotBmc::renew(&ctx, &self.mm, p.slot_id, ttl).await
+        let new_expires = BuildSlotBmc::renew(&ctx, &self.mm, p.slot_id, ttl)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let msg = format!("Renewed build slot {} (new expires: {})", p.slot_id, new_expires);
+        let msg = format!(
+            "Renewed build slot {} (new expires: {})",
+            p.slot_id, new_expires
+        );
         Ok(CallToolResult::success(vec![Content::text(msg)]))
     }
 
@@ -2185,7 +2971,8 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        BuildSlotBmc::release(&ctx, &self.mm, p.slot_id).await
+        BuildSlotBmc::release(&ctx, &self.mm, p.slot_id)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let msg = format!("Released build slot {}", p.slot_id);
@@ -2205,10 +2992,12 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name).await
+        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
 
         let msg_c = OverseerMessageForCreate {
@@ -2219,10 +3008,14 @@ impl AgentMailService {
             importance: p.importance.unwrap_or_else(|| "normal".to_string()),
         };
 
-        let message_id = OverseerMessageBmc::create(&ctx, &self.mm, msg_c).await
+        let message_id = OverseerMessageBmc::create(&ctx, &self.mm, msg_c)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let msg = format!("Overseer message sent (id: {}) to '{}'", message_id, p.agent_name);
+        let msg = format!(
+            "Overseer message sent (id: {}) to '{}'",
+            message_id, p.agent_name
+        );
         Ok(CallToolResult::success(vec![Content::text(msg)]))
     }
 
@@ -2238,15 +3031,22 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let macros = MacroDefBmc::list(&ctx, &self.mm, project.id).await
+        let macros = MacroDefBmc::list(&ctx, &self.mm, project.id)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let mut output = format!("Macros in '{}' ({}):\n\n", p.project_slug, macros.len());
         for m in &macros {
-            output.push_str(&format!("- {} ({} steps): {}\n", m.name, m.steps.len(), m.description));
+            output.push_str(&format!(
+                "- {} ({} steps): {}\n",
+                m.name,
+                m.steps.len(),
+                m.description
+            ));
         }
         Ok(CallToolResult::success(vec![Content::text(output)]))
     }
@@ -2263,7 +3063,8 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
         let macro_c = MacroDefForCreate {
@@ -2273,7 +3074,8 @@ impl AgentMailService {
             steps: p.steps,
         };
 
-        let macro_id = MacroDefBmc::create(&ctx, &self.mm, macro_c).await
+        let macro_id = MacroDefBmc::create(&ctx, &self.mm, macro_c)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let msg = format!("Registered macro '{}' with id {}", p.name, macro_id);
@@ -2292,10 +3094,12 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let deleted = MacroDefBmc::delete(&ctx, &self.mm, project.id, &p.name).await
+        let deleted = MacroDefBmc::delete(&ctx, &self.mm, project.id, &p.name)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let msg = if deleted {
@@ -2318,17 +3122,22 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let macro_def = MacroDefBmc::get_by_name(&ctx, &self.mm, project.id, &p.name).await
+        let macro_def = MacroDefBmc::get_by_name(&ctx, &self.mm, project.id, &p.name)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Macro not found: {}", e), None))?;
 
-        let steps_json = serde_json::to_string_pretty(&macro_def.steps)
-            .unwrap_or_else(|_| "[]".to_string());
+        let steps_json =
+            serde_json::to_string_pretty(&macro_def.steps).unwrap_or_else(|_| "[]".to_string());
         let output = format!(
             "Macro '{}' ({} steps)\nDescription: {}\n\nSteps:\n{}",
-            macro_def.name, macro_def.steps.len(), macro_def.description, steps_json
+            macro_def.name,
+            macro_def.steps.len(),
+            macro_def.description,
+            steps_json
         );
         Ok(CallToolResult::success(vec![Content::text(output)]))
     }
@@ -2345,24 +3154,35 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let messages = MessageBmc::list_by_thread(&ctx, &self.mm, project.id, &p.thread_id).await
+        let messages = MessageBmc::list_by_thread(&ctx, &self.mm, project.id, &p.thread_id)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let mut participants: Vec<String> = messages.iter().map(|m| m.sender_name.clone()).collect();
+        let mut participants: Vec<String> =
+            messages.iter().map(|m| m.sender_name.clone()).collect();
         participants.sort();
         participants.dedup();
 
-        let subject = messages.first().map(|m| m.subject.clone()).unwrap_or_default();
-        let last_snippet = messages.last()
+        let subject = messages
+            .first()
+            .map(|m| m.subject.clone())
+            .unwrap_or_default();
+        let last_snippet = messages
+            .last()
             .map(|m| m.body_md.chars().take(100).collect::<String>())
             .unwrap_or_default();
 
         let output = format!(
             "Thread: {}\nSubject: {}\nMessages: {}\nParticipants: {}\nLatest: {}...",
-            p.thread_id, subject, messages.len(), participants.join(", "), last_snippet
+            p.thread_id,
+            subject,
+            messages.len(),
+            participants.join(", "),
+            last_snippet
         );
         Ok(CallToolResult::success(vec![Content::text(output)]))
     }
@@ -2378,7 +3198,8 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let product = ProductBmc::ensure(&ctx, &self.mm, &p.product_uid, &p.name).await
+        let product = ProductBmc::ensure(&ctx, &self.mm, &p.product_uid, &p.name)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let output = format!(
@@ -2400,13 +3221,16 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let product = ProductBmc::get_by_uid(&ctx, &self.mm, &p.product_uid).await
+        let product = ProductBmc::get_by_uid(&ctx, &self.mm, &p.product_uid)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Product not found: {}", e), None))?;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let link_id = ProductBmc::link_project(&ctx, &self.mm, product.id, project.id).await
+        let link_id = ProductBmc::link_project(&ctx, &self.mm, product.id, project.id)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let msg = format!(
@@ -2428,19 +3252,28 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let product = ProductBmc::get_by_uid(&ctx, &self.mm, &p.product_uid).await
+        let product = ProductBmc::get_by_uid(&ctx, &self.mm, &p.product_uid)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Product not found: {}", e), None))?;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let unlinked = ProductBmc::unlink_project(&ctx, &self.mm, product.id, project.id).await
+        let unlinked = ProductBmc::unlink_project(&ctx, &self.mm, product.id, project.id)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let msg = if unlinked {
-            format!("Unlinked project '{}' from product '{}'", p.project_slug, p.product_uid)
+            format!(
+                "Unlinked project '{}' from product '{}'",
+                p.project_slug, p.product_uid
+            )
         } else {
-            format!("Project '{}' was not linked to product '{}'", p.project_slug, p.product_uid)
+            format!(
+                "Project '{}' was not linked to product '{}'",
+                p.project_slug, p.product_uid
+            )
         };
         Ok(CallToolResult::success(vec![Content::text(msg)]))
     }
@@ -2452,14 +3285,18 @@ impl AgentMailService {
 
         let ctx = self.ctx();
 
-        let products = ProductBmc::list_all(&ctx, &self.mm).await
+        let products = ProductBmc::list_all(&ctx, &self.mm)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let mut output = format!("Products ({}):\n\n", products.len());
         for p in &products {
             output.push_str(&format!(
                 "- {} (uid: {}, {} projects)\n  Projects: {:?}\n",
-                p.name, p.product_uid, p.project_ids.len(), p.project_ids
+                p.name,
+                p.product_uid,
+                p.project_ids.len(),
+                p.project_ids
             ));
         }
         Ok(CallToolResult::success(vec![Content::text(output)]))
@@ -2476,13 +3313,19 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let siblings = ProjectBmc::list_siblings(&ctx, &self.mm, project.id).await
+        let siblings = ProjectBmc::list_siblings(&ctx, &self.mm, project.id)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let mut output = format!("Sibling Projects for '{}' ({}):\n\n", project.human_key, siblings.len());
+        let mut output = format!(
+            "Sibling Projects for '{}' ({}):\n\n",
+            project.human_key,
+            siblings.len()
+        );
         for sibling in &siblings {
             output.push_str(&format!(
                 "- {} (slug: {}, created: {})\n",
@@ -2497,8 +3340,6 @@ impl AgentMailService {
         Ok(CallToolResult::success(vec![Content::text(output)]))
     }
 
-
-
     /// Commit project state to archive
     #[tool(description = "Commit project state (mailbox, agents) to the git archive.")]
     async fn commit_archive(
@@ -2510,13 +3351,18 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let oid = ProjectBmc::sync_to_archive(&ctx, &self.mm, project.id, &p.message).await
+        let oid = ProjectBmc::sync_to_archive(&ctx, &self.mm, project.id, &p.message)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let msg = format!("Archived project '{}' to git. Commit ID: {}", project.slug, oid);
+        let msg = format!(
+            "Archived project '{}' to git. Commit ID: {}",
+            project.slug, oid
+        );
         Ok(CallToolResult::success(vec![Content::text(msg)]))
     }
 
@@ -2533,23 +3379,34 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let product = ProductBmc::get_by_uid(&ctx, &self.mm, &p.product_uid).await
+        let product = ProductBmc::get_by_uid(&ctx, &self.mm, &p.product_uid)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Product not found: {}", e), None))?;
 
-        let project_ids = ProductBmc::get_linked_projects(&ctx, &self.mm, product.id).await
+        let project_ids = ProductBmc::get_linked_projects(&ctx, &self.mm, product.id)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let limit = p.limit.unwrap_or(10);
-        let mut output = format!("Product Inbox for '{}' ({} projects):\n\n", product.name, project_ids.len());
+        let mut output = format!(
+            "Product Inbox for '{}' ({} projects):\n\n",
+            product.name,
+            project_ids.len()
+        );
 
         for project_id in project_ids {
-            let project = ProjectBmc::get(&ctx, &self.mm, project_id).await
+            let project = ProjectBmc::get(&ctx, &self.mm, project_id)
+                .await
                 .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-            let messages = MessageBmc::list_recent(&ctx, &self.mm, project_id, limit).await
+            let messages = MessageBmc::list_recent(&ctx, &self.mm, project_id, limit)
+                .await
                 .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-            output.push_str(&format!("\n## Project: {} ({})\n", project.human_key, project.slug));
+            output.push_str(&format!(
+                "\n## Project: {} ({})\n",
+                project.human_key, project.slug
+            ));
             for m in &messages {
                 output.push_str(&format!(
                     "  - [{}] {} (from: {}, {})\n",
@@ -2575,16 +3432,20 @@ impl AgentMailService {
         let p = params.0;
         let format = p.format.unwrap_or_else(|| "markdown".to_string());
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let agents = AgentBmc::list_all_for_project(&ctx, &self.mm, project.id).await
+        let agents = AgentBmc::list_all_for_project(&ctx, &self.mm, project.id)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let messages = MessageBmc::list_recent(&ctx, &self.mm, project.id, 1000).await
+        let messages = MessageBmc::list_recent(&ctx, &self.mm, project.id, 1000)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let threads = MessageBmc::list_threads(&ctx, &self.mm, project.id, 100).await
+        let threads = MessageBmc::list_threads(&ctx, &self.mm, project.id, 100)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         match format.as_str() {
@@ -2625,7 +3486,8 @@ impl AgentMailService {
                 Ok(CallToolResult::success(vec![Content::text(json_str)]))
             }
             "html" => {
-                let mut html = format!(r#"<!DOCTYPE html>
+                let mut html = format!(
+                    r#"<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -2646,11 +3508,19 @@ impl AgentMailService {
 <body>
     <h1>{} Mailbox Export</h1>
     <p>Project: {} | Exported: {}</p>
-"#, project.human_key, project.human_key, project.slug, chrono::Utc::now().format("%Y-%m-%d %H:%M:%S"));
+"#,
+                    project.human_key,
+                    project.human_key,
+                    project.slug,
+                    chrono::Utc::now().format("%Y-%m-%d %H:%M:%S")
+                );
 
                 html.push_str("<h2>Agents</h2><div>");
                 for a in &agents {
-                    html.push_str(&format!(r#"<span class="agent">{} ({})</span>"#, a.name, a.program));
+                    html.push_str(&format!(
+                        r#"<span class="agent">{} ({})</span>"#,
+                        a.name, a.program
+                    ));
                 }
                 html.push_str("</div>");
 
@@ -2681,12 +3551,17 @@ impl AgentMailService {
                 // Default: Markdown
                 let mut md = format!(
                     "# {} Mailbox Export\n\nProject: `{}`\nExported: {}\n\n",
-                    project.human_key, project.slug, chrono::Utc::now().format("%Y-%m-%d %H:%M:%S")
+                    project.human_key,
+                    project.slug,
+                    chrono::Utc::now().format("%Y-%m-%d %H:%M:%S")
                 );
 
                 md.push_str("## Agents\n\n");
                 for a in &agents {
-                    md.push_str(&format!("- **{}** ({}) - {}\n", a.name, a.program, a.task_description));
+                    md.push_str(&format!(
+                        "- **{}** ({}) - {}\n",
+                        a.name, a.program, a.task_description
+                    ));
                 }
 
                 md.push_str("\n## Threads\n\n");
@@ -2723,16 +3598,29 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name).await
+        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
 
-        let messages = MessageBmc::list_outbox_for_agent(&ctx, &self.mm, project.id, agent.id, p.limit.unwrap_or(50)).await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+        let messages = MessageBmc::list_outbox_for_agent(
+            &ctx,
+            &self.mm,
+            project.id,
+            agent.id,
+            p.limit.unwrap_or(50),
+        )
+        .await
+        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let mut output = format!("Outbox for '{}' ({} messages):\n\n", p.agent_name, messages.len());
+        let mut output = format!(
+            "Outbox for '{}' ({} messages):\n\n",
+            p.agent_name,
+            messages.len()
+        );
         for m in &messages {
             output.push_str(&format!(
                 "- [{}] {} (to: {:?}, thread: {:?}, {})\n",
@@ -2744,7 +3632,9 @@ impl AgentMailService {
     }
 
     /// Reserve multiple file paths with conflict detection
-    #[tool(description = "Reserve multiple file paths for exclusive editing with conflict detection.")]
+    #[tool(
+        description = "Reserve multiple file paths for exclusive editing with conflict detection."
+    )]
     async fn file_reservation_paths(
         &self,
         params: Parameters<FileReservationPathsParams>,
@@ -2756,14 +3646,18 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name).await
+        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
 
-        let active_reservations = FileReservationBmc::list_active_for_project(&ctx, &self.mm, project.id).await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+        let active_reservations =
+            FileReservationBmc::list_active_for_project(&ctx, &self.mm, project.id)
+                .await
+                .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let ttl = p.ttl_seconds.unwrap_or(3600);
         let now = chrono::Utc::now().naive_utc();
@@ -2796,10 +3690,14 @@ impl AgentMailService {
                 expires_ts,
             };
 
-            let id = FileReservationBmc::create(&ctx, &self.mm, fr_c).await
+            let id = FileReservationBmc::create(&ctx, &self.mm, fr_c)
+                .await
                 .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-            granted.push(format!("Granted: {} (id: {}, expires: {})", path, id, expires_ts));
+            granted.push(format!(
+                "Granted: {} (id: {}, expires: {})",
+                path, id, expires_ts
+            ));
         }
 
         let mut output = format!("Granted {} reservations\n\n", granted.len());
@@ -2829,10 +3727,12 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let threads = MessageBmc::list_threads(&ctx, &self.mm, project.id, p.limit).await
+        let threads = MessageBmc::list_threads(&ctx, &self.mm, project.id, p.limit)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let mut output = format!("Thread Summaries ({} threads):\n\n", threads.len());
@@ -2858,14 +3758,16 @@ impl AgentMailService {
         let p = params.0;
 
         // Verify project exists
-        let _project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let _project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
         let target_path = std::path::PathBuf::from(&p.target_repo_path);
         let hooks_dir = target_path.join(".git").join("hooks");
         let hook_path = hooks_dir.join("pre-commit");
 
-        let hook_script = format!(r#"#!/bin/sh
+        let hook_script = format!(
+            r#"#!/bin/sh
 # MCP Agent Mail Pre-commit Guard
 # Installed for project: {}
 
@@ -2876,12 +3778,15 @@ fi
 
 echo "MCP Agent Mail: Pre-commit guard active"
 exit 0
-"#, p.project_slug);
+"#,
+            p.project_slug
+        );
 
         // Ensure hooks directory exists
         if !hooks_dir.exists() {
-            std::fs::create_dir_all(&hooks_dir)
-                .map_err(|e| McpError::internal_error(format!("Failed to create hooks directory: {}", e), None))?;
+            std::fs::create_dir_all(&hooks_dir).map_err(|e| {
+                McpError::internal_error(format!("Failed to create hooks directory: {}", e), None)
+            })?;
         }
 
         // Write the hook
@@ -2893,11 +3798,14 @@ exit 0
         {
             use std::os::unix::fs::PermissionsExt;
             let mut perms = std::fs::metadata(&hook_path)
-                .map_err(|e| McpError::internal_error(format!("Failed to get permissions: {}", e), None))?
+                .map_err(|e| {
+                    McpError::internal_error(format!("Failed to get permissions: {}", e), None)
+                })?
                 .permissions();
             perms.set_mode(0o755);
-            std::fs::set_permissions(&hook_path, perms)
-                .map_err(|e| McpError::internal_error(format!("Failed to set permissions: {}", e), None))?;
+            std::fs::set_permissions(&hook_path, perms).map_err(|e| {
+                McpError::internal_error(format!("Failed to set permissions: {}", e), None)
+            })?;
         }
 
         let msg = format!("Pre-commit guard installed at: {}", hook_path.display());
@@ -2916,18 +3824,26 @@ exit 0
         let hook_path = target_path.join(".git").join("hooks").join("pre-commit");
 
         if hook_path.exists() {
-            let content = std::fs::read_to_string(&hook_path)
-                .map_err(|e| McpError::internal_error(format!("Failed to read hook: {}", e), None))?;
+            let content = std::fs::read_to_string(&hook_path).map_err(|e| {
+                McpError::internal_error(format!("Failed to read hook: {}", e), None)
+            })?;
 
             if content.contains("MCP Agent Mail Pre-commit Guard") {
-                std::fs::remove_file(&hook_path)
-                    .map_err(|e| McpError::internal_error(format!("Failed to remove hook: {}", e), None))?;
-                Ok(CallToolResult::success(vec![Content::text("Pre-commit guard uninstalled successfully".to_string())]))
+                std::fs::remove_file(&hook_path).map_err(|e| {
+                    McpError::internal_error(format!("Failed to remove hook: {}", e), None)
+                })?;
+                Ok(CallToolResult::success(vec![Content::text(
+                    "Pre-commit guard uninstalled successfully".to_string(),
+                )]))
             } else {
-                Ok(CallToolResult::success(vec![Content::text("Hook exists but is not an Agent Mail guard".to_string())]))
+                Ok(CallToolResult::success(vec![Content::text(
+                    "Hook exists but is not an Agent Mail guard".to_string(),
+                )]))
             }
         } else {
-            Ok(CallToolResult::success(vec![Content::text("No pre-commit hook found".to_string())]))
+            Ok(CallToolResult::success(vec![Content::text(
+                "No pre-commit hook found".to_string(),
+            )]))
         }
     }
 
@@ -2943,15 +3859,25 @@ exit 0
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
         // Verify message exists
-        let _message = MessageBmc::get(&ctx, &self.mm, p.message_id).await
+        let _message = MessageBmc::get(&ctx, &self.mm, p.message_id)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Message not found: {}", e), None))?;
 
         // Generate attachment ID
-        let attachment_id = format!("att_{}_{}", p.message_id, uuid::Uuid::new_v4().to_string().split('-').next().unwrap_or("0"));
+        let attachment_id = format!(
+            "att_{}_{}",
+            p.message_id,
+            uuid::Uuid::new_v4()
+                .to_string()
+                .split('-')
+                .next()
+                .unwrap_or("0")
+        );
 
         // Store attachment in Git
         let repo = lib_core::store::git_store::open_repo(&self.mm.repo_root)
@@ -2976,9 +3902,13 @@ exit 0
             &format!("attachment: {} for message {}", p.filename, p.message_id),
             "mcp-bot",
             "mcp-bot@localhost",
-        ).map_err(|e| McpError::internal_error(e.to_string(), None))?;
+        )
+        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let msg = format!("Attachment '{}' added with ID {}", p.filename, attachment_id);
+        let msg = format!(
+            "Attachment '{}' added with ID {}",
+            p.filename, attachment_id
+        );
         Ok(CallToolResult::success(vec![Content::text(msg)]))
     }
 
@@ -2993,7 +3923,8 @@ exit 0
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug).await
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
         let repo = lib_core::store::git_store::open_repo(&self.mm.repo_root)
@@ -3008,7 +3939,8 @@ exit 0
         match lib_core::store::git_store::read_file_content(&repo, &attachment_path) {
             Ok(content) => {
                 use base64::Engine;
-                let content_base64 = base64::engine::general_purpose::STANDARD.encode(content.as_bytes());
+                let content_base64 =
+                    base64::engine::general_purpose::STANDARD.encode(content.as_bytes());
 
                 let mime_type = match p.filename.rsplit('.').next() {
                     Some("txt") => "text/plain",
@@ -3020,13 +3952,16 @@ exit 0
                     _ => "application/octet-stream",
                 };
 
-                let output = format!("Attachment: {}\nMIME Type: {}\n\nContent (base64):\n{}",
-                    p.filename, mime_type, content_base64);
+                let output = format!(
+                    "Attachment: {}\nMIME Type: {}\n\nContent (base64):\n{}",
+                    p.filename, mime_type, content_base64
+                );
                 Ok(CallToolResult::success(vec![Content::text(output)]))
             }
-            Err(_) => {
-                Err(McpError::invalid_params(format!("Attachment not found: {}", p.filename), None))
-            }
+            Err(_) => Err(McpError::invalid_params(
+                format!("Attachment not found: {}", p.filename),
+                None,
+            )),
         }
     }
 
@@ -3042,7 +3977,8 @@ exit 0
         let p = params.0;
 
         let limit = p.limit.unwrap_or(50);
-        let metrics = ToolMetricBmc::list_recent(&ctx, &self.mm, p.project_id, limit).await
+        let metrics = ToolMetricBmc::list_recent(&ctx, &self.mm, p.project_id, limit)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let json_str = serde_json::to_string_pretty(&metrics)
@@ -3062,7 +3998,8 @@ exit 0
         let ctx = self.ctx();
         let p = params.0;
 
-        let stats = ToolMetricBmc::get_stats(&ctx, &self.mm, p.project_id).await
+        let stats = ToolMetricBmc::get_stats(&ctx, &self.mm, p.project_id)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let json_str = serde_json::to_string_pretty(&stats)
@@ -3083,7 +4020,8 @@ exit 0
         let p = params.0;
 
         let limit = p.limit.unwrap_or(50);
-        let items = ActivityBmc::list_recent(&ctx, &self.mm, p.project_id, limit).await
+        let items = ActivityBmc::list_recent(&ctx, &self.mm, p.project_id, limit)
+            .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         let json_str = serde_json::to_string_pretty(&items)
@@ -3096,11 +4034,11 @@ exit 0
 #[cfg(test)]
 mod tests {
     use super::*;
-    use lib_core::model::agent::{AgentForCreate, AgentBmc};
-    use lib_core::model::project::ProjectBmc;
+    use lib_core::model::agent::{AgentBmc, AgentForCreate};
     use lib_core::model::agent_capabilities::{AgentCapabilityBmc, AgentCapabilityForCreate};
-    use tempfile::TempDir;
+    use lib_core::model::project::ProjectBmc;
     use std::sync::Arc;
+    use tempfile::TempDir;
 
     async fn create_test_mm() -> (Arc<ModelManager>, TempDir) {
         use libsql::Builder;
@@ -3112,7 +4050,7 @@ mod tests {
         let db = Builder::new_local(&db_path).build().await.unwrap();
         let conn = db.connect().unwrap();
         let _ = conn.execute("PRAGMA journal_mode=WAL;", ()).await;
-        
+
         let schema1 = include_str!("../../../../migrations/001_initial_schema.sql");
         conn.execute_batch(schema1).await.unwrap();
         let schema2 = include_str!("../../../../migrations/002_agent_capabilities.sql");
@@ -3134,8 +4072,10 @@ mod tests {
         let ctx = Ctx::root_ctx();
 
         // Create project/agent
-        let project_id = ProjectBmc::create(&ctx, &mm, "mw-test", "/mw/test").await.unwrap();
-        
+        let project_id = ProjectBmc::create(&ctx, &mm, "mw-test", "/mw/test")
+            .await
+            .unwrap();
+
         let agent_c = AgentForCreate {
             project_id,
             name: "Sender".into(),
@@ -3157,13 +4097,16 @@ mod tests {
             importance: None,
             thread_id: None,
         };
-        
+
         // We invoke the handler directly
         let result = service.send_message(Parameters(params)).await;
         assert!(result.is_err());
         let err = result.err().unwrap();
         // Check for specific permission denied message
-        assert!(err.message.contains("does not have 'send_message' capability"));
+        assert!(
+            err.message
+                .contains("does not have 'send_message' capability")
+        );
 
         // 2. Grant capability
         let cap_c = AgentCapabilityForCreate {
@@ -3191,30 +4134,42 @@ mod tests {
         assert!(result.is_ok());
     }
 
-
     #[tokio::test]
     async fn test_list_project_siblings_tool() {
         use lib_core::model::product::ProductBmc;
-        
+
         let (mm, _temp) = create_test_mm().await;
         let service = AgentMailService::new_with_mm(mm.clone());
         let ctx = Ctx::root_ctx();
 
         // 1. Create Projects
-        let id_a = ProjectBmc::create(&ctx, &mm, "proj-a", "Project A").await.unwrap();
-        let id_b = ProjectBmc::create(&ctx, &mm, "proj-b", "Project B").await.unwrap();
+        let id_a = ProjectBmc::create(&ctx, &mm, "proj-a", "Project A")
+            .await
+            .unwrap();
+        let id_b = ProjectBmc::create(&ctx, &mm, "proj-b", "Project B")
+            .await
+            .unwrap();
 
         // 2. Link to Product
-        let product = ProductBmc::ensure(&ctx, &mm, "prod-p", "Product P").await.unwrap();
-        ProductBmc::link_project(&ctx, &mm, product.id, id_a).await.unwrap();
-        ProductBmc::link_project(&ctx, &mm, product.id, id_b).await.unwrap();
+        let product = ProductBmc::ensure(&ctx, &mm, "prod-p", "Product P")
+            .await
+            .unwrap();
+        ProductBmc::link_project(&ctx, &mm, product.id, id_a)
+            .await
+            .unwrap();
+        ProductBmc::link_project(&ctx, &mm, product.id, id_b)
+            .await
+            .unwrap();
 
         // 3. Call tool
         let params = ListProjectSiblingsParams {
             project_slug: "proj-a".to_string(),
         };
-        let result = service.list_project_siblings(Parameters(params)).await.unwrap();
-        
+        let result = service
+            .list_project_siblings(Parameters(params))
+            .await
+            .unwrap();
+
         // 4. Verify output
         let content = &result.content[0];
         // 4. Verify output via Debug (since Content structure is complex)
@@ -3225,26 +4180,52 @@ mod tests {
     #[tokio::test]
     async fn test_send_message_cc_bcc() {
         use lib_core::model::message::MessageBmc;
-    
+
         let (mm, _temp) = create_test_mm().await;
         // Construct service
         let service = AgentMailService::new_with_mm(mm.clone());
         let ctx = Ctx::root_ctx();
 
         // Create project
-        let pid = ProjectBmc::create(&ctx, &mm, "cc-test", "CC Test").await.unwrap();
+        let pid = ProjectBmc::create(&ctx, &mm, "cc-test", "CC Test")
+            .await
+            .unwrap();
 
         // Create Agents
-        let sender_c = AgentForCreate { project_id: pid, name: "Sender".into(), program: "test".into(), model: "test".into(), task_description: "Sender".into() };
+        let sender_c = AgentForCreate {
+            project_id: pid,
+            name: "Sender".into(),
+            program: "test".into(),
+            model: "test".into(),
+            task_description: "Sender".into(),
+        };
         let sender_id = AgentBmc::create(&ctx, &mm, sender_c).await.unwrap();
         // Recipient
-        let recv_c = AgentForCreate { project_id: pid, name: "Recv".into(), program: "test".into(), model: "test".into(), task_description: "Recv".into() };
+        let recv_c = AgentForCreate {
+            project_id: pid,
+            name: "Recv".into(),
+            program: "test".into(),
+            model: "test".into(),
+            task_description: "Recv".into(),
+        };
         let recv_id = AgentBmc::create(&ctx, &mm, recv_c).await.unwrap();
         // CC
-        let cc_c = AgentForCreate { project_id: pid, name: "CCAgent".into(), program: "test".into(), model: "test".into(), task_description: "CC".into() };
+        let cc_c = AgentForCreate {
+            project_id: pid,
+            name: "CCAgent".into(),
+            program: "test".into(),
+            model: "test".into(),
+            task_description: "CC".into(),
+        };
         let cc_id = AgentBmc::create(&ctx, &mm, cc_c).await.unwrap();
         // BCC
-        let bcc_c = AgentForCreate { project_id: pid, name: "BCCAgent".into(), program: "test".into(), model: "test".into(), task_description: "BCC".into() };
+        let bcc_c = AgentForCreate {
+            project_id: pid,
+            name: "BCCAgent".into(),
+            program: "test".into(),
+            model: "test".into(),
+            task_description: "BCC".into(),
+        };
         let bcc_id = AgentBmc::create(&ctx, &mm, bcc_c).await.unwrap();
 
         // Grant Capability
@@ -3271,7 +4252,7 @@ mod tests {
 
         // Invoke
         let result = service.send_message(Parameters(params)).await.unwrap();
-        let msg = format!("{:?}", result); 
+        let msg = format!("{:?}", result);
         assert!(msg.contains("Message sent"));
 
         // Verify with list_recent (or get message if we could parse id)
@@ -3286,21 +4267,27 @@ mod tests {
         // But we are in mcp-stdio, which imports lib-core.
         // We can't access mm.db().
         // BUT we can use `list_inbox` for each agent to verify delivery!
-        
-        let inbox_recv = MessageBmc::list_inbox_for_agent(&ctx, &mm, pid, recv_id, 10).await.unwrap();
+
+        let inbox_recv = MessageBmc::list_inbox_for_agent(&ctx, &mm, pid, recv_id, 10)
+            .await
+            .unwrap();
         assert_eq!(inbox_recv.len(), 1);
-        
+
         // Correct verification of CC/BCC delivery:
-        let inbox_cc = MessageBmc::list_inbox_for_agent(&ctx, &mm, pid, cc_id, 10).await.unwrap();
+        let inbox_cc = MessageBmc::list_inbox_for_agent(&ctx, &mm, pid, cc_id, 10)
+            .await
+            .unwrap();
         assert_eq!(inbox_cc.len(), 1, "CC agent should have message in inbox");
-        
-        let inbox_bcc = MessageBmc::list_inbox_for_agent(&ctx, &mm, pid, bcc_id, 10).await.unwrap();
+
+        let inbox_bcc = MessageBmc::list_inbox_for_agent(&ctx, &mm, pid, bcc_id, 10)
+            .await
+            .unwrap();
         assert_eq!(inbox_bcc.len(), 1, "BCC agent should have message in inbox");
     }
     #[tokio::test]
     async fn test_outbox_resource() {
-        use rmcp::model::{ReadResourceRequestParam, ResourceContents};
         use lib_core::model::message::{MessageBmc, MessageForCreate};
+        use rmcp::model::{ReadResourceRequestParam, ResourceContents};
 
         let (mm, _temp) = create_test_mm().await;
         // Construct service
@@ -3308,13 +4295,27 @@ mod tests {
         let ctx = Ctx::root_ctx();
 
         // Create project
-        let pid = ProjectBmc::create(&ctx, &mm, "outbox-test", "Outbox Test").await.unwrap();
+        let pid = ProjectBmc::create(&ctx, &mm, "outbox-test", "Outbox Test")
+            .await
+            .unwrap();
 
         // Create Agents
-        let sender_c = AgentForCreate { project_id: pid, name: "Sender".into(), program: "test".into(), model: "test".into(), task_description: "Sender".into() };
+        let sender_c = AgentForCreate {
+            project_id: pid,
+            name: "Sender".into(),
+            program: "test".into(),
+            model: "test".into(),
+            task_description: "Sender".into(),
+        };
         let sender_id = AgentBmc::create(&ctx, &mm, sender_c).await.unwrap();
-        
-        let recv_c = AgentForCreate { project_id: pid, name: "Recv".into(), program: "test".into(), model: "test".into(), task_description: "Recv".into() };
+
+        let recv_c = AgentForCreate {
+            project_id: pid,
+            name: "Recv".into(),
+            program: "test".into(),
+            model: "test".into(),
+            task_description: "Recv".into(),
+        };
         let recv_id = AgentBmc::create(&ctx, &mm, recv_c).await.unwrap();
 
         // Send a message
@@ -3334,23 +4335,23 @@ mod tests {
         // Call read_resource
         let uri = "agent-mail://outbox-test/outbox/Sender".to_string();
         let params = ReadResourceRequestParam { uri };
-        
+
         // Use refactored impl to avoid constructing context
         let result = service.read_resource_impl(params).await.unwrap();
-        
+
         let content = &result.contents[0];
         if let ResourceContents::TextResourceContents { text, .. } = content {
-             assert!(text.contains("Outbox Check"));
-             assert!(text.contains("Sender"));
+            assert!(text.contains("Outbox Check"));
+            assert!(text.contains("Sender"));
         } else {
-             panic!("Expected TextResourceContents");
+            panic!("Expected TextResourceContents");
         }
     }
     #[tokio::test]
     async fn test_record_tool_metric() {
-        use lib_core::model::tool_metric::ToolMetricBmc;
-        use lib_core::model::project::ProjectBmc;
         use lib_core::model::agent::{AgentBmc, AgentForCreate};
+        use lib_core::model::project::ProjectBmc;
+        use lib_core::model::tool_metric::ToolMetricBmc;
         use serde_json::json;
 
         let (mm, _temp) = create_test_mm().await;
@@ -3359,7 +4360,9 @@ mod tests {
         let ctx = Ctx::root_ctx();
 
         // 1. Create Project and Agent
-        let project_id = ProjectBmc::create(&ctx, &mm, "metric-test", "Metric Test").await.unwrap();
+        let project_id = ProjectBmc::create(&ctx, &mm, "metric-test", "Metric Test")
+            .await
+            .unwrap();
         let agent_c = AgentForCreate {
             project_id,
             name: "MetricAgent".into(),
@@ -3380,16 +4383,25 @@ mod tests {
         // We pass a dummy Ok result. Result type is Result<CallToolResult, McpError>.
         // CallToolResult is rmcp struct.
         use rmcp::model::CallToolResult;
-        let result = Ok(CallToolResult { content: vec![], is_error: None, meta: None, structured_content: None });
+        let result = Ok(CallToolResult {
+            content: vec![],
+            is_error: None,
+            meta: None,
+            structured_content: None,
+        });
 
         // 3. Call record_tool_metric
-        service.record_tool_metric("test_tool", &args, duration, &result).await;
+        service
+            .record_tool_metric("test_tool", &args, duration, &result)
+            .await;
 
         // 4. Verify DB
-        let metrics = ToolMetricBmc::list_recent(&ctx, &mm, Some(project_id), 10).await.unwrap();
+        let metrics = ToolMetricBmc::list_recent(&ctx, &mm, Some(project_id), 10)
+            .await
+            .unwrap();
         assert_eq!(metrics.len(), 1);
         let m = &metrics[0];
-        
+
         assert_eq!(m.tool_name, "test_tool");
         assert_eq!(m.duration_ms, 123);
         assert_eq!(m.status, "success");

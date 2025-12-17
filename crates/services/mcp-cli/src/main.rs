@@ -37,13 +37,23 @@ enum Commands {
     },
 }
 
-async fn handle_create_project(ctx: &Ctx, mm: &ModelManager, slug: &str, human_key: &str) -> Result<()> {
+async fn handle_create_project(
+    ctx: &Ctx,
+    mm: &ModelManager,
+    slug: &str,
+    human_key: &str,
+) -> Result<()> {
     let id = lib_core::model::project::ProjectBmc::create(ctx, mm, slug, human_key).await?;
     println!("Created project '{}' with ID {}", slug, id);
     Ok(())
 }
 
-async fn handle_create_agent(ctx: &Ctx, mm: &ModelManager, project_slug: &str, name: String) -> Result<()> {
+async fn handle_create_agent(
+    ctx: &Ctx,
+    mm: &ModelManager,
+    project_slug: &str,
+    name: String,
+) -> Result<()> {
     let project = lib_core::model::project::ProjectBmc::get_by_slug(ctx, mm, project_slug).await?;
     let agent_c = lib_core::model::agent::AgentForCreate {
         project_id: project.id,
@@ -53,7 +63,10 @@ async fn handle_create_agent(ctx: &Ctx, mm: &ModelManager, project_slug: &str, n
         task_description: "Created via CLI".to_string(),
     };
     let id = lib_core::model::agent::AgentBmc::create(ctx, mm, agent_c).await?;
-    println!("Created agent '{}' in project '{}' with ID {}", name, project_slug, id);
+    println!(
+        "Created agent '{}' in project '{}' with ID {}",
+        name, project_slug, id
+    );
     Ok(())
 }
 
@@ -71,7 +84,9 @@ async fn handle_send_message(
 
     let mut recipient_ids = Vec::new();
     for recipient_name in to {
-        let recipient = lib_core::model::agent::AgentBmc::get_by_name(ctx, mm, project.id, &recipient_name).await?;
+        let recipient =
+            lib_core::model::agent::AgentBmc::get_by_name(ctx, mm, project.id, &recipient_name)
+                .await?;
         recipient_ids.push(recipient.id);
     }
 
@@ -95,7 +110,9 @@ async fn handle_send_message(
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
-        .with_env_filter(EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")))
+        .with_env_filter(
+            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
+        )
         .init();
 
     let cli = Cli::parse();
@@ -123,7 +140,13 @@ async fn main() -> Result<()> {
             let mm = ModelManager::new().await?;
             handle_create_agent(&ctx, &mm, &project_slug, name).await?;
         }
-        Commands::SendMessage { project_slug, from, to, subject, body } => {
+        Commands::SendMessage {
+            project_slug,
+            from,
+            to,
+            subject,
+            body,
+        } => {
             let mm = ModelManager::new().await?;
             handle_send_message(&ctx, &mm, &project_slug, &from, to, subject, body).await?;
         }

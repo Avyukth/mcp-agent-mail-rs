@@ -7,9 +7,9 @@
 //! - Defense in depth: Multiple layers of error sanitization
 
 use axum::{
+    Json,
     http::StatusCode,
     response::{IntoResponse, Response},
-    Json,
 };
 use serde::Serialize;
 use thiserror::Error;
@@ -185,7 +185,9 @@ fn sanitize_error_message(error: &lib_core::Error) -> String {
         lib_core::Error::ProjectNotFound(id) => format!("Project not found: {}", id),
         lib_core::Error::AgentNotFound(name) => format!("Agent not found: {}", name),
         lib_core::Error::MessageNotFound(id) => format!("Message not found: {}", id),
-        lib_core::Error::FileReservationNotFound(id) => format!("File reservation not found: {}", id),
+        lib_core::Error::FileReservationNotFound(id) => {
+            format!("File reservation not found: {}", id)
+        }
         lib_core::Error::ProductNotFound(id) => format!("Product not found: {}", id),
         lib_core::Error::MacroNotFound(name) => format!("Macro not found: {}", name),
         lib_core::Error::BuildSlotNotFound(id) => format!("Build slot not found: {}", id),

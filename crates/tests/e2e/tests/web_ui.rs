@@ -34,7 +34,10 @@ fn test_home_page_loads() {
     let config = get_config();
 
     // Probar assertion - verify config is valid
-    let url_valid = Assertion::is_true(!config.web_ui_url.is_empty(), "Web UI URL should not be empty");
+    let url_valid = Assertion::is_true(
+        !config.web_ui_url.is_empty(),
+        "Web UI URL should not be empty",
+    );
     assert!(url_valid.passed, "Web UI URL should not be empty");
 
     // Note: Full browser tests require the `browser` feature and running services
@@ -47,8 +50,14 @@ fn test_config_defaults() {
     let config = TestConfig::default();
 
     // Verify default configuration using standard assertions
-    assert_eq!(config.web_ui_url, "http://localhost:5173", "Default web UI URL should be localhost:5173");
-    assert_eq!(config.api_url, "http://localhost:8765", "Default API URL should be localhost:8765");
+    assert_eq!(
+        config.web_ui_url, "http://localhost:5173",
+        "Default web UI URL should be localhost:5173"
+    );
+    assert_eq!(
+        config.api_url, "http://localhost:8765",
+        "Default API URL should be localhost:8765"
+    );
     assert!(config.headless, "Default should be headless");
 
     let timeout_check = Assertion::in_range(config.timeout_ms as f64, 1000.0, 60000.0);

@@ -3,8 +3,8 @@
 //! These tests verify end-to-end functionality of the MCP tools
 //! by testing the lib-core models directly.
 
-use std::sync::Arc;
 use lib_core::ModelManager;
+use std::sync::Arc;
 use tempfile::TempDir;
 
 mod tools_tests {
@@ -40,8 +40,8 @@ mod tools_tests {
 
     #[tokio::test]
     async fn test_project_lifecycle() {
-        use lib_core::model::project::ProjectBmc;
         use lib_core::Ctx;
+        use lib_core::model::project::ProjectBmc;
 
         let (mm, _temp) = create_test_mm().await;
         let ctx = Ctx::root_ctx();
@@ -62,9 +62,9 @@ mod tools_tests {
 
     #[tokio::test]
     async fn test_agent_registration() {
+        use lib_core::Ctx;
         use lib_core::model::agent::{AgentBmc, AgentForCreate};
         use lib_core::model::project::ProjectBmc;
-        use lib_core::Ctx;
 
         let (mm, _temp) = create_test_mm().await;
         let ctx = Ctx::root_ctx();
@@ -97,10 +97,10 @@ mod tools_tests {
 
     #[tokio::test]
     async fn test_file_reservation_workflow() {
+        use lib_core::Ctx;
         use lib_core::model::agent::{AgentBmc, AgentForCreate};
         use lib_core::model::file_reservation::{FileReservationBmc, FileReservationForCreate};
         use lib_core::model::project::ProjectBmc;
-        use lib_core::Ctx;
 
         let (mm, _temp) = create_test_mm().await;
         let ctx = Ctx::root_ctx();
@@ -156,10 +156,10 @@ mod tools_tests {
 
     #[tokio::test]
     async fn test_file_reservation_conflict() {
+        use lib_core::Ctx;
         use lib_core::model::agent::{AgentBmc, AgentForCreate};
         use lib_core::model::file_reservation::{FileReservationBmc, FileReservationForCreate};
         use lib_core::model::project::ProjectBmc;
-        use lib_core::Ctx;
 
         let (mm, _temp) = create_test_mm().await;
         let ctx = Ctx::root_ctx();
@@ -220,7 +220,11 @@ mod tools_tests {
         let active = FileReservationBmc::list_active_for_project(&ctx, &mm, project_id)
             .await
             .expect("Failed to list reservations");
-        assert_eq!(active.len(), 2, "Both agents should have active reservations");
+        assert_eq!(
+            active.len(),
+            2,
+            "Both agents should have active reservations"
+        );
 
         // Force release Agent A's reservation
         FileReservationBmc::force_release(&ctx, &mm, res_a_id)
@@ -237,10 +241,10 @@ mod tools_tests {
 
     #[tokio::test]
     async fn test_build_slot_workflow() {
+        use lib_core::Ctx;
         use lib_core::model::agent::{AgentBmc, AgentForCreate};
         use lib_core::model::build_slot::{BuildSlotBmc, BuildSlotForCreate};
         use lib_core::model::project::ProjectBmc;
-        use lib_core::Ctx;
 
         let (mm, _temp) = create_test_mm().await;
         let ctx = Ctx::root_ctx();
@@ -293,10 +297,10 @@ mod tools_tests {
 
     #[tokio::test]
     async fn test_contact_workflow() {
+        use lib_core::Ctx;
         use lib_core::model::agent::{AgentBmc, AgentForCreate};
         use lib_core::model::agent_link::{AgentLinkBmc, AgentLinkForCreate};
         use lib_core::model::project::ProjectBmc;
-        use lib_core::Ctx;
 
         let (mm, _temp) = create_test_mm().await;
         let ctx = Ctx::root_ctx();
@@ -362,9 +366,9 @@ mod tools_tests {
 
     #[tokio::test]
     async fn test_macro_workflow() {
+        use lib_core::Ctx;
         use lib_core::model::macro_def::{MacroDefBmc, MacroDefForCreate};
         use lib_core::model::project::ProjectBmc;
-        use lib_core::Ctx;
 
         let (mm, _temp) = create_test_mm().await;
         let ctx = Ctx::root_ctx();
@@ -402,9 +406,9 @@ mod tools_tests {
 
     #[tokio::test]
     async fn test_product_workflow() {
+        use lib_core::Ctx;
         use lib_core::model::product::ProductBmc;
         use lib_core::model::project::ProjectBmc;
-        use lib_core::Ctx;
 
         let (mm, _temp) = create_test_mm().await;
         let ctx = Ctx::root_ctx();
@@ -466,11 +470,11 @@ mod tools_tests {
 
     #[tokio::test]
     async fn test_export_mailbox() {
+        use lib_core::Ctx;
         use lib_core::model::agent::{AgentBmc, AgentForCreate};
         use lib_core::model::export::{ExportBmc, ExportFormat};
         use lib_core::model::message::{MessageBmc, MessageForCreate};
         use lib_core::model::project::ProjectBmc;
-        use lib_core::Ctx;
 
         let (mm, _temp) = create_test_mm().await;
         let ctx = Ctx::root_ctx();
@@ -513,25 +517,28 @@ mod tools_tests {
         MessageBmc::create(&ctx, &mm, msg_c).await.unwrap();
 
         // Export as JSON
-        let json_export = ExportBmc::export_mailbox(&ctx, &mm, "export-test", ExportFormat::Json, false)
-            .await
-            .expect("JSON export should succeed");
+        let json_export =
+            ExportBmc::export_mailbox(&ctx, &mm, "export-test", ExportFormat::Json, false)
+                .await
+                .expect("JSON export should succeed");
         assert_eq!(json_export.format, "json");
         assert_eq!(json_export.message_count, 1);
         assert!(json_export.content.contains("Test Export Message"));
 
         // Export as HTML
-        let html_export = ExportBmc::export_mailbox(&ctx, &mm, "export-test", ExportFormat::Html, false)
-            .await
-            .expect("HTML export should succeed");
+        let html_export =
+            ExportBmc::export_mailbox(&ctx, &mm, "export-test", ExportFormat::Html, false)
+                .await
+                .expect("HTML export should succeed");
         assert_eq!(html_export.format, "html");
         assert!(html_export.content.contains("<html>"));
         assert!(html_export.content.contains("Test Export Message"));
 
         // Export as Markdown
-        let md_export = ExportBmc::export_mailbox(&ctx, &mm, "export-test", ExportFormat::Markdown, false)
-            .await
-            .expect("Markdown export should succeed");
+        let md_export =
+            ExportBmc::export_mailbox(&ctx, &mm, "export-test", ExportFormat::Markdown, false)
+                .await
+                .expect("Markdown export should succeed");
         assert_eq!(md_export.format, "markdown");
         assert!(md_export.content.contains("# Mailbox Export:"));
         assert!(md_export.content.contains("Test Export Message"));
@@ -539,10 +546,10 @@ mod tools_tests {
 
     #[tokio::test]
     async fn test_git_archive_workflow() {
-        use lib_core::model::project::ProjectBmc;
-        use lib_core::model::message::{MessageBmc, MessageForCreate};
-        use lib_core::model::agent::{AgentBmc, AgentForCreate};
         use lib_core::Ctx;
+        use lib_core::model::agent::{AgentBmc, AgentForCreate};
+        use lib_core::model::message::{MessageBmc, MessageForCreate};
+        use lib_core::model::project::ProjectBmc;
 
         let (mm, _temp) = create_test_mm().await;
         let ctx = Ctx::root_ctx();
@@ -579,18 +586,20 @@ mod tools_tests {
         let oid = ProjectBmc::sync_to_archive(&ctx, &mm, project_id, "Test archive commit")
             .await
             .expect("Sync should succeed");
-        
+
         println!("Commit OID: {}", oid);
         assert!(!oid.is_empty());
 
         // 4. Verify file exists in repo (we can inspect the temp dir directly)
         // mm.repo_root is inside _temp
-        let mailbox_path = mm.repo_root.join("projects").join("archive-test").join("mailbox.json");
+        let mailbox_path = mm
+            .repo_root
+            .join("projects")
+            .join("archive-test")
+            .join("mailbox.json");
         assert!(mailbox_path.exists());
-        
+
         let content = std::fs::read_to_string(mailbox_path).unwrap();
         assert!(content.contains("Archive Me"));
     }
 }
-
-

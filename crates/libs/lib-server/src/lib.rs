@@ -1,28 +1,27 @@
 use axum::routing::get;
-use axum::{extract::State, http::StatusCode, response::IntoResponse, Router};
+use axum::{Router, extract::State, http::StatusCode, response::IntoResponse};
 use metrics_exporter_prometheus::{Matcher, PrometheusBuilder, PrometheusHandle};
 use std::net::SocketAddr;
+use std::sync::OnceLock;
 use std::time::Instant;
 use tower_http::cors::{Any, CorsLayer};
 use tower_http::trace::TraceLayer;
-use std::sync::OnceLock;
 
 // Modules
-pub mod error;
 pub mod api;
 pub mod auth;
-pub mod tools;
-pub mod ratelimit;
-pub mod openapi;
+pub mod error;
 pub mod mcp;
+pub mod openapi;
+pub mod ratelimit;
+pub mod tools;
 
-use utoipa::{ToSchema, OpenApi};
+use utoipa::{OpenApi, ToSchema};
 
-
+use auth::{AuthConfig, JwksClient, auth_middleware};
 pub use error::ServerError;
-pub use lib_core::ModelManager;
-use auth::{auth_middleware, AuthConfig, JwksClient};
 use lib_common::config::ServerConfig;
+pub use lib_core::ModelManager;
 
 // --- Application State
 #[derive(Clone, axum::extract::FromRef)]
@@ -38,20 +37,22 @@ pub struct AppState {
 static METRICS_HANDLE: OnceLock<PrometheusHandle> = OnceLock::new();
 
 fn setup_metrics() -> PrometheusHandle {
-    METRICS_HANDLE.get_or_init(|| {
-        const EXPONENTIAL_SECONDS: &[f64] = &[
-            0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
-        ];
+    METRICS_HANDLE
+        .get_or_init(|| {
+            const EXPONENTIAL_SECONDS: &[f64] = &[
+                0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0, 2.5, 5.0, 10.0,
+            ];
 
-        PrometheusBuilder::new()
-            .set_buckets_for_metric(
-                Matcher::Full("http_request_duration_seconds".to_string()),
-                EXPONENTIAL_SECONDS,
-            )
-            .expect("Failed to set buckets")
-            .install_recorder()
-            .expect("Failed to install Prometheus recorder")
-    }).clone()
+            PrometheusBuilder::new()
+                .set_buckets_for_metric(
+                    Matcher::Full("http_request_duration_seconds".to_string()),
+                    EXPONENTIAL_SECONDS,
+                )
+                .expect("Failed to set buckets")
+                .install_recorder()
+                .expect("Failed to install Prometheus recorder")
+        })
+        .clone()
 }
 
 pub async fn run(config: ServerConfig) -> std::result::Result<(), ServerError> {
@@ -70,7 +71,10 @@ pub async fn run(config: ServerConfig) -> std::result::Result<(), ServerError> {
     let auth_config = AuthConfig::from_env();
     tracing::info!("Auth Mode: {:?}", auth_config.mode);
 
-    let jwks_client = auth_config.jwks_url.as_ref().map(|url| JwksClient::new(url.clone()));
+    let jwks_client = auth_config
+        .jwks_url
+        .as_ref()
+        .map(|url| JwksClient::new(url.clone()));
 
     let app_state = AppState {
         mm,
@@ -102,7 +106,7 @@ pub async fn run(config: ServerConfig) -> std::result::Result<(), ServerError> {
         .route("/ready", get(ready_handler))
         .route("/metrics", get(metrics_handler))
         // Prod Hardening: Liveness/Readiness probes (k8s style)
-        .route("/healthz", get(health_handler)) 
+        .route("/healthz", get(health_handler))
         .layer(TraceLayer::new_for_http())
         // 4. Rate Limiting (Hardening 577.13)
         // Global middleware using Axum 0.8 middleware::from_fn_with_state
@@ -113,7 +117,6 @@ pub async fn run(config: ServerConfig) -> std::result::Result<(), ServerError> {
         .layer(cors) // Enable CORS
         .with_state(app_state);
 
-
     let addr = SocketAddr::from(([0, 0, 0, 0], config.port));
     tracing::info!("MCP Agent Mail Server starting on {}", addr);
     tracing::info!("Health check: http://{}/health", addr);
@@ -123,9 +126,12 @@ pub async fn run(config: ServerConfig) -> std::result::Result<(), ServerError> {
 
     // Graceful shutdown - use into_make_service_with_connect_info to enable
     // ConnectInfo<SocketAddr> extraction in middleware for localhost bypass
-    axum::serve(listener, app.into_make_service_with_connect_info::<SocketAddr>())
-        .with_graceful_shutdown(shutdown_signal())
-        .await?;
+    axum::serve(
+        listener,
+        app.into_make_service_with_connect_info::<SocketAddr>(),
+    )
+    .with_graceful_shutdown(shutdown_signal())
+    .await?;
 
     Ok(())
 }
@@ -163,7 +169,6 @@ async fn shutdown_signal() {
 async fn root_handler() -> &'static str {
     "MCP Agent Mail Server is running!"
 }
-
 
 #[derive(serde::Serialize, ToSchema)]
 struct HealthResponse {

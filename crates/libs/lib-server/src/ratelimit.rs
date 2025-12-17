@@ -1,24 +1,21 @@
+use axum::extract::ConnectInfo;
 use axum::{
     extract::{Request, State},
     http::StatusCode,
     middleware::Next,
     response::Response,
 };
-use governor::{
-    clock::DefaultClock,
-    state::keyed::DashMapStateStore,
-    Quota, RateLimiter,
-};
+use governor::{Quota, RateLimiter, clock::DefaultClock, state::keyed::DashMapStateStore};
 use std::net::SocketAddr;
 use std::num::NonZeroU32;
 use std::sync::Arc;
-use axum::extract::ConnectInfo;
 use tracing::warn;
 
-// Type alias for our RateLimiter. 
+// Type alias for our RateLimiter.
 // We use IP address (SocketAddr) as the key.
 // Actually, `SocketAddr` might include port, we usually want just IP.
-type IpRateLimiter = RateLimiter<std::net::IpAddr, DashMapStateStore<std::net::IpAddr>, DefaultClock>;
+type IpRateLimiter =
+    RateLimiter<std::net::IpAddr, DashMapStateStore<std::net::IpAddr>, DefaultClock>;
 
 #[derive(Clone)]
 pub struct RateLimitConfig {
@@ -34,7 +31,8 @@ impl Default for RateLimitConfig {
 
 impl RateLimitConfig {
     pub fn new() -> Self {
-        let enabled = std::env::var("RATE_LIMIT_ENABLED").unwrap_or_else(|_| "true".into()) == "true";
+        let enabled =
+            std::env::var("RATE_LIMIT_ENABLED").unwrap_or_else(|_| "true".into()) == "true";
 
         // Defaults sized for 100 concurrent agents:
         // - 1000 RPS allows 10 requests/second per agent
@@ -54,12 +52,14 @@ impl RateLimitConfig {
 
         let limiter = Arc::new(RateLimiter::keyed(quota));
 
-        tracing::info!("Rate Limiting: enabled={}, rps={}, burst={}", enabled, rps, burst);
-
-        Self {
-            limiter,
+        tracing::info!(
+            "Rate Limiting: enabled={}, rps={}, burst={}",
             enabled,
-        }
+            rps,
+            burst
+        );
+
+        Self { limiter, enabled }
     }
 }
 
@@ -77,7 +77,8 @@ pub async fn rate_limit_middleware(
     // Prefer X-Forwarded-For header if present (standard for reverse proxies)
     // Fallback to direct peer address (ConnectInfo)
     let ip = if let Some(forwarded) = req.headers().get("x-forwarded-for") {
-        forwarded.to_str()
+        forwarded
+            .to_str()
             .ok()
             .and_then(|s| s.split(',').next()) // Take the first IP in the list
             .and_then(|s| s.trim().parse::<std::net::IpAddr>().ok())

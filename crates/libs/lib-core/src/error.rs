@@ -1,5 +1,5 @@
+use strum_macros::AsRefStr;
 use thiserror::Error;
-use strum_macros::{AsRefStr};
 // use sqlx::migrate::MigrateError; // Import MigrateError
 
 #[derive(Debug, Error, AsRefStr)]

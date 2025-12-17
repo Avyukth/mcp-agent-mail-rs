@@ -1,13 +1,13 @@
 //! Export functionality for mailbox data
-//! 
+//!
 //! Supports exporting messages in HTML, JSON, and Markdown formats.
 
-use serde::{Deserialize, Serialize};
+use crate::Result;
 use crate::ctx::Ctx;
 use crate::model::ModelManager;
 use crate::model::message::MessageBmc;
 use crate::model::project::ProjectBmc;
-use crate::Result;
+use serde::{Deserialize, Serialize};
 
 /// Export format options
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -55,27 +55,29 @@ impl ExportBmc {
     ) -> Result<ExportedMailbox> {
         // Get project
         let project = ProjectBmc::get_by_slug(ctx, mm, project_slug).await?;
-        
+
         // Get recent messages (limit to 100 for export)
         let messages = MessageBmc::list_recent(ctx, mm, project.id, 100).await?;
-        
-        let exported_at = chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC").to_string();
+
+        let exported_at = chrono::Utc::now()
+            .format("%Y-%m-%d %H:%M:%S UTC")
+            .to_string();
         let message_count = messages.len();
-        
+
         let content = match format {
             ExportFormat::Html => Self::render_html(&project.slug, &messages),
             ExportFormat::Json => Self::render_json(&messages)?,
             ExportFormat::Markdown => Self::render_markdown(&project.slug, &messages),
             ExportFormat::Csv => Self::render_csv(&messages)?,
         };
-        
+
         let format_str = match format {
             ExportFormat::Html => "html",
             ExportFormat::Json => "json",
             ExportFormat::Markdown => "markdown",
             ExportFormat::Csv => "csv",
         };
-        
+
         Ok(ExportedMailbox {
             project_slug: project.slug.clone(),
             project_name: project.human_key.clone(),
@@ -85,64 +87,77 @@ impl ExportBmc {
             format: format_str.to_string(),
         })
     }
-    
+
     fn render_html(project_slug: &str, messages: &[crate::model::message::Message]) -> String {
         let mut html = String::new();
         html.push_str("<!DOCTYPE html>\n<html>\n<head>\n");
-        html.push_str(&format!("<title>Mailbox Export - {}</title>\n", project_slug));
-        html.push_str("<style>
+        html.push_str(&format!(
+            "<title>Mailbox Export - {}</title>\n",
+            project_slug
+        ));
+        html.push_str(
+            "<style>
 body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
 .message { border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 8px; }
 .subject { font-weight: bold; font-size: 1.1em; }
 .meta { color: #666; font-size: 0.9em; margin: 5px 0; }
 .body { margin-top: 10px; white-space: pre-wrap; }
-</style>\n</head>\n<body>\n");
+</style>\n</head>\n<body>\n",
+        );
         html.push_str(&format!("<h1>Mailbox Export: {}</h1>\n", project_slug));
         html.push_str(&format!("<p>Total messages: {}</p>\n", messages.len()));
-        
+
         for msg in messages {
             html.push_str("<div class=\"message\">\n");
-            html.push_str(&format!("<div class=\"subject\">{}</div>\n", 
-                html_escape(&msg.subject)));
-            html.push_str(&format!("<div class=\"meta\">From: {} | {}</div>\n", 
+            html.push_str(&format!(
+                "<div class=\"subject\">{}</div>\n",
+                html_escape(&msg.subject)
+            ));
+            html.push_str(&format!(
+                "<div class=\"meta\">From: {} | {}</div>\n",
                 html_escape(&msg.sender_name),
-                msg.created_ts.format("%Y-%m-%d %H:%M")));
-            html.push_str(&format!("<div class=\"body\">{}</div>\n", 
-                html_escape(&msg.body_md)));
+                msg.created_ts.format("%Y-%m-%d %H:%M")
+            ));
+            html.push_str(&format!(
+                "<div class=\"body\">{}</div>\n",
+                html_escape(&msg.body_md)
+            ));
             html.push_str("</div>\n");
         }
-        
+
         html.push_str("</body>\n</html>");
         html
     }
-    
+
     fn render_json(messages: &[crate::model::message::Message]) -> Result<String> {
         Ok(serde_json::to_string_pretty(messages)?)
     }
-    
+
     fn render_markdown(project_slug: &str, messages: &[crate::model::message::Message]) -> String {
         let mut md = String::new();
         md.push_str(&format!("# Mailbox Export: {}\n\n", project_slug));
         md.push_str(&format!("Total messages: {}\n\n---\n\n", messages.len()));
-        
+
         for msg in messages {
             md.push_str(&format!("## {}\n\n", msg.subject));
-            md.push_str(&format!("**From:** {} | **Date:** {}\n\n", 
+            md.push_str(&format!(
+                "**From:** {} | **Date:** {}\n\n",
                 msg.sender_name,
-                msg.created_ts.format("%Y-%m-%d %H:%M")));
+                msg.created_ts.format("%Y-%m-%d %H:%M")
+            ));
             md.push_str(&format!("{}\n\n---\n\n", msg.body_md));
         }
-        
+
         md
     }
 
     fn render_csv(messages: &[crate::model::message::Message]) -> Result<String> {
         let mut wtr = csv::Writer::from_writer(vec![]);
-        
+
         // Header
         wtr.write_record(["id", "created_at", "sender", "subject", "body"])
             .map_err(|e| crate::Error::InvalidInput(format!("CSV Error: {}", e)))?;
-            
+
         // Rows
         for msg in messages {
             wtr.write_record(&[
@@ -151,10 +166,13 @@ body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; pad
                 msg.sender_name.clone(),
                 msg.subject.clone(),
                 msg.body_md.clone(),
-            ]).map_err(|e| crate::Error::InvalidInput(format!("CSV Error: {}", e)))?;
+            ])
+            .map_err(|e| crate::Error::InvalidInput(format!("CSV Error: {}", e)))?;
         }
-        
-        let data = wtr.into_inner().map_err(|e| crate::Error::InvalidInput(format!("CSV Error: {}", e)))?;
+
+        let data = wtr
+            .into_inner()
+            .map_err(|e| crate::Error::InvalidInput(format!("CSV Error: {}", e)))?;
         Ok(String::from_utf8(data).unwrap_or_default())
     }
 }
@@ -167,12 +185,15 @@ impl ExportBmc {
         message: &str,
     ) -> Result<String> {
         // 1. Export in Markdown (default for archive)
-        let exported = Self::export_mailbox(ctx, mm, project_slug, ExportFormat::Markdown, true).await?;
-        
+        let exported =
+            Self::export_mailbox(ctx, mm, project_slug, ExportFormat::Markdown, true).await?;
+
         // 2. Determine file path in repo
         let now = chrono::Utc::now();
         let filename = format!("{}_{}.md", project_slug, now.format("%Y%m%d_%H%M%S"));
-        let rel_path = std::path::Path::new("mailboxes").join(project_slug).join(&filename);
+        let rel_path = std::path::Path::new("mailboxes")
+            .join(project_slug)
+            .join(&filename);
 
         // 3. Git Operations - serialized to prevent lock contention
         let _git_guard = mm.git_lock.lock().await;
@@ -185,7 +206,7 @@ impl ExportBmc {
             &rel_path,
             &exported.content,
             message,
-            "MCP Agent Mail", // Committer name
+            "MCP Agent Mail",       // Committer name
             "mcp@generic-agent.ai", // Committer email
         )?;
 
@@ -199,4 +220,3 @@ fn html_escape(s: &str) -> String {
         .replace('>', "&gt;")
         .replace('"', "&quot;")
 }
-

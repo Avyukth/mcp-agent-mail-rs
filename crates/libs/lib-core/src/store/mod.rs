@@ -1,5 +1,5 @@
-use libsql::{Builder, Connection};
 use crate::Result;
+use libsql::{Builder, Connection};
 use std::path::PathBuf;
 
 pub type Db = Connection;
@@ -15,7 +15,7 @@ pub async fn new_db_pool() -> Result<Db> {
     let _db_url = format!("file:{}", db_path.display());
     let db = Builder::new_local(db_path).build().await?;
     let conn = db.connect()?;
-    
+
     // SQLite concurrency optimizations for high-load scenarios
     // WAL mode: enables concurrent reads during writes
     let _ = conn.execute("PRAGMA journal_mode=WAL;", ()).await;
@@ -48,7 +48,9 @@ pub async fn get_db_connection(_db_url: &str) -> Result<Connection> {
     // For local file, we just open it
     // This function signature might need adjustment for Turso remote later
     // For now, just reusing new_db_pool logic or similar
-    let db = Builder::new_local(PathBuf::from("data/mcp_agent_mail.db")).build().await?;
+    let db = Builder::new_local(PathBuf::from("data/mcp_agent_mail.db"))
+        .build()
+        .await?;
     let conn = db.connect()?;
     Ok(conn)
 }

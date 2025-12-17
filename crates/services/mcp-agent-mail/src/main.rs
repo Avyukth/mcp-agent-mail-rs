@@ -1,10 +1,6 @@
 use clap::{Args, Parser, Subcommand};
 use lib_common::config::AppConfig;
-use lib_mcp::{
-    docs::generate_markdown_docs,
-    tools::get_tool_schemas,
-    run_stdio, run_sse,
-};
+use lib_mcp::{docs::generate_markdown_docs, run_sse, run_stdio, tools::get_tool_schemas};
 use tracing::info;
 
 #[derive(Parser)]
@@ -71,10 +67,13 @@ enum ServeCommands {
 }
 
 fn setup_tracing(json_logs: bool) -> anyhow::Result<()> {
-    use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter, fmt, Layer};
+    use tracing_subscriber::{
+        EnvFilter, Layer, fmt, layer::SubscriberExt, util::SubscriberInitExt,
+    };
 
-    let env_filter = EnvFilter::try_from_default_env()
-        .unwrap_or_else(|_| EnvFilter::new("info,tower_http=debug,axum=debug,mcp_agent_mail=debug"));
+    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
+        EnvFilter::new("info,tower_http=debug,axum=debug,mcp_agent_mail=debug")
+    });
 
     let layer = if json_logs {
         fmt::layer().json().with_writer(std::io::stderr).boxed()
@@ -105,7 +104,11 @@ async fn handle_serve_http(port: Option<u16>, mut config: AppConfig) -> anyhow::
     Ok(())
 }
 
-async fn handle_serve_mcp(transport: String, port: u16, mut config: AppConfig) -> anyhow::Result<()> {
+async fn handle_serve_mcp(
+    transport: String,
+    port: u16,
+    mut config: AppConfig,
+) -> anyhow::Result<()> {
     config.mcp.transport = transport.clone();
     config.mcp.port = port;
     info!("Starting MCP Server ({})", transport);
@@ -164,7 +167,9 @@ async fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::Serve(args) => match args.command {
             ServeCommands::Http { port } => handle_serve_http(port, config).await?,
-            ServeCommands::Mcp { transport, port } => handle_serve_mcp(transport, port, config).await?,
+            ServeCommands::Mcp { transport, port } => {
+                handle_serve_mcp(transport, port, config).await?
+            }
         },
         Commands::Health { url } => handle_health(url).await?,
         Commands::Schema { format, output } => handle_schema(format, output)?,

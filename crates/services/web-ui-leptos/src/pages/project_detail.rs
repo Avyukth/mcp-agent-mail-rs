@@ -1,9 +1,9 @@
 //! Project detail page - view project info and manage agents.
 //! Digital Correspondence design with Lucide icons.
 
+use crate::api::client::{self, Agent};
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
-use crate::api::client::{self, Agent};
 
 /// Project detail page component.
 #[component]
@@ -17,7 +17,7 @@ pub fn ProjectDetail() -> impl IntoView {
     let error = RwSignal::new(Option::<String>::None);
     let show_new_form = RwSignal::new(false);
     let creating = RwSignal::new(false);
-    
+
     // Form fields
     let new_name = RwSignal::new(String::new());
     let new_program = RwSignal::new(String::new());
@@ -47,7 +47,9 @@ pub fn ProjectDetail() -> impl IntoView {
 
     // Initial load
     Effect::new({
-        move |_| { load_agents(); }
+        move |_| {
+            load_agents();
+        }
     });
 
     // Create agent handler
@@ -70,10 +72,20 @@ pub fn ProjectDetail() -> impl IntoView {
                 match client::register_agent(
                     &project_slug,
                     &name,
-                    if program.is_empty() { "unknown" } else { &program },
+                    if program.is_empty() {
+                        "unknown"
+                    } else {
+                        &program
+                    },
                     if model.is_empty() { "unknown" } else { &model },
-                    if task.is_empty() { None } else { Some(task.as_str()) },
-                ).await {
+                    if task.is_empty() {
+                        None
+                    } else {
+                        Some(task.as_str())
+                    },
+                )
+                .await
+                {
                     Ok(_) => {
                         // Reload agents
                         match client::get_agents(&project_slug).await {
@@ -280,7 +292,7 @@ pub fn ProjectDetail() -> impl IntoView {
                                     let task = agent.task_description.clone();
                                     let last_active = agent.last_active_ts.clone().unwrap_or_default();
                                     let inbox_href = format!("/inbox?project={}&agent={}", project_slug, name);
-                                    
+
                                     view! {
                                         <div class="card-elevated p-6 group hover:border-violet-300 dark:hover:border-violet-700 transition-all">
                                             <div class="flex items-start justify-between mb-4">
@@ -294,7 +306,7 @@ pub fn ProjectDetail() -> impl IntoView {
                                                     </div>
                                                 </div>
                                             </div>
-                                            
+
                                             <div class="space-y-2 text-sm">
                                                 <div class="flex justify-between">
                                                     <span class="text-charcoal-500 dark:text-charcoal-400">"Model"</span>

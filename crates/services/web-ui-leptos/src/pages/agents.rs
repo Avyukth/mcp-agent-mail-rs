@@ -1,9 +1,9 @@
 //! Agents page - browse agents across all projects.
 //! Digital Correspondence design with Lucide icons.
 
-use leptos::prelude::*;
-use crate::api::client::{self, Project, Agent};
+use crate::api::client::{self, Agent, Project};
 use crate::components::{Select, SelectOption};
+use leptos::prelude::*;
 
 /// Agent with project slug for display.
 #[derive(Clone)]
@@ -20,7 +20,7 @@ pub fn Agents() -> impl IntoView {
     let projects = RwSignal::new(Vec::<Project>::new());
     let loading = RwSignal::new(true);
     let error = RwSignal::new(Option::<String>::None);
-    
+
     // Filters
     let selected_project = RwSignal::new("all".to_string());
     let search_query = RwSignal::new(String::new());
@@ -31,7 +31,7 @@ pub fn Agents() -> impl IntoView {
             match client::get_projects().await {
                 Ok(p) => {
                     projects.set(p.clone());
-                    
+
                     // Load agents for each project
                     let mut agents_list = Vec::new();
                     for project in p {
@@ -60,19 +60,29 @@ pub fn Agents() -> impl IntoView {
         let agents = all_agents.get();
         let project_filter = selected_project.get();
         let query = search_query.get().to_lowercase();
-        
-        agents.into_iter()
+
+        agents
+            .into_iter()
             .filter(|a| {
                 if project_filter != "all" && a.project_slug != project_filter {
                     return false;
                 }
                 if !query.is_empty() {
                     let name_match = a.agent.name.to_lowercase().contains(&query);
-                    let program_match = a.agent.program.as_ref()
+                    let program_match = a
+                        .agent
+                        .program
+                        .as_ref()
                         .is_some_and(|p| p.to_lowercase().contains(&query));
-                    let model_match = a.agent.model.as_ref()
+                    let model_match = a
+                        .agent
+                        .model
+                        .as_ref()
                         .is_some_and(|m| m.to_lowercase().contains(&query));
-                    let task_match = a.agent.task_description.as_ref()
+                    let task_match = a
+                        .agent
+                        .task_description
+                        .as_ref()
                         .is_some_and(|t| t.to_lowercase().contains(&query));
                     if !name_match && !program_match && !model_match && !task_match {
                         return false;
@@ -162,7 +172,7 @@ pub fn Agents() -> impl IntoView {
                     let filtered = filtered_agents();
                     let total = all_agents.get().len();
                     let count = filtered.len();
-                    
+
                     if filtered.is_empty() {
                         view! {
                             <div class="card-elevated p-12 text-center">
@@ -226,7 +236,7 @@ pub fn Agents() -> impl IntoView {
                                         let last_active = agent.last_active_ts.clone().unwrap_or_default();
                                         let project_link = format!("/projects/{}", project_slug);
                                         let inbox_link = format!("/inbox?project={}&agent={}", project_slug, name);
-                                        
+
                                         view! {
                                             <div class="card-elevated p-6 group hover:border-amber-300 dark:hover:border-amber-700 transition-all">
                                                 <div class="flex items-start justify-between mb-4">

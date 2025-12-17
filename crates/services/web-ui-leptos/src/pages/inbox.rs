@@ -1,16 +1,16 @@
 //! Inbox page - view messages with cascading project/agent selects.
 //! Digital Correspondence design - envelope-style message cards.
 
+use crate::api::client::{self, Agent, InboxMessage, Project};
+use crate::components::{Select, SelectOption};
 use leptos::prelude::*;
 use leptos_router::hooks::use_query_map;
-use crate::api::client::{self, Project, Agent, InboxMessage};
-use crate::components::{Select, SelectOption};
 
 /// Inbox page component.
 #[component]
 pub fn Inbox() -> impl IntoView {
     let query = use_query_map();
-    
+
     // State
     let projects = RwSignal::new(Vec::<Project>::new());
     let agents = RwSignal::new(Vec::<Agent>::new());
@@ -18,7 +18,7 @@ pub fn Inbox() -> impl IntoView {
     let loading = RwSignal::new(true);
     let loading_messages = RwSignal::new(false);
     let error = RwSignal::new(Option::<String>::None);
-    
+
     // Selections
     let selected_project = RwSignal::new(String::new());
     let selected_agent = RwSignal::new(String::new());
@@ -33,12 +33,12 @@ pub fn Inbox() -> impl IntoView {
     Effect::new(move |_| {
         let url_project = init_project.clone();
         let url_agent = init_agent.clone();
-        
+
         leptos::task::spawn_local(async move {
             match client::get_projects().await {
                 Ok(p) => {
                     projects.set(p);
-                    
+
                     // Set from URL params if provided
                     if !url_project.is_empty() {
                         selected_project.set(url_project.clone());
@@ -141,7 +141,7 @@ pub fn Inbox() -> impl IntoView {
         if project.is_empty() || agent.is_empty() {
             return;
         }
-        
+
         loading_messages.set(true);
         leptos::task::spawn_local(async move {
             match client::get_inbox(&project, &agent).await {
@@ -168,12 +168,12 @@ pub fn Inbox() -> impl IntoView {
                     let project = selected_project.get();
                     let agent = selected_agent.get();
                     let agent_list = agents.get();
-                    
+
                     if !project.is_empty() && !agent.is_empty() {
                          Some(view! {
                             <div class="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6">
-                                <div 
-                                    class="fixed inset-0 bg-charcoal-900/50 backdrop-blur-sm transition-opacity" 
+                                <div
+                                    class="fixed inset-0 bg-charcoal-900/50 backdrop-blur-sm transition-opacity"
                                     on:click=move |_| show_compose.set(false)
                                 ></div>
                                 <div class="relative w-full max-w-2xl bg-white dark:bg-charcoal-800 rounded-2xl shadow-xl overflow-hidden animate-scale-in">
@@ -215,7 +215,7 @@ pub fn Inbox() -> impl IntoView {
                     let agent = selected_agent.get();
                     if !project.is_empty() && !agent.is_empty() {
                         Some(view! {
-                            <button 
+                            <button
                                 on:click=move |_| show_compose.set(true)
                                 class="btn-primary flex items-center gap-2"
                             >
@@ -397,7 +397,7 @@ pub fn Inbox() -> impl IntoView {
                                         </span>
                                     </div>
                                 </div>
-                                
+
                                 // Message List
                                 <ul class="divide-y divide-cream-200 dark:divide-charcoal-700">
                                     {msg_list.into_iter().map(|msg| {
@@ -406,7 +406,7 @@ pub fn Inbox() -> impl IntoView {
                                         let subject = msg.subject.clone();
                                         let sender = msg.sender_name.clone();
                                         let created = msg.created_ts.clone();
-                                        
+
                                         view! {
                                             <li class="group">
                                                 <a
@@ -417,7 +417,7 @@ pub fn Inbox() -> impl IntoView {
                                                     <div class="flex-shrink-0 w-10 h-10 rounded-lg bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center group-hover:scale-105 transition-transform">
                                                         <i data-lucide="mail" class="icon-lg text-amber-600 dark:text-amber-400"></i>
                                                     </div>
-                                                    
+
                                                     // Content
                                                     <div class="flex-1 min-w-0">
                                                         <div class="flex items-baseline justify-between gap-4 mb-1">
@@ -433,7 +433,7 @@ pub fn Inbox() -> impl IntoView {
                                                             <span>{sender}</span>
                                                         </p>
                                                     </div>
-                                                    
+
                                                     // Arrow
                                                     <i data-lucide="chevron-right" class="icon-sm flex-shrink-0 text-charcoal-300 dark:text-charcoal-600 group-hover:text-amber-500 group-hover:translate-x-1 transition-all"></i>
                                                 </a>

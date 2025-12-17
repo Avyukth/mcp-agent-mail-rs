@@ -1,10 +1,10 @@
 //! Message detail page - view a single message with reply functionality.
 //! Digital Correspondence design with Lucide icons.
 
+use crate::api::client::{self, Agent, Message};
+use crate::components::{ComposeMessage, ComposeProps, ReplyTo};
 use leptos::prelude::*;
 use leptos_router::hooks::{use_params_map, use_query_map};
-use crate::api::client::{self, Message, Agent};
-use crate::components::{ComposeMessage, ComposeProps, ReplyTo};
 
 /// Message detail page component.
 #[component]
@@ -287,7 +287,7 @@ pub fn MessageDetail() -> impl IntoView {
                                 recipient_name: Some(msg.sender_name.clone()),
                             }),
                         };
-                        
+
                         Some(view! {
                             <div class="fixed inset-0 bg-charcoal-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
                                 <div class="card-elevated max-w-2xl w-full max-h-[90vh] overflow-hidden shadow-2xl">

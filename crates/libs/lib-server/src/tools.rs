@@ -1,7 +1,7 @@
 use axum::{
-    extract::{Path, State, Query},
-    response::{IntoResponse, Response},
     Json,
+    extract::{Path, Query, State},
+    response::{IntoResponse, Response},
 };
 use chrono::Utc;
 use lib_core::model::file_reservation::{FileReservationBmc, FileReservationForCreate};
@@ -21,7 +21,8 @@ pub async fn health_check(_state: State<AppState>) -> crate::error::Result<Respo
     Ok(Json(HealthCheckResponse {
         status: "ok".to_string(),
         timestamp: Utc::now().to_rfc3339(),
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- ensure_project ---
@@ -37,24 +38,41 @@ pub struct EnsureProjectResponse {
     pub human_key: String,
 }
 
-pub async fn ensure_project(State(app_state): State<AppState>, Json(payload): Json<EnsureProjectPayload>) -> crate::error::Result<Response> {
+pub async fn ensure_project(
+    State(app_state): State<AppState>,
+    Json(payload): Json<EnsureProjectPayload>,
+) -> crate::error::Result<Response> {
     let ctx = Ctx::root_ctx(); // For now, use a root context
     let mm = &app_state.mm;
 
     // Call lib-core ProjectBmc to ensure project exists
-    let project = match lib_core::model::project::ProjectBmc::get_by_human_key(&ctx, mm, &payload.human_key).await {
-        Ok(p) => p,
-        Err(e) => {
-            if let lib_core::Error::ProjectNotFound(_) = e {
-                // If not found, create it. Generate a slug here based on human_key.
-                let slug = lib_core::utils::slugify(&payload.human_key);
-                let _id = lib_core::model::project::ProjectBmc::create(&ctx, mm, &slug, &payload.human_key).await?;
-                lib_core::model::project::ProjectBmc::get_by_human_key(&ctx, mm, &payload.human_key).await?
-            } else {
-                return Err(e.into());
+    let project =
+        match lib_core::model::project::ProjectBmc::get_by_human_key(&ctx, mm, &payload.human_key)
+            .await
+        {
+            Ok(p) => p,
+            Err(e) => {
+                if let lib_core::Error::ProjectNotFound(_) = e {
+                    // If not found, create it. Generate a slug here based on human_key.
+                    let slug = lib_core::utils::slugify(&payload.human_key);
+                    let _id = lib_core::model::project::ProjectBmc::create(
+                        &ctx,
+                        mm,
+                        &slug,
+                        &payload.human_key,
+                    )
+                    .await?;
+                    lib_core::model::project::ProjectBmc::get_by_human_key(
+                        &ctx,
+                        mm,
+                        &payload.human_key,
+                    )
+                    .await?
+                } else {
+                    return Err(e.into());
+                }
             }
-        }
-    };
+        };
 
     // Ensure built-in macros exist
     lib_core::model::macro_def::MacroDefBmc::ensure_builtin_macros(&ctx, mm, project.id).await?;
@@ -63,7 +81,8 @@ pub async fn ensure_project(State(app_state): State<AppState>, Json(payload): Js
         id: project.id,
         slug: project.slug,
         human_key: project.human_key,
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- register_agent ---
@@ -88,11 +107,16 @@ pub struct RegisterAgentResponse {
     pub last_active_ts: chrono::NaiveDateTime,
 }
 
-pub async fn register_agent(State(app_state): State<AppState>, Json(payload): Json<RegisterAgentPayload>) -> crate::error::Result<Response> {
+pub async fn register_agent(
+    State(app_state): State<AppState>,
+    Json(payload): Json<RegisterAgentPayload>,
+) -> crate::error::Result<Response> {
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
 
     let agent_c = lib_core::model::agent::AgentForCreate {
         project_id: project.id,
@@ -115,7 +139,8 @@ pub async fn register_agent(State(app_state): State<AppState>, Json(payload): Js
         task_description: agent.task_description,
         inception_ts: agent.inception_ts,
         last_active_ts: agent.last_active_ts,
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- send_message ---
@@ -156,17 +181,25 @@ pub struct SendMessageResponse {
     pub created_ts: chrono::NaiveDateTime,
 }
 
-pub async fn send_message(State(app_state): State<AppState>, Json(payload): Json<SendMessagePayload>) -> crate::error::Result<Response> {
+pub async fn send_message(
+    State(app_state): State<AppState>,
+    Json(payload): Json<SendMessagePayload>,
+) -> crate::error::Result<Response> {
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
-    let sender = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.sender_name).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+    let sender =
+        lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.sender_name)
+            .await?;
 
     // Resolve "to" recipients
     let mut recipient_ids = Vec::new();
     for name in payload.recipient_names {
-        let agent = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &name).await?;
+        let agent =
+            lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &name).await?;
         recipient_ids.push(agent.id);
     }
 
@@ -174,7 +207,8 @@ pub async fn send_message(State(app_state): State<AppState>, Json(payload): Json
     let cc_ids = if let Some(cc_names) = payload.cc_names {
         let mut ids = Vec::new();
         for name in cc_names {
-            let agent = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &name).await?;
+            let agent =
+                lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &name).await?;
             ids.push(agent.id);
         }
         Some(ids)
@@ -186,7 +220,8 @@ pub async fn send_message(State(app_state): State<AppState>, Json(payload): Json
     let bcc_ids = if let Some(bcc_names) = payload.bcc_names {
         let mut ids = Vec::new();
         for name in bcc_names {
-            let agent = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &name).await?;
+            let agent =
+                lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &name).await?;
             ids.push(agent.id);
         }
         Some(ids)
@@ -222,9 +257,9 @@ pub async fn send_message(State(app_state): State<AppState>, Json(payload): Json
         importance: message.importance,
         ack_required: message.ack_required,
         created_ts: message.created_ts,
-    }).into_response())
+    })
+    .into_response())
 }
-
 
 // --- list_inbox ---
 #[derive(Deserialize)]
@@ -247,21 +282,38 @@ pub struct InboxMessage {
     pub created_ts: chrono::NaiveDateTime,
 }
 
-pub async fn list_inbox(State(app_state): State<AppState>, Json(payload): Json<ListInboxPayload>) -> crate::error::Result<Response> {
+pub async fn list_inbox(
+    State(app_state): State<AppState>,
+    Json(payload): Json<ListInboxPayload>,
+) -> crate::error::Result<Response> {
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
-    let agent = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+    let agent =
+        lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name)
+            .await?;
 
-    let messages = lib_core::model::message::MessageBmc::list_inbox_for_agent(&ctx, mm, project.id, agent.id, payload.limit).await?;
+    let messages = lib_core::model::message::MessageBmc::list_inbox_for_agent(
+        &ctx,
+        mm,
+        project.id,
+        agent.id,
+        payload.limit,
+    )
+    .await?;
 
-    let inbox_msgs: Vec<InboxMessage> = messages.into_iter().map(|msg| InboxMessage {
-        id: msg.id,
-        subject: msg.subject,
-        sender_name: msg.sender_name,
-        created_ts: msg.created_ts,
-    }).collect();
+    let inbox_msgs: Vec<InboxMessage> = messages
+        .into_iter()
+        .map(|msg| InboxMessage {
+            id: msg.id,
+            subject: msg.subject,
+            sender_name: msg.sender_name,
+            created_ts: msg.created_ts,
+        })
+        .collect();
 
     Ok(Json(inbox_msgs).into_response())
 }
@@ -275,21 +327,38 @@ pub struct ListOutboxPayload {
     pub limit: i64,
 }
 
-pub async fn list_outbox(State(app_state): State<AppState>, Json(payload): Json<ListOutboxPayload>) -> crate::error::Result<Response> {
+pub async fn list_outbox(
+    State(app_state): State<AppState>,
+    Json(payload): Json<ListOutboxPayload>,
+) -> crate::error::Result<Response> {
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
-    let agent = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+    let agent =
+        lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name)
+            .await?;
 
-    let messages = lib_core::model::message::MessageBmc::list_outbox_for_agent(&ctx, mm, project.id, agent.id, payload.limit).await?;
+    let messages = lib_core::model::message::MessageBmc::list_outbox_for_agent(
+        &ctx,
+        mm,
+        project.id,
+        agent.id,
+        payload.limit,
+    )
+    .await?;
 
-    let outbox_msgs: Vec<InboxMessage> = messages.into_iter().map(|msg| InboxMessage {
-        id: msg.id,
-        subject: msg.subject,
-        sender_name: msg.sender_name,
-        created_ts: msg.created_ts,
-    }).collect();
+    let outbox_msgs: Vec<InboxMessage> = messages
+        .into_iter()
+        .map(|msg| InboxMessage {
+            id: msg.id,
+            subject: msg.subject,
+            sender_name: msg.sender_name,
+            created_ts: msg.created_ts,
+        })
+        .collect();
 
     Ok(Json(outbox_msgs).into_response())
 }
@@ -303,18 +372,23 @@ pub struct ProjectResponse {
     pub created_at: chrono::NaiveDateTime,
 }
 
-pub async fn list_all_projects(State(app_state): State<AppState>) -> crate::error::Result<Response> {
+pub async fn list_all_projects(
+    State(app_state): State<AppState>,
+) -> crate::error::Result<Response> {
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
     let projects = lib_core::model::project::ProjectBmc::list_all(&ctx, mm).await?;
 
-    let project_responses: Vec<ProjectResponse> = projects.into_iter().map(|p| ProjectResponse {
-        id: p.id,
-        slug: p.slug,
-        human_key: p.human_key,
-        created_at: p.created_at,
-    }).collect();
+    let project_responses: Vec<ProjectResponse> = projects
+        .into_iter()
+        .map(|p| ProjectResponse {
+            id: p.id,
+            slug: p.slug,
+            human_key: p.human_key,
+            created_at: p.created_at,
+        })
+        .collect();
 
     Ok(Json(project_responses).into_response())
 }
@@ -345,18 +419,23 @@ pub async fn list_all_agents_for_project(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &project_slug).await?;
-    let agents = lib_core::model::agent::AgentBmc::list_all_for_project(&ctx, mm, project.id).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &project_slug).await?;
+    let agents =
+        lib_core::model::agent::AgentBmc::list_all_for_project(&ctx, mm, project.id).await?;
 
-    let agent_responses: Vec<AgentResponse> = agents.into_iter().map(|a| AgentResponse {
-        id: a.id,
-        name: a.name,
-        program: a.program,
-        model: a.model,
-        task_description: a.task_description,
-        inception_ts: a.inception_ts,
-        last_active_ts: a.last_active_ts,
-    }).collect();
+    let agent_responses: Vec<AgentResponse> = agents
+        .into_iter()
+        .map(|a| AgentResponse {
+            id: a.id,
+            name: a.name,
+            program: a.program,
+            model: a.model,
+            task_description: a.task_description,
+            inception_ts: a.inception_ts,
+            last_active_ts: a.last_active_ts,
+        })
+        .collect();
 
     Ok(Json(agent_responses).into_response())
 }
@@ -405,7 +484,8 @@ pub async fn get_message(
         ack_required: message.ack_required,
         created_ts: message.created_ts,
         attachments: message.attachments,
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- file_reservation_paths ---
@@ -448,15 +528,23 @@ pub struct FileReservationPathsResponse {
     pub conflicts: Vec<FileReservationConflict>,
 }
 
-pub async fn file_reservation_paths(State(app_state): State<AppState>, Json(payload): Json<FileReservationPathsPayload>) -> crate::error::Result<Response> {
+pub async fn file_reservation_paths(
+    State(app_state): State<AppState>,
+    Json(payload): Json<FileReservationPathsPayload>,
+) -> crate::error::Result<Response> {
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
-    let agent = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+    let agent =
+        lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name)
+            .await?;
 
     // 1. Get active reservations
-    let active_reservations = FileReservationBmc::list_active_for_project(&ctx, mm, project.id).await?;
+    let active_reservations =
+        FileReservationBmc::list_active_for_project(&ctx, mm, project.id).await?;
 
     let mut granted = Vec::new();
     let mut conflicts = Vec::new();
@@ -478,7 +566,10 @@ pub async fn file_reservation_paths(State(app_state): State<AppState>, Json(payl
                     exclusive: res.exclusive,
                     expires_ts: res.expires_ts.format("%Y-%m-%dT%H:%M:%S").to_string(),
                     conflict_type: "FILE_RESERVATION_CONFLICT".to_string(),
-                    message: format!("Conflict with reservation held by agent ID {}", res.agent_id),
+                    message: format!(
+                        "Conflict with reservation held by agent ID {}",
+                        res.agent_id
+                    ),
                 });
                 // We don't break, we collect all conflicts? Or just one per path?
                 // Python collects conflicts.
@@ -496,7 +587,7 @@ pub async fn file_reservation_paths(State(app_state): State<AppState>, Json(payl
         };
 
         let id = FileReservationBmc::create(&ctx, mm, fr_c).await?;
-        
+
         granted.push(FileReservationGranted {
             id,
             path_pattern: path,
@@ -506,26 +597,23 @@ pub async fn file_reservation_paths(State(app_state): State<AppState>, Json(payl
         });
     }
 
-    Ok(Json(FileReservationPathsResponse {
-        granted,
-        conflicts,
-    }).into_response())
+    Ok(Json(FileReservationPathsResponse { granted, conflicts }).into_response())
 }
 
 // --- create_agent_identity ---
 // Generates memorable adjective+noun names like BlueMountain, GreenCastle
 const ADJECTIVES: &[&str] = &[
-    "Blue", "Green", "Red", "Golden", "Silver", "Crystal", "Dark", "Bright",
-    "Swift", "Calm", "Bold", "Wise", "Noble", "Grand", "Mystic", "Ancient",
-    "Lunar", "Solar", "Azure", "Coral", "Amber", "Jade", "Onyx", "Pearl",
-    "Scarlet", "Violet", "Copper", "Bronze", "Iron", "Steel", "Frost", "Storm",
+    "Blue", "Green", "Red", "Golden", "Silver", "Crystal", "Dark", "Bright", "Swift", "Calm",
+    "Bold", "Wise", "Noble", "Grand", "Mystic", "Ancient", "Lunar", "Solar", "Azure", "Coral",
+    "Amber", "Jade", "Onyx", "Pearl", "Scarlet", "Violet", "Copper", "Bronze", "Iron", "Steel",
+    "Frost", "Storm",
 ];
 
 const NOUNS: &[&str] = &[
-    "Mountain", "Castle", "River", "Forest", "Valley", "Harbor", "Tower", "Bridge",
-    "Falcon", "Phoenix", "Dragon", "Wolf", "Eagle", "Lion", "Hawk", "Owl",
-    "Oak", "Pine", "Willow", "Cedar", "Maple", "Birch", "Ash", "Elm",
-    "Stone", "Crystal", "Star", "Moon", "Sun", "Cloud", "Wind", "Thunder",
+    "Mountain", "Castle", "River", "Forest", "Valley", "Harbor", "Tower", "Bridge", "Falcon",
+    "Phoenix", "Dragon", "Wolf", "Eagle", "Lion", "Hawk", "Owl", "Oak", "Pine", "Willow", "Cedar",
+    "Maple", "Birch", "Ash", "Elm", "Stone", "Crystal", "Star", "Moon", "Sun", "Cloud", "Wind",
+    "Thunder",
 ];
 
 #[derive(Deserialize)]
@@ -548,11 +636,15 @@ pub async fn create_agent_identity(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
 
     // Get existing agent names to avoid collisions
-    let existing_agents = lib_core::model::agent::AgentBmc::list_all_for_project(&ctx, mm, project.id).await?;
-    let existing_names: std::collections::HashSet<String> = existing_agents.iter().map(|a| a.name.clone()).collect();
+    let existing_agents =
+        lib_core::model::agent::AgentBmc::list_all_for_project(&ctx, mm, project.id).await?;
+    let existing_names: std::collections::HashSet<String> =
+        existing_agents.iter().map(|a| a.name.clone()).collect();
 
     // Generate names
     let mut alternatives = Vec::new();
@@ -598,12 +690,16 @@ pub async fn create_agent_identity(
         }
     }
 
-    let suggested_name = alternatives.first().cloned().unwrap_or_else(|| "Agent1".to_string());
+    let suggested_name = alternatives
+        .first()
+        .cloned()
+        .unwrap_or_else(|| "Agent1".to_string());
 
     Ok(Json(CreateAgentIdentityResponse {
         suggested_name,
         alternatives,
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- whois ---
@@ -635,8 +731,12 @@ pub async fn whois(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
-    let agent = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+    let agent =
+        lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name)
+            .await?;
 
     Ok(Json(WhoisResponse {
         id: agent.id,
@@ -650,7 +750,8 @@ pub async fn whois(
         contact_policy: agent.contact_policy,
         project_slug: project.slug,
         project_human_key: project.human_key,
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- list_file_reservations ---
@@ -683,7 +784,9 @@ pub async fn list_file_reservations(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
 
     let reservations = if payload.active_only.unwrap_or(true) {
         FileReservationBmc::list_active_for_project(&ctx, mm, project.id).await?
@@ -743,13 +846,19 @@ pub async fn release_file_reservation(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
-    let agent = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+    let agent =
+        lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name)
+            .await?;
 
     let mut released_ids = Vec::new();
 
     for path in &payload.paths {
-        if let Some(id) = FileReservationBmc::release_by_path(&ctx, mm, project.id, agent.id, path).await? {
+        if let Some(id) =
+            FileReservationBmc::release_by_path(&ctx, mm, project.id, agent.id, path).await?
+        {
             released_ids.push(id);
         }
     }
@@ -757,7 +866,8 @@ pub async fn release_file_reservation(
     Ok(Json(ReleaseFileReservationResponse {
         released_count: released_ids.len(),
         released_ids,
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- get_thread ---
@@ -774,22 +884,33 @@ pub async fn get_thread(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
-    let messages = lib_core::model::message::MessageBmc::list_by_thread(&ctx, mm, project.id, &payload.thread_id).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+    let messages = lib_core::model::message::MessageBmc::list_by_thread(
+        &ctx,
+        mm,
+        project.id,
+        &payload.thread_id,
+    )
+    .await?;
 
-    let responses: Vec<MessageResponse> = messages.into_iter().map(|msg| MessageResponse {
-        id: msg.id,
-        project_id: msg.project_id,
-        sender_id: msg.sender_id,
-        sender_name: msg.sender_name,
-        thread_id: msg.thread_id,
-        subject: msg.subject,
-        body_md: msg.body_md,
-        importance: msg.importance,
-        ack_required: msg.ack_required,
-        created_ts: msg.created_ts,
-        attachments: msg.attachments,
-    }).collect();
+    let responses: Vec<MessageResponse> = messages
+        .into_iter()
+        .map(|msg| MessageResponse {
+            id: msg.id,
+            project_id: msg.project_id,
+            sender_id: msg.sender_id,
+            sender_name: msg.sender_name,
+            thread_id: msg.thread_id,
+            subject: msg.subject,
+            body_md: msg.body_md,
+            importance: msg.importance,
+            ack_required: msg.ack_required,
+            created_ts: msg.created_ts,
+            attachments: msg.attachments,
+        })
+        .collect();
 
     Ok(Json(responses).into_response())
 }
@@ -811,11 +932,16 @@ pub async fn reply_message(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
-    let sender = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.sender_name).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+    let sender =
+        lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.sender_name)
+            .await?;
 
     // Get original message to extract thread_id and original sender as recipient
-    let original_msg = lib_core::model::message::MessageBmc::get(&ctx, mm, payload.message_id).await?;
+    let original_msg =
+        lib_core::model::message::MessageBmc::get(&ctx, mm, payload.message_id).await?;
 
     // Reply goes to the original sender
     let recipient_ids = vec![original_msg.sender_id];
@@ -858,7 +984,8 @@ pub async fn reply_message(
         importance: message.importance,
         ack_required: message.ack_required,
         created_ts: message.created_ts,
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- search_messages ---
@@ -899,19 +1026,31 @@ pub async fn search_messages(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
 
-    let messages = lib_core::model::message::MessageBmc::search(&ctx, mm, project.id, &payload.query, payload.limit).await?;
+    let messages = lib_core::model::message::MessageBmc::search(
+        &ctx,
+        mm,
+        project.id,
+        &payload.query,
+        payload.limit,
+    )
+    .await?;
 
-    let results: Vec<SearchMessageResult> = messages.into_iter().map(|msg| SearchMessageResult {
-        id: msg.id,
-        subject: msg.subject,
-        sender_name: msg.sender_name,
-        thread_id: msg.thread_id,
-        body_md: msg.body_md,
-        importance: msg.importance,
-        created_ts: msg.created_ts,
-    }).collect();
+    let results: Vec<SearchMessageResult> = messages
+        .into_iter()
+        .map(|msg| SearchMessageResult {
+            id: msg.id,
+            subject: msg.subject,
+            sender_name: msg.sender_name,
+            thread_id: msg.thread_id,
+            body_md: msg.body_md,
+            importance: msg.importance,
+            created_ts: msg.created_ts,
+        })
+        .collect();
 
     let count = results.len();
 
@@ -919,7 +1058,8 @@ pub async fn search_messages(
         query: payload.query,
         results,
         count,
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- force_release_reservation ---
@@ -946,7 +1086,8 @@ pub async fn force_release_reservation(
     Ok(Json(ForceReleaseReservationResponse {
         released: true,
         reservation_id: payload.reservation_id,
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- renew_file_reservation ---
@@ -979,7 +1120,8 @@ pub async fn renew_file_reservation(
         renewed: true,
         reservation_id: payload.reservation_id,
         new_expires_ts: new_expires.format("%Y-%m-%dT%H:%M:%S").to_string(),
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- get_project_info ---
@@ -1005,14 +1147,18 @@ pub async fn get_project_info(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
 
     // Count agents
-    let agents = lib_core::model::agent::AgentBmc::list_all_for_project(&ctx, mm, project.id).await?;
+    let agents =
+        lib_core::model::agent::AgentBmc::list_all_for_project(&ctx, mm, project.id).await?;
     let agent_count = agents.len();
 
     // Count messages
-    let message_count = lib_core::model::project::ProjectBmc::count_messages(&ctx, mm, project.id).await?;
+    let message_count =
+        lib_core::model::project::ProjectBmc::count_messages(&ctx, mm, project.id).await?;
 
     Ok(Json(ProjectInfoResponse {
         id: project.id,
@@ -1021,7 +1167,8 @@ pub async fn get_project_info(
         created_at: project.created_at,
         agent_count,
         message_count: message_count as usize,
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- get_agent_profile ---
@@ -1051,16 +1198,25 @@ pub async fn get_agent_profile(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
-    let agent = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+    let agent =
+        lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name)
+            .await?;
 
     // Count sent and received messages
-    let sent_count = lib_core::model::agent::AgentBmc::count_messages_sent(&ctx, mm, agent.id).await?;
-    let received_count = lib_core::model::agent::AgentBmc::count_messages_received(&ctx, mm, agent.id).await?;
+    let sent_count =
+        lib_core::model::agent::AgentBmc::count_messages_sent(&ctx, mm, agent.id).await?;
+    let received_count =
+        lib_core::model::agent::AgentBmc::count_messages_received(&ctx, mm, agent.id).await?;
 
     // Count active reservations
     let reservations = FileReservationBmc::list_active_for_project(&ctx, mm, project.id).await?;
-    let active_reservations = reservations.iter().filter(|r| r.agent_id == agent.id).count();
+    let active_reservations = reservations
+        .iter()
+        .filter(|r| r.agent_id == agent.id)
+        .count();
 
     Ok(Json(AgentProfileResponse {
         id: agent.id,
@@ -1077,7 +1233,8 @@ pub async fn get_agent_profile(
         message_count_sent: sent_count as usize,
         message_count_received: received_count as usize,
         active_reservations,
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- mark_message_read ---
@@ -1101,15 +1258,20 @@ pub async fn mark_message_read(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
-    let agent = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+    let agent =
+        lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name)
+            .await?;
 
     lib_core::model::message::MessageBmc::mark_read(&ctx, mm, payload.message_id, agent.id).await?;
 
     Ok(Json(MarkMessageReadResponse {
         marked: true,
         message_id: payload.message_id,
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- acknowledge_message ---
@@ -1133,15 +1295,21 @@ pub async fn acknowledge_message(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
-    let agent = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+    let agent =
+        lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name)
+            .await?;
 
-    lib_core::model::message::MessageBmc::acknowledge(&ctx, mm, payload.message_id, agent.id).await?;
+    lib_core::model::message::MessageBmc::acknowledge(&ctx, mm, payload.message_id, agent.id)
+        .await?;
 
     Ok(Json(AcknowledgeMessageResponse {
         acknowledged: true,
         message_id: payload.message_id,
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- list_threads ---
@@ -1171,15 +1339,22 @@ pub async fn list_threads(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
-    let threads = lib_core::model::message::MessageBmc::list_threads(&ctx, mm, project.id, payload.limit).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+    let threads =
+        lib_core::model::message::MessageBmc::list_threads(&ctx, mm, project.id, payload.limit)
+            .await?;
 
-    let responses: Vec<ThreadSummaryResponse> = threads.into_iter().map(|t| ThreadSummaryResponse {
-        thread_id: t.thread_id,
-        subject: t.subject,
-        message_count: t.message_count,
-        last_message_ts: t.last_message_ts,
-    }).collect();
+    let responses: Vec<ThreadSummaryResponse> = threads
+        .into_iter()
+        .map(|t| ThreadSummaryResponse {
+            thread_id: t.thread_id,
+            subject: t.subject,
+            message_count: t.message_count,
+            last_message_ts: t.last_message_ts,
+        })
+        .collect();
 
     Ok(Json(responses).into_response())
 }
@@ -1207,8 +1382,12 @@ pub async fn update_agent_profile(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
-    let agent = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+    let agent =
+        lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name)
+            .await?;
 
     let update = lib_core::model::agent::AgentProfileUpdate {
         task_description: payload.task_description,
@@ -1221,7 +1400,8 @@ pub async fn update_agent_profile(
     Ok(Json(UpdateAgentProfileResponse {
         updated: true,
         agent_name: payload.agent_name,
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- request_contact ---
@@ -1247,11 +1427,30 @@ pub async fn request_contact(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let from_project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.from_project_slug).await?;
-    let from_agent = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, from_project.id, &payload.from_agent_name).await?;
+    let from_project = lib_core::model::project::ProjectBmc::get_by_identifier(
+        &ctx,
+        mm,
+        &payload.from_project_slug,
+    )
+    .await?;
+    let from_agent = lib_core::model::agent::AgentBmc::get_by_name(
+        &ctx,
+        mm,
+        from_project.id,
+        &payload.from_agent_name,
+    )
+    .await?;
 
-    let to_project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.to_project_slug).await?;
-    let to_agent = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, to_project.id, &payload.to_agent_name).await?;
+    let to_project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.to_project_slug)
+            .await?;
+    let to_agent = lib_core::model::agent::AgentBmc::get_by_name(
+        &ctx,
+        mm,
+        to_project.id,
+        &payload.to_agent_name,
+    )
+    .await?;
 
     let link_c = lib_core::model::agent_link::AgentLinkForCreate {
         a_project_id: from_project.id,
@@ -1261,12 +1460,14 @@ pub async fn request_contact(
         reason: payload.reason,
     };
 
-    let link_id = lib_core::model::agent_link::AgentLinkBmc::request_contact(&ctx, mm, link_c).await?;
+    let link_id =
+        lib_core::model::agent_link::AgentLinkBmc::request_contact(&ctx, mm, link_c).await?;
 
     Ok(Json(RequestContactResponse {
         link_id,
         status: "pending".to_string(),
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- respond_contact ---
@@ -1289,12 +1490,24 @@ pub async fn respond_contact(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    lib_core::model::agent_link::AgentLinkBmc::respond_contact(&ctx, mm, payload.link_id, payload.accept).await?;
+    lib_core::model::agent_link::AgentLinkBmc::respond_contact(
+        &ctx,
+        mm,
+        payload.link_id,
+        payload.accept,
+    )
+    .await?;
 
     Ok(Json(RespondContactResponse {
         link_id: payload.link_id,
-        status: if payload.accept { "accepted" } else { "rejected" }.to_string(),
-    }).into_response())
+        status: if payload.accept {
+            "accepted"
+        } else {
+            "rejected"
+        }
+        .to_string(),
+    })
+    .into_response())
 }
 
 // --- list_contacts ---
@@ -1321,27 +1534,36 @@ pub async fn list_contacts(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
-    let agent = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+    let agent =
+        lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name)
+            .await?;
 
-    let links = lib_core::model::agent_link::AgentLinkBmc::list_contacts(&ctx, mm, project.id, agent.id).await?;
+    let links =
+        lib_core::model::agent_link::AgentLinkBmc::list_contacts(&ctx, mm, project.id, agent.id)
+            .await?;
 
-    let responses: Vec<ContactResponse> = links.into_iter().map(|link| {
-        // Determine which side is the "other" party
-        let (other_project_id, other_agent_id) = if link.a_agent_id == agent.id {
-            (link.b_project_id, link.b_agent_id)
-        } else {
-            (link.a_project_id, link.a_agent_id)
-        };
-        ContactResponse {
-            id: link.id,
-            other_project_id,
-            other_agent_id,
-            status: link.status,
-            reason: link.reason,
-            created_ts: link.created_ts,
-        }
-    }).collect();
+    let responses: Vec<ContactResponse> = links
+        .into_iter()
+        .map(|link| {
+            // Determine which side is the "other" party
+            let (other_project_id, other_agent_id) = if link.a_agent_id == agent.id {
+                (link.b_project_id, link.b_agent_id)
+            } else {
+                (link.a_project_id, link.a_agent_id)
+            };
+            ContactResponse {
+                id: link.id,
+                other_project_id,
+                other_agent_id,
+                status: link.status,
+                reason: link.reason,
+                created_ts: link.created_ts,
+            }
+        })
+        .collect();
 
     Ok(Json(responses).into_response())
 }
@@ -1352,7 +1574,7 @@ pub async fn list_contacts(
 pub struct SetContactPolicyPayload {
     pub project_slug: String,
     pub agent_name: String,
-    pub contact_policy: String,  // "auto", "manual", "deny"
+    pub contact_policy: String, // "auto", "manual", "deny"
 }
 
 #[derive(Serialize)]
@@ -1368,8 +1590,12 @@ pub async fn set_contact_policy(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
-    let agent = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+    let agent =
+        lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name)
+            .await?;
 
     let update = lib_core::model::agent::AgentProfileUpdate {
         task_description: None,
@@ -1382,7 +1608,8 @@ pub async fn set_contact_policy(
     Ok(Json(SetContactPolicyResponse {
         updated: true,
         contact_policy: payload.contact_policy,
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- acquire_build_slot ---
@@ -1396,7 +1623,7 @@ pub struct AcquireBuildSlotPayload {
 }
 
 fn default_build_slot_ttl() -> i64 {
-    1800  // 30 minutes default
+    1800 // 30 minutes default
 }
 
 #[derive(Serialize)]
@@ -1413,8 +1640,12 @@ pub async fn acquire_build_slot(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
-    let agent = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+    let agent =
+        lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name)
+            .await?;
 
     let slot_c = lib_core::model::build_slot::BuildSlotForCreate {
         project_id: project.id,
@@ -1430,7 +1661,8 @@ pub async fn acquire_build_slot(
         slot_id,
         slot_name: payload.slot_name,
         expires_ts: expires.format("%Y-%m-%dT%H:%M:%S").to_string(),
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- renew_build_slot ---
@@ -1455,13 +1687,20 @@ pub async fn renew_build_slot(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let new_expires = lib_core::model::build_slot::BuildSlotBmc::renew(&ctx, mm, payload.slot_id, payload.ttl_seconds).await?;
+    let new_expires = lib_core::model::build_slot::BuildSlotBmc::renew(
+        &ctx,
+        mm,
+        payload.slot_id,
+        payload.ttl_seconds,
+    )
+    .await?;
 
     Ok(Json(RenewBuildSlotResponse {
         renewed: true,
         slot_id: payload.slot_id,
         new_expires_ts: new_expires.format("%Y-%m-%dT%H:%M:%S").to_string(),
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- release_build_slot ---
@@ -1488,7 +1727,8 @@ pub async fn release_build_slot(
     Ok(Json(ReleaseBuildSlotResponse {
         released: true,
         slot_id: payload.slot_id,
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- send_overseer_message ---
@@ -1515,8 +1755,12 @@ pub async fn send_overseer_message(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
-    let agent = lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+    let agent =
+        lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name)
+            .await?;
 
     let msg_c = lib_core::model::overseer_message::OverseerMessageForCreate {
         project_id: project.id,
@@ -1526,12 +1770,14 @@ pub async fn send_overseer_message(
         importance: payload.importance.unwrap_or_else(|| "normal".to_string()),
     };
 
-    let message_id = lib_core::model::overseer_message::OverseerMessageBmc::create(&ctx, mm, msg_c).await?;
+    let message_id =
+        lib_core::model::overseer_message::OverseerMessageBmc::create(&ctx, mm, msg_c).await?;
 
     Ok(Json(SendOverseerMessageResponse {
         sent: true,
         message_id,
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- list_macros ---
@@ -1555,15 +1801,20 @@ pub async fn list_macros(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
     let macros = lib_core::model::macro_def::MacroDefBmc::list(&ctx, mm, project.id).await?;
 
-    let responses: Vec<MacroResponse> = macros.into_iter().map(|m| MacroResponse {
-        id: m.id,
-        name: m.name,
-        description: m.description,
-        step_count: m.steps.len(),
-    }).collect();
+    let responses: Vec<MacroResponse> = macros
+        .into_iter()
+        .map(|m| MacroResponse {
+            id: m.id,
+            name: m.name,
+            description: m.description,
+            step_count: m.steps.len(),
+        })
+        .collect();
 
     Ok(Json(responses).into_response())
 }
@@ -1590,7 +1841,9 @@ pub async fn register_macro(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
 
     let macro_c = lib_core::model::macro_def::MacroDefForCreate {
         project_id: project.id,
@@ -1604,7 +1857,8 @@ pub async fn register_macro(
     Ok(Json(RegisterMacroResponse {
         macro_id,
         name: payload.name,
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- unregister_macro ---
@@ -1627,13 +1881,18 @@ pub async fn unregister_macro(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
-    let deleted = lib_core::model::macro_def::MacroDefBmc::delete(&ctx, mm, project.id, &payload.name).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+    let deleted =
+        lib_core::model::macro_def::MacroDefBmc::delete(&ctx, mm, project.id, &payload.name)
+            .await?;
 
     Ok(Json(UnregisterMacroResponse {
         deleted,
         name: payload.name,
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- invoke_macro ---
@@ -1659,16 +1918,24 @@ pub async fn invoke_macro(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
-    let macro_def = lib_core::model::macro_def::MacroDefBmc::get_by_name(&ctx, mm, project.id, &payload.name).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+    let macro_def =
+        lib_core::model::macro_def::MacroDefBmc::get_by_name(&ctx, mm, project.id, &payload.name)
+            .await?;
 
     // Return the steps - actual execution is client-side
     let step_count = macro_def.steps.len();
     Ok(Json(InvokeMacroResponse {
         name: macro_def.name,
         steps: macro_def.steps,
-        message: format!("Macro '{}' has {} steps to execute", payload.name, step_count),
-    }).into_response())
+        message: format!(
+            "Macro '{}' has {} steps to execute",
+            payload.name, step_count
+        ),
+    })
+    .into_response())
 }
 
 // --- summarize_thread ---
@@ -1689,15 +1956,19 @@ pub struct SummarizeThreadResponse {
 }
 
 // Helper to call OpenAI API
-async fn call_openai_summarize(messages: &[lib_core::model::message::Message]) -> crate::error::Result<String> {
+async fn call_openai_summarize(
+    messages: &[lib_core::model::message::Message],
+) -> crate::error::Result<String> {
     let api_key = std::env::var("OPENAI_API_KEY").unwrap_or_default();
     if api_key.is_empty() {
         return Ok(String::new());
     }
 
-    let prompt = messages.iter().map(|m| {
-        format!("{}: {}", m.sender_name, m.body_md)
-    }).collect::<Vec<_>>().join("\n\n");
+    let prompt = messages
+        .iter()
+        .map(|m| format!("{}: {}", m.sender_name, m.body_md))
+        .collect::<Vec<_>>()
+        .join("\n\n");
 
     let client = reqwest::Client::new();
     let resp = client.post("https://api.openai.com/v1/chat/completions")
@@ -1715,13 +1986,16 @@ async fn call_openai_summarize(messages: &[lib_core::model::message::Message]) -
         .map_err(|e| anyhow::anyhow!("OpenAI request failed: {}", e))?;
 
     if !resp.status().is_success() {
-         return Err(anyhow::anyhow!("OpenAI API error: {}", resp.status()).into());
+        return Err(anyhow::anyhow!("OpenAI API error: {}", resp.status()).into());
     }
 
-    let json: serde_json::Value = resp.json().await
-         .map_err(|e| anyhow::anyhow!("Failed to parse OpenAI response: {}", e))?;
+    let json: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| anyhow::anyhow!("Failed to parse OpenAI response: {}", e))?;
 
-    let summary = json["choices"][0]["message"]["content"].as_str()
+    let summary = json["choices"][0]["message"]["content"]
+        .as_str()
         .unwrap_or("Failed to extract summary")
         .to_string();
 
@@ -1735,14 +2009,25 @@ pub async fn summarize_thread(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
-    let messages = lib_core::model::message::MessageBmc::list_by_thread(&ctx, mm, project.id, &payload.thread_id).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+    let messages = lib_core::model::message::MessageBmc::list_by_thread(
+        &ctx,
+        mm,
+        project.id,
+        &payload.thread_id,
+    )
+    .await?;
 
     let mut participants: Vec<String> = messages.iter().map(|m| m.sender_name.clone()).collect();
     participants.sort();
     participants.dedup();
 
-    let subject = messages.first().map(|m| m.subject.clone()).unwrap_or_default();
+    let subject = messages
+        .first()
+        .map(|m| m.subject.clone())
+        .unwrap_or_default();
 
     // Try LLM summarization
     let llm_summary = call_openai_summarize(&messages).await?;
@@ -1755,7 +2040,10 @@ pub async fn summarize_thread(
             "Thread with {} messages from {} participants. Latest: {}",
             messages.len(),
             participants.len(),
-            messages.last().map(|m| m.body_md.chars().take(100).collect::<String>()).unwrap_or_default()
+            messages
+                .last()
+                .map(|m| m.body_md.chars().take(100).collect::<String>())
+                .unwrap_or_default()
         )
     };
 
@@ -1765,7 +2053,8 @@ pub async fn summarize_thread(
         participants,
         subject,
         summary,
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- summarize_threads (batch) ---
@@ -1791,15 +2080,22 @@ pub async fn summarize_threads(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
-    let threads = lib_core::model::message::MessageBmc::list_threads(&ctx, mm, project.id, payload.limit).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+    let threads =
+        lib_core::model::message::MessageBmc::list_threads(&ctx, mm, project.id, payload.limit)
+            .await?;
 
-    let summaries: Vec<ThreadSummaryBrief> = threads.into_iter().map(|t| ThreadSummaryBrief {
-        thread_id: t.thread_id,
-        subject: t.subject,
-        message_count: t.message_count,
-        last_message_ts: t.last_message_ts,
-    }).collect();
+    let summaries: Vec<ThreadSummaryBrief> = threads
+        .into_iter()
+        .map(|t| ThreadSummaryBrief {
+            thread_id: t.thread_id,
+            subject: t.subject,
+            message_count: t.message_count,
+            last_message_ts: t.last_message_ts,
+        })
+        .collect();
 
     Ok(Json(summaries).into_response())
 }
@@ -1826,14 +2122,17 @@ pub async fn install_precommit_guard(
     let mm = &app_state.mm;
 
     // Verify project exists
-    let _project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
+    let _project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
 
     let target_path = std::path::PathBuf::from(&payload.target_repo_path);
     let hooks_dir = target_path.join(".git").join("hooks");
     let hook_path = hooks_dir.join("pre-commit");
 
     // Create the pre-commit hook script
-    let hook_script = format!(r#"#!/bin/sh
+    let hook_script = format!(
+        r#"#!/bin/sh
 # MCP Agent Mail Pre-commit Guard
 # Installed for project: {}
 
@@ -1849,7 +2148,9 @@ fi
 # See bd-577.9 for full implementation
 echo "MCP Agent Mail: Pre-commit guard active"
 exit 0
-"#, payload.project_slug);
+"#,
+        payload.project_slug
+    );
 
     // Ensure hooks directory exists
     if !hooks_dir.exists() {
@@ -1871,8 +2172,12 @@ exit 0
     Ok(Json(InstallPrecommitGuardResponse {
         installed: true,
         hook_path: hook_path.to_string_lossy().to_string(),
-        message: format!("Pre-commit guard installed for project '{}'", payload.project_slug),
-    }).into_response())
+        message: format!(
+            "Pre-commit guard installed for project '{}'",
+            payload.project_slug
+        ),
+    })
+    .into_response())
 }
 
 // --- uninstall_precommit_guard ---
@@ -1902,24 +2207,23 @@ pub async fn uninstall_precommit_guard(
             return Ok(Json(UninstallPrecommitGuardResponse {
                 uninstalled: true,
                 message: "Pre-commit guard removed".to_string(),
-            }).into_response());
+            })
+            .into_response());
         } else {
             return Ok(Json(UninstallPrecommitGuardResponse {
                 uninstalled: false,
                 message: "Pre-commit hook exists but is not an MCP Agent Mail guard".to_string(),
-            }).into_response());
+            })
+            .into_response());
         }
     }
 
     Ok(Json(UninstallPrecommitGuardResponse {
         uninstalled: false,
         message: "No pre-commit hook found".to_string(),
-    }).into_response())
+    })
+    .into_response())
 }
-
-
-
-
 
 // --- Metrics ---
 
@@ -1934,11 +2238,11 @@ pub async fn list_tool_metrics(
     Query(params): Query<ListMetricsParams>,
 ) -> crate::error::Result<Response> {
     use lib_core::model::tool_metric::ToolMetricBmc;
-    
+
     let ctx = Ctx::root_ctx();
     let limit = params.limit.unwrap_or(50);
     let metrics = ToolMetricBmc::list_recent(&ctx, &state.mm, params.project_id, limit).await?;
-    
+
     Ok(Json(metrics).into_response())
 }
 
@@ -1947,10 +2251,10 @@ pub async fn get_tool_stats(
     Query(params): Query<ListMetricsParams>,
 ) -> crate::error::Result<Response> {
     use lib_core::model::tool_metric::ToolMetricBmc;
-    
+
     let ctx = Ctx::root_ctx();
     let stats = ToolMetricBmc::get_stats(&ctx, &state.mm, params.project_id).await?;
-    
+
     Ok(Json(stats).into_response())
 }
 
@@ -1967,11 +2271,11 @@ pub async fn list_activity(
     Query(params): Query<ListActivityParams>,
 ) -> crate::error::Result<Response> {
     use lib_core::model::activity::ActivityBmc;
-    
+
     let ctx = Ctx::root_ctx();
     let limit = params.limit.unwrap_or(50);
     let items = ActivityBmc::list_recent(&ctx, &state.mm, params.project_id, limit).await?;
-    
+
     Ok(Json(items).into_response())
 }
 
@@ -1995,12 +2299,19 @@ pub async fn commit_archive(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let commit_id = lib_core::model::export::ExportBmc::commit_archive(&ctx, mm, &payload.project_slug, &payload.message).await?;
+    let commit_id = lib_core::model::export::ExportBmc::commit_archive(
+        &ctx,
+        mm,
+        &payload.project_slug,
+        &payload.message,
+    )
+    .await?;
 
     Ok(Json(CommitArchiveResponse {
         commit_id,
         project_slug: payload.project_slug,
-    }).into_response())
+    })
+    .into_response())
 }
 
 // --- list_project_siblings ---
@@ -2025,20 +2336,31 @@ pub async fn list_project_siblings(
     let ctx = Ctx::root_ctx();
     let mm = &app_state.mm;
 
-    let project = lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
-    let siblings = lib_core::model::project_sibling_suggestion::ProjectSiblingSuggestionBmc::list(&ctx, mm, project.id).await?;
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+    let siblings = lib_core::model::project_sibling_suggestion::ProjectSiblingSuggestionBmc::list(
+        &ctx, mm, project.id,
+    )
+    .await?;
 
-    let responses: Vec<ProjectSiblingResponse> = siblings.into_iter().map(|s| {
-        let other_id = if s.project_a_id == project.id { s.project_b_id } else { s.project_a_id };
-        ProjectSiblingResponse {
-            id: s.id,
-            other_project_id: other_id,
-            score: s.score,
-            status: s.status,
-            rationale: s.rationale,
-        }
-    }).collect();
+    let responses: Vec<ProjectSiblingResponse> = siblings
+        .into_iter()
+        .map(|s| {
+            let other_id = if s.project_a_id == project.id {
+                s.project_b_id
+            } else {
+                s.project_a_id
+            };
+            ProjectSiblingResponse {
+                id: s.id,
+                other_project_id: other_id,
+                score: s.score,
+                status: s.status,
+                rationale: s.rationale,
+            }
+        })
+        .collect();
 
     Ok(Json(responses).into_response())
 }
-

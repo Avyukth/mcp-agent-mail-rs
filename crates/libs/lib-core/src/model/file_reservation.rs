@@ -1,9 +1,9 @@
-use crate::model::ModelManager;
 use crate::Result;
+use crate::model::ModelManager;
 use crate::store::git_store;
-use serde::{Deserialize, Serialize};
 use chrono::NaiveDateTime;
-use sha1::{Sha1, Digest};
+use serde::{Deserialize, Serialize};
+use sha1::{Digest, Sha1};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FileReservation {
@@ -31,9 +31,13 @@ pub struct FileReservationForCreate {
 pub struct FileReservationBmc;
 
 impl FileReservationBmc {
-    pub async fn create(_ctx: &crate::Ctx, mm: &ModelManager, fr_c: FileReservationForCreate) -> Result<i64> {
+    pub async fn create(
+        _ctx: &crate::Ctx,
+        mm: &ModelManager,
+        fr_c: FileReservationForCreate,
+    ) -> Result<i64> {
         let db = mm.db();
-        
+
         let stmt = db.prepare(
             r#"
             INSERT INTO file_reservations (project_id, agent_id, path_pattern, exclusive, reason, expires_ts)
@@ -41,23 +45,27 @@ impl FileReservationBmc {
             RETURNING id
             "#
         ).await?;
-        
+
         // Format datetime as string for SQLite
         let expires_ts_str = fr_c.expires_ts.format("%Y-%m-%d %H:%M:%S").to_string();
 
-        let mut rows = stmt.query((
-            fr_c.project_id,
-            fr_c.agent_id,
-            fr_c.path_pattern.as_str(),
-            fr_c.exclusive,
-            fr_c.reason.as_str(),
-            expires_ts_str,
-        )).await?;
+        let mut rows = stmt
+            .query((
+                fr_c.project_id,
+                fr_c.agent_id,
+                fr_c.path_pattern.as_str(),
+                fr_c.exclusive,
+                fr_c.reason.as_str(),
+                expires_ts_str,
+            ))
+            .await?;
 
         let id = if let Some(row) = rows.next().await? {
             row.get::<i64>(0)?
         } else {
-            return Err(crate::Error::InvalidInput("Failed to create file reservation".into()));
+            return Err(crate::Error::InvalidInput(
+                "Failed to create file reservation".into(),
+            ));
         };
 
         // Write to Git
@@ -66,7 +74,10 @@ impl FileReservationBmc {
         let project_slug: String = if let Some(row) = rows.next().await? {
             row.get(0)?
         } else {
-             return Err(crate::Error::ProjectNotFound(format!("{}", fr_c.project_id)));
+            return Err(crate::Error::ProjectNotFound(format!(
+                "{}",
+                fr_c.project_id
+            )));
         };
 
         let stmt = db.prepare("SELECT name FROM agents WHERE id = ?").await?;
@@ -74,7 +85,7 @@ impl FileReservationBmc {
         let agent_name: String = if let Some(row) = rows.next().await? {
             row.get(0)?
         } else {
-             return Err(crate::Error::AgentNotFound(format!("{}", fr_c.agent_id)));
+            return Err(crate::Error::AgentNotFound(format!("{}", fr_c.agent_id)));
         };
 
         // Git Operations - serialized to prevent lock contention
@@ -119,7 +130,11 @@ impl FileReservationBmc {
         Ok(id)
     }
 
-    pub async fn list_active_for_project(_ctx: &crate::Ctx, mm: &ModelManager, project_id: i64) -> Result<Vec<FileReservation>> {
+    pub async fn list_active_for_project(
+        _ctx: &crate::Ctx,
+        mm: &ModelManager,
+        project_id: i64,
+    ) -> Result<Vec<FileReservation>> {
         let db = mm.db();
         // Select active (not released). Checking expiry is better done in app logic or filter
         let stmt = db.prepare(
@@ -131,14 +146,14 @@ impl FileReservationBmc {
             "#
         ).await?;
         let mut rows = stmt.query([project_id]).await?;
-        
+
         let mut reservations = Vec::new();
         while let Some(row) = rows.next().await? {
             reservations.push(Self::from_row(row)?);
         }
         Ok(reservations)
     }
-    
+
     pub async fn get(_ctx: &crate::Ctx, mm: &ModelManager, id: i64) -> Result<FileReservation> {
         let db = mm.db();
         let stmt = db.prepare(
@@ -149,7 +164,7 @@ impl FileReservationBmc {
             "#
         ).await?;
         let mut rows = stmt.query([id]).await?;
-        
+
         if let Some(row) = rows.next().await? {
             Ok(Self::from_row(row)?)
         } else {
@@ -162,17 +177,23 @@ impl FileReservationBmc {
         let now = chrono::Utc::now().naive_utc();
         let now_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
 
-        let stmt = db.prepare(
-            r#"
+        let stmt = db
+            .prepare(
+                r#"
             UPDATE file_reservations SET released_ts = ? WHERE id = ?
-            "#
-        ).await?;
+            "#,
+            )
+            .await?;
 
         stmt.execute((now_str, id)).await?;
         Ok(())
     }
 
-    pub async fn list_all_for_project(_ctx: &crate::Ctx, mm: &ModelManager, project_id: i64) -> Result<Vec<FileReservation>> {
+    pub async fn list_all_for_project(
+        _ctx: &crate::Ctx,
+        mm: &ModelManager,
+        project_id: i64,
+    ) -> Result<Vec<FileReservation>> {
         let db = mm.db();
         let stmt = db.prepare(
             r#"
@@ -191,29 +212,39 @@ impl FileReservationBmc {
         Ok(reservations)
     }
 
-    pub async fn release_by_path(_ctx: &crate::Ctx, mm: &ModelManager, project_id: i64, agent_id: i64, path_pattern: &str) -> Result<Option<i64>> {
+    pub async fn release_by_path(
+        _ctx: &crate::Ctx,
+        mm: &ModelManager,
+        project_id: i64,
+        agent_id: i64,
+        path_pattern: &str,
+    ) -> Result<Option<i64>> {
         let db = mm.db();
         let now = chrono::Utc::now().naive_utc();
         let now_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
 
         // Find active reservation matching path
-        let stmt = db.prepare(
-            r#"
+        let stmt = db
+            .prepare(
+                r#"
             SELECT id FROM file_reservations
             WHERE project_id = ? AND agent_id = ? AND path_pattern = ? AND released_ts IS NULL
-            "#
-        ).await?;
+            "#,
+            )
+            .await?;
         let mut rows = stmt.query((project_id, agent_id, path_pattern)).await?;
 
         if let Some(row) = rows.next().await? {
             let id: i64 = row.get(0)?;
 
             // Release it
-            let stmt = db.prepare(
-                r#"
+            let stmt = db
+                .prepare(
+                    r#"
                 UPDATE file_reservations SET released_ts = ? WHERE id = ?
-                "#
-            ).await?;
+                "#,
+                )
+                .await?;
             stmt.execute((now_str, id)).await?;
 
             Ok(Some(id))
@@ -223,30 +254,43 @@ impl FileReservationBmc {
     }
 
     /// Force release a reservation by ID (any agent can call this for emergencies)
-    pub async fn force_release(_ctx: &crate::Ctx, mm: &ModelManager, reservation_id: i64) -> Result<()> {
+    pub async fn force_release(
+        _ctx: &crate::Ctx,
+        mm: &ModelManager,
+        reservation_id: i64,
+    ) -> Result<()> {
         let db = mm.db();
         let now = chrono::Utc::now().naive_utc();
         let now_str = now.format("%Y-%m-%d %H:%M:%S").to_string();
 
-        let stmt = db.prepare(
-            r#"
+        let stmt = db
+            .prepare(
+                r#"
             UPDATE file_reservations SET released_ts = ? WHERE id = ? AND released_ts IS NULL
-            "#
-        ).await?;
+            "#,
+            )
+            .await?;
         stmt.execute((now_str, reservation_id)).await?;
         Ok(())
     }
 
     /// Renew (extend) a file reservation's TTL
-    pub async fn renew(_ctx: &crate::Ctx, mm: &ModelManager, reservation_id: i64, new_expires_ts: chrono::NaiveDateTime) -> Result<()> {
+    pub async fn renew(
+        _ctx: &crate::Ctx,
+        mm: &ModelManager,
+        reservation_id: i64,
+        new_expires_ts: chrono::NaiveDateTime,
+    ) -> Result<()> {
         let db = mm.db();
         let expires_str = new_expires_ts.format("%Y-%m-%d %H:%M:%S").to_string();
 
-        let stmt = db.prepare(
-            r#"
+        let stmt = db
+            .prepare(
+                r#"
             UPDATE file_reservations SET expires_ts = ? WHERE id = ? AND released_ts IS NULL
-            "#
-        ).await?;
+            "#,
+            )
+            .await?;
         stmt.execute((expires_str, reservation_id)).await?;
         Ok(())
     }
@@ -256,11 +300,11 @@ impl FileReservationBmc {
         let expires_ts_str: String = row.get(7).unwrap_or_default();
         let released_ts_str: Option<String> = row.get(8).unwrap_or_default();
 
-        let created_ts = NaiveDateTime::parse_from_str(&created_ts_str, "%Y-%m-%d %H:%M:%S")
-            .unwrap_or_default();
-        let expires_ts = NaiveDateTime::parse_from_str(&expires_ts_str, "%Y-%m-%d %H:%M:%S")
-            .unwrap_or_default();
-        
+        let created_ts =
+            NaiveDateTime::parse_from_str(&created_ts_str, "%Y-%m-%d %H:%M:%S").unwrap_or_default();
+        let expires_ts =
+            NaiveDateTime::parse_from_str(&expires_ts_str, "%Y-%m-%d %H:%M:%S").unwrap_or_default();
+
         let released_ts = if let Some(s) = released_ts_str {
             NaiveDateTime::parse_from_str(&s, "%Y-%m-%d %H:%M:%S").ok()
         } else {

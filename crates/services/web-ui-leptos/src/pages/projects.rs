@@ -1,8 +1,8 @@
 //! Projects page - list and create projects.
 //! Digital Correspondence design with Lucide icons.
 
-use leptos::prelude::*;
 use crate::api::client::{self, Project};
+use leptos::prelude::*;
 
 /// Projects page component.
 #[component]
@@ -47,7 +47,7 @@ pub fn Projects() -> impl IntoView {
 
         creating.set(true);
         error.set(None);
-        
+
         leptos::task::spawn_local(async move {
             match client::ensure_project(&path).await {
                 Ok(_) => {

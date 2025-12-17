@@ -1,10 +1,10 @@
 use anyhow::Result;
-use tokio::io::{stdin, stdout};
-use rmcp::ServiceExt;
 use lib_common::config::McpConfig;
+use rmcp::ServiceExt;
+use tokio::io::{stdin, stdout};
 
-pub mod tools;
 pub mod docs;
+pub mod tools;
 use tools::AgentMailService;
 
 pub async fn run_stdio(_config: McpConfig) -> Result<()> {
@@ -13,7 +13,7 @@ pub async fn run_stdio(_config: McpConfig) -> Result<()> {
     // requires logs to go to stderr. The unified binary setup_tracing usually does this if not json.
     // However, we should ensure we don't interfere if already set up.
     // But mcp-stdio logic specifically sets a filter.
-    
+
     // For now, assuming tracing is set up by the caller.
 
     tracing::info!("Starting MCP Agent Mail server (stdio mode)...");
@@ -36,14 +36,17 @@ pub async fn run_stdio(_config: McpConfig) -> Result<()> {
 
 pub async fn run_sse(config: McpConfig) -> Result<()> {
     use rmcp::transport::streamable_http_server::{
-        tower::{StreamableHttpService, StreamableHttpServerConfig},
         session::local::LocalSessionManager,
+        tower::{StreamableHttpServerConfig, StreamableHttpService},
     };
     use std::net::SocketAddr;
     use std::sync::Arc;
 
     let addr: SocketAddr = format!("0.0.0.0:{}", config.port).parse()?;
-    tracing::info!("Starting MCP Agent Mail server (HTTP/SSE mode) on http://{}", addr);
+    tracing::info!(
+        "Starting MCP Agent Mail server (HTTP/SSE mode) on http://{}",
+        addr
+    );
 
     // Create session manager for stateful connections
     let session_manager = Arc::new(LocalSessionManager::default());
@@ -57,25 +60,21 @@ pub async fn run_sse(config: McpConfig) -> Result<()> {
         // We'll use a blocking approach here for simplicity, or handle via tokio::spawn if structure allows
         let rt = tokio::runtime::Handle::current();
         rt.block_on(async {
-            AgentMailService::new().await
+            AgentMailService::new()
+                .await
                 .map_err(|e| std::io::Error::other(e.to_string()))
         })
     };
 
     // Create the StreamableHttpService (tower-compatible)
-    let mcp_service = StreamableHttpService::new(
-        service_factory,
-        session_manager,
-        config,
-    );
+    let mcp_service = StreamableHttpService::new(service_factory, session_manager, config);
 
     tracing::info!("HTTP/SSE MCP endpoints:");
     tracing::info!("  - POST http://{}/mcp (for tool calls)", addr);
     tracing::info!("  - GET  http://{}/mcp (for SSE stream)", addr);
 
     // Create an Axum app with the MCP service
-    let app = axum::Router::new()
-        .route("/mcp", axum::routing::any_service(mcp_service));
+    let app = axum::Router::new().route("/mcp", axum::routing::any_service(mcp_service));
 
     // Run the server
     let listener = tokio::net::TcpListener::bind(addr).await?;

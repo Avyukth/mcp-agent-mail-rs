@@ -3,20 +3,20 @@
 //! This module provides the HTTP/SSE endpoint for MCP protocol at `/mcp`.
 //! It integrates lib-mcp's AgentMailService with Axum's routing system.
 
-use std::sync::Arc;
 use axum::{
+    Router,
     body::Body,
     http::{Request, Response},
     routing::any_service,
-    Router,
 };
-use rmcp::transport::streamable_http_server::{
-    tower::{StreamableHttpService, StreamableHttpServerConfig},
-    session::local::LocalSessionManager,
-};
-use tower::ServiceExt;
-use lib_mcp::tools::AgentMailService;
 use lib_core::ModelManager;
+use lib_mcp::tools::AgentMailService;
+use rmcp::transport::streamable_http_server::{
+    session::local::LocalSessionManager,
+    tower::{StreamableHttpServerConfig, StreamableHttpService},
+};
+use std::sync::Arc;
+use tower::ServiceExt;
 
 use crate::AppState;
 
@@ -42,11 +42,7 @@ fn create_mcp_service(mm: ModelManager) -> StreamableHttpService<AgentMailServic
     };
 
     // Create the StreamableHttpService (tower-compatible)
-    StreamableHttpService::new(
-        service_factory,
-        session_manager,
-        config,
-    )
+    StreamableHttpService::new(service_factory, session_manager, config)
 }
 
 /// Get the MCP route for integration into the main router
@@ -69,6 +65,5 @@ pub fn mcp_routes(mm: ModelManager) -> Router<AppState> {
         }
     });
 
-    Router::new()
-        .route("/mcp", any_service(wrapped_service))
+    Router::new().route("/mcp", any_service(wrapped_service))
 }

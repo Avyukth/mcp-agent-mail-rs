@@ -1,5 +1,5 @@
-use lib_server::run;
 use lib_common::{config::AppConfig, tracing::setup_tracing};
+use lib_server::run;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -15,10 +15,10 @@ async fn main() -> anyhow::Result<()> {
     // But let's rely on standard AppConfig. If user sets `MOUCHAK_SERVER__PORT`, it works.
     // If they set `PORT`, we might lose it unless AppConfig checks it.
     // For now, let's just use AppConfig.
-    
+
     let config = AppConfig::load()?;
     tracing::info!("Loaded config: {:?}", config.server);
-    
+
     // 3. Run Server
     run(config.server).await?;
     Ok(())

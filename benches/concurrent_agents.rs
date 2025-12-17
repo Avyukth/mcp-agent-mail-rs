@@ -11,8 +11,8 @@
 
 use std::fs::OpenOptions;
 use std::io::Write;
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 use anyhow::Result;
@@ -101,7 +101,12 @@ impl AtomicStats {
         }
     }
 
-    async fn finalize(&self, duration: Duration, label: &str, target_rate_str: &str) -> BenchmarkStats {
+    async fn finalize(
+        &self,
+        duration: Duration,
+        label: &str,
+        target_rate_str: &str,
+    ) -> BenchmarkStats {
         let successful = self.successful.load(Ordering::Relaxed);
         let failed = self.failed.load(Ordering::Relaxed);
         let total = successful + failed;
@@ -114,7 +119,7 @@ impl AtomicStats {
 
         let mut latencies = self.latencies.lock().await;
         latencies.sort_unstable();
-        
+
         // P99
         let p99 = if !latencies.is_empty() {
             let idx = (latencies.len() as f64 * 0.99) as usize;
@@ -165,24 +170,34 @@ async fn run_load_test(
     client: &Client,
     label: &str,
     target_rate: Option<u64>,
-    task_fn: impl Fn(usize, Client, Arc<AtomicStats>) -> tokio::task::JoinHandle<()> + Send + Sync + Clone + 'static,
+    task_fn: impl Fn(usize, Client, Arc<AtomicStats>) -> tokio::task::JoinHandle<()>
+    + Send
+    + Sync
+    + Clone
+    + 'static,
 ) -> Result<BenchmarkStats> {
-    let target_rate_str = target_rate.map(|r| format!("{} req/s", r)).unwrap_or_else(|| "Full Speed".to_string());
+    let target_rate_str = target_rate
+        .map(|r| format!("{} req/s", r))
+        .unwrap_or_else(|| "Full Speed".to_string());
     println!("\nTesting: {} (rate: {})", label, target_rate_str);
     println!("----------------------------------------");
 
     let stats = Arc::new(AtomicStats::new());
-    
+
     // Rate setup
     // If target_rate is set, we need to throttle.
     // simplistic approach: rate per agent = target_rate / agents.
     // Interval between requests = 1 / rate_per_agent.
     let interval_per_agent = if let Some(rate) = target_rate {
-        if rate == 0 { None } 
-        else {
-             let r_per_agent = rate as f64 / config.agents as f64;
-             if r_per_agent <= 0.0 { None }
-             else { Some(Duration::from_secs_f64(1.0 / r_per_agent)) }
+        if rate == 0 {
+            None
+        } else {
+            let r_per_agent = rate as f64 / config.agents as f64;
+            if r_per_agent <= 0.0 {
+                None
+            } else {
+                Some(Duration::from_secs_f64(1.0 / r_per_agent))
+            }
         }
     } else {
         None
@@ -191,14 +206,14 @@ async fn run_load_test(
     // We run for a fixed duration.
     // We can't just spawn N loops that check time, because we need to act like 'hey'.
     // 'hey' spawns N workers and they run until duration expires.
-    
+
     let start_time = Instant::now();
     let duration_secs = config.duration_secs; // Extract Copy type to move into spawn
-    
+
     // Shared flag for stopping
     let running = Arc::new(std::sync::atomic::AtomicBool::new(true));
     let r_clone = running.clone();
-    
+
     tokio::spawn(async move {
         sleep(Duration::from_secs(duration_secs)).await;
         r_clone.store(false, Ordering::Relaxed);
@@ -208,7 +223,7 @@ async fn run_load_test(
     let semaphore = Arc::new(Semaphore::new(config.agents));
 
     // For the "Logic" function, we need to pass a generator that respects the interval
-    
+
     for i in 0..config.agents {
         let client_clone = client.clone();
         let stats_clone = stats.clone();
@@ -219,7 +234,7 @@ async fn run_load_test(
         // Wrapper to enforce loop and interval
         let h = tokio::spawn(async move {
             let mut tick_next = Instant::now();
-            
+
             while running_clone.load(Ordering::Relaxed) {
                 // Throttle
                 if let Some(interval) = interval_per_agent {
@@ -244,13 +259,15 @@ async fn run_load_test(
     for h in handles {
         let _ = h.await;
     }
-    
+
     let actual_duration = start_time.elapsed();
-    let result = stats.finalize(actual_duration, label, &target_rate_str).await;
+    let result = stats
+        .finalize(actual_duration, label, &target_rate_str)
+        .await;
 
     // Print inline result
     let color_code = match result.result_status.as_str() {
-        "OK" => "\x1b[0;32m", // Green
+        "OK" => "\x1b[0;32m",   // Green
         "EDGE" => "\x1b[1;33m", // Yellow
         "FAIL" => "\x1b[0;31m", // Red
         _ => "\x1b[0m",
@@ -259,12 +276,16 @@ async fn run_load_test(
 
     println!(
         "  Rate: {:.0} req/s | Success: {:.1}% | P99: {}ms | {}{}{}",
-        result.actual_rate, result.success_rate, result.p99_latency_ms, color_code, result.result_status, reset
+        result.actual_rate,
+        result.success_rate,
+        result.p99_latency_ms,
+        color_code,
+        result.result_status,
+        reset
     );
 
     Ok(result)
 }
-
 
 #[tokio::main]
 async fn main() -> Result<()> {
@@ -273,26 +294,32 @@ async fn main() -> Result<()> {
     let mut port = 8765;
     let mut agents = 100;
     let mut duration = 10;
-    
+
     let mut i = 1;
     while i < args.len() {
         match args[i].as_str() {
             "--port" => {
-                 if let Some(p) = args.get(i+1) { port = p.parse().unwrap_or(8765); }
-                 i += 2; 
-            },
+                if let Some(p) = args.get(i + 1) {
+                    port = p.parse().unwrap_or(8765);
+                }
+                i += 2;
+            }
             "--agents" => {
-                 if let Some(a) = args.get(i+1) { agents = a.parse().unwrap_or(100); }
-                 i += 2;
-            },
+                if let Some(a) = args.get(i + 1) {
+                    agents = a.parse().unwrap_or(100);
+                }
+                i += 2;
+            }
             "--duration" => {
-                 if let Some(d) = args.get(i+1) { duration = d.parse().unwrap_or(10); }
-                 i += 2;
-            },
+                if let Some(d) = args.get(i + 1) {
+                    duration = d.parse().unwrap_or(10);
+                }
+                i += 2;
+            }
             "--help" | "-h" => {
                 println!("Usage: concurrent-agents-bench [--port P] [--agents N] [--duration S]");
                 return Ok(());
-            },
+            }
             _ => i += 1,
         }
     }
@@ -318,25 +345,34 @@ async fn main() -> Result<()> {
     // 2. Wait for Server
     println!("Waiting for server to be ready...");
     let mut ready = false;
-    for _ in 0..60 { // 60 attempts
-        if let Ok(res) = client.get(format!("{}/health", config.base_url)).send().await
-            && res.status().is_success() {
-                ready = true;
-                break;
-            }
+    for _ in 0..60 {
+        // 60 attempts
+        if let Ok(res) = client
+            .get(format!("{}/health", config.base_url))
+            .send()
+            .await
+            && res.status().is_success()
+        {
+            ready = true;
+            break;
+        }
         sleep(Duration::from_secs(1)).await;
     }
-    
+
     if !ready {
         anyhow::bail!("Server did not become ready at {}", config.base_url);
     }
     println!("Server is ready!");
-    
+
     // 3. Prepare Reporting
     let timestamp = chrono::Local::now().format("%Y%m%d_%H%M%S");
     let report_file = format!("benchmark_results_{}.md", timestamp);
-    let mut file = OpenOptions::new().create(true).write(true).truncate(true).open(&report_file)?;
-    
+    let mut file = OpenOptions::new()
+        .create(true)
+        .write(true)
+        .truncate(true)
+        .open(&report_file)?;
+
     writeln!(file, "# Benchmark Results: {} Concurrent Agents", agents)?;
     writeln!(file)?;
     writeln!(file, "**Date**: {}", chrono::Local::now())?;
@@ -346,8 +382,14 @@ async fn main() -> Result<()> {
     writeln!(file)?;
     writeln!(file, "## Results")?;
     writeln!(file)?;
-    writeln!(file, "| Test | Rate (req/s) | Success | P99 Latency | Result |")?;
-    writeln!(file, "|------|--------------|---------|-------------|--------|")?;
+    writeln!(
+        file,
+        "| Test | Rate (req/s) | Success | P99 Latency | Result |"
+    )?;
+    writeln!(
+        file,
+        "|------|--------------|---------|-------------|--------|"
+    )?;
 
     let mut results = Vec::new();
 
@@ -365,11 +407,27 @@ async fn main() -> Result<()> {
         })
     };
 
-    let rates = [None, Some(5000), Some(3000), Some(2000), Some(1800), Some(1600), Some(1500), Some(1000)];
+    let rates = [
+        None,
+        Some(5000),
+        Some(3000),
+        Some(2000),
+        Some(1800),
+        Some(1600),
+        Some(1500),
+        Some(1000),
+    ];
     for r in rates {
         let stats = run_load_test(&config, &client, "/health", r, task_liveness.clone()).await?;
-        writeln!(file, "| {} | {:.0} | {:.1}% | {}ms | {} |", 
-            stats.label, stats.actual_rate, stats.success_rate, stats.p99_latency_ms, stats.result_status)?;
+        writeln!(
+            file,
+            "| {} | {:.0} | {:.1}% | {}ms | {} |",
+            stats.label,
+            stats.actual_rate,
+            stats.success_rate,
+            stats.p99_latency_ms,
+            stats.result_status
+        )?;
         results.push(stats);
     }
 
@@ -386,12 +444,19 @@ async fn main() -> Result<()> {
             s.record(lat, success).await;
         })
     };
-    
+
     let rates_db = [None, Some(2000), Some(1600), Some(1000)];
     for r in rates_db {
         let stats = run_load_test(&config, &client, "/ready", r, task_readiness.clone()).await?;
-        writeln!(file, "| {} | {:.0} | {:.1}% | {}ms | {} |", 
-            stats.label, stats.actual_rate, stats.success_rate, stats.p99_latency_ms, stats.result_status)?;
+        writeln!(
+            file,
+            "| {} | {:.0} | {:.1}% | {}ms | {} |",
+            stats.label,
+            stats.actual_rate,
+            stats.success_rate,
+            stats.p99_latency_ms,
+            stats.result_status
+        )?;
         results.push(stats);
     }
 
@@ -412,25 +477,34 @@ async fn main() -> Result<()> {
                 id: 1,
             };
             let start = Instant::now();
-            let res = c.post(&u)
+            let res = c
+                .post(&u)
                 .header("Accept", "application/json, text/event-stream")
                 .json(&body)
-                .send().await;
+                .send()
+                .await;
             let lat = start.elapsed().as_millis() as u64;
             let success = matches!(res, Ok(r) if r.status().is_success());
             s.record(lat, success).await;
         })
     };
-    
+
     let rates_mcp = [None, Some(2000), Some(1600), Some(1000), Some(500)];
     for r in rates_mcp {
         let label = match r {
-             Some(_) => "MCP Tool Call",
-             None => "MCP Tool Call (Full Speed)"
+            Some(_) => "MCP Tool Call",
+            None => "MCP Tool Call (Full Speed)",
         };
         let stats = run_load_test(&config, &client, label, r, task_mcp.clone()).await?;
-        writeln!(file, "| {} | {:.0} | {:.1}% | {}ms | {} |", 
-            stats.label, stats.actual_rate, stats.success_rate, stats.p99_latency_ms, stats.result_status)?;
+        writeln!(
+            file,
+            "| {} | {:.0} | {:.1}% | {}ms | {} |",
+            stats.label,
+            stats.actual_rate,
+            stats.success_rate,
+            stats.p99_latency_ms,
+            stats.result_status
+        )?;
         results.push(stats);
     }
 
@@ -438,9 +512,12 @@ async fn main() -> Result<()> {
     println!("\n=== Phase 4: Full Agent Message Flow (Bonus) ===");
     // Setup: Create project and agents first
     let human_key = format!("bench-rust-{}", chrono::Utc::now().timestamp());
-    let ensure_resp = client.post(format!("{}/api/project/ensure", config.base_url))
-        .json(&EnsureProjectRequest { human_key }).send().await?;
-    
+    let ensure_resp = client
+        .post(format!("{}/api/project/ensure", config.base_url))
+        .json(&EnsureProjectRequest { human_key })
+        .send()
+        .await?;
+
     if ensure_resp.status().is_success() {
         let project: EnsureProjectResponse = ensure_resp.json().await?;
         let slug = project.slug;
@@ -450,19 +527,25 @@ async fn main() -> Result<()> {
         // Do this in parallel to be fast
         let mut reg_futs = Vec::new();
         for i in 0..agents {
-             let c = client.clone();
-             let u = config.base_url.clone();
-             let s = slug.clone();
-             let name = format!("agent-{:03}", i);
-             reg_futs.push(tokio::spawn(async move {
-                 c.post(format!("{}/api/agent/register", u))
-                  .json(&RegisterAgentRequest {
-                      project_slug: s, name, program: "bench".into(), model: "bench".into()
-                  })
-                  .send().await
-             }));
+            let c = client.clone();
+            let u = config.base_url.clone();
+            let s = slug.clone();
+            let name = format!("agent-{:03}", i);
+            reg_futs.push(tokio::spawn(async move {
+                c.post(format!("{}/api/agent/register", u))
+                    .json(&RegisterAgentRequest {
+                        project_slug: s,
+                        name,
+                        program: "bench".into(),
+                        model: "bench".into(),
+                    })
+                    .send()
+                    .await
+            }));
         }
-        for f in reg_futs { let _ = f.await; }
+        for f in reg_futs {
+            let _ = f.await;
+        }
         println!(" Done.");
 
         // Msg Task
@@ -472,7 +555,7 @@ async fn main() -> Result<()> {
             let p_slug = slug.clone();
             let sender = format!("agent-{:03}", idx); // Current agent is sender
             let recipient = format!("agent-{:03}", (idx + 1) % agents); // Next is receiver
-            
+
             tokio::spawn(async move {
                 let body = SendMessageRequest {
                     project_slug: p_slug,
@@ -492,16 +575,33 @@ async fn main() -> Result<()> {
         };
 
         // Run message bench
-        let stats = run_load_test(&config, &client, "Full Agent Message (Full Speed)", None, task_msg).await?;
-        writeln!(file, "| {} | {:.0} | {:.1}% | {}ms | {} |", 
-            stats.label, stats.actual_rate, stats.success_rate, stats.p99_latency_ms, stats.result_status)?;
+        let stats = run_load_test(
+            &config,
+            &client,
+            "Full Agent Message (Full Speed)",
+            None,
+            task_msg,
+        )
+        .await?;
+        writeln!(
+            file,
+            "| {} | {:.0} | {:.1}% | {}ms | {} |",
+            stats.label,
+            stats.actual_rate,
+            stats.success_rate,
+            stats.p99_latency_ms,
+            stats.result_status
+        )?;
     } else {
         println!("Skipping Phase 4: Could not create project.");
     }
 
     writeln!(file)?;
     writeln!(file, "## Analysis")?;
-    writeln!(file, "See `scripts/benchmark_concurrent_agents.sh` for interpretation.")?;
+    writeln!(
+        file,
+        "See `scripts/benchmark_concurrent_agents.sh` for interpretation."
+    )?;
 
     println!("\n==============================================");
     println!("Benchmark Complete!");

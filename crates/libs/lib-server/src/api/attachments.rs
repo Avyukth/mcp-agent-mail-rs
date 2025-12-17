@@ -1,18 +1,18 @@
-use axum::{
-    extract::{State, Query, Path},
-    Json,
-    response::{IntoResponse, Response},
-    body::Body,
-};
-use axum::http::header;
-use serde::{Deserialize, Serialize};
 use crate::AppState;
+use axum::http::header;
+use axum::{
+    Json,
+    body::Body,
+    extract::{Path, Query, State},
+    response::{IntoResponse, Response},
+};
+use base64::Engine;
 use lib_core::Ctx;
 use lib_core::model::attachment::{AttachmentBmc, AttachmentForCreate};
 use lib_core::model::project::ProjectBmc;
+use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::fs;
-use base64::Engine;
 use utoipa::ToSchema;
 
 #[derive(Deserialize, ToSchema)]
@@ -50,18 +50,21 @@ pub async fn add_attachment(
     // 2. Decode Content
     // Sanitize base64 string (remove data URL prefix if present)
     let b64 = if let Some(idx) = payload.content_base64.find(',') {
-        &payload.content_base64[idx+1..]
+        &payload.content_base64[idx + 1..]
     } else {
         &payload.content_base64
     };
-    
-    let content = base64::engine::general_purpose::STANDARD.decode(b64)
+
+    let content = base64::engine::general_purpose::STANDARD
+        .decode(b64)
         .map_err(|e| crate::ServerError::BadRequest(format!("Invalid base64: {}", e)))?;
-    
+
     let size = content.len() as i64;
     // Max size check (10MB)
     if size > 10 * 1024 * 1024 {
-        return Err(crate::ServerError::BadRequest("File too large (>10MB)".into()));
+        return Err(crate::ServerError::BadRequest(
+            "File too large (>10MB)".into(),
+        ));
     }
 
     // 3. Prepare Storage Logic
@@ -72,7 +75,10 @@ pub async fn add_attachment(
     }
 
     // Determine path: data/attachments/<project_id>/<uuid>_<filename>
-    let attachment_root = std::env::current_dir()?.join("data").join("attachments").join(project.id.to_string());
+    let attachment_root = std::env::current_dir()?
+        .join("data")
+        .join("attachments")
+        .join(project.id.to_string());
     fs::create_dir_all(&attachment_root).await?;
 
     let unique_id = uuid::Uuid::new_v4();
@@ -81,24 +87,25 @@ pub async fn add_attachment(
 
     // 4. Write File
     fs::write(&stored_path, &content).await?;
-    
+
     // 5. Create DB Record
     // Infer media type manually or naive
     let mime = mime_guess::from_path(&filename).first_or_octet_stream();
 
-    let id = AttachmentBmc::create(&ctx, mm, AttachmentForCreate {
-        project_id: project.id,
-        filename: filename.clone(),
-        stored_path: stored_path.to_string_lossy().to_string(),
-        media_type: mime.to_string(),
-        size_bytes: size,
-    }).await?;
+    let id = AttachmentBmc::create(
+        &ctx,
+        mm,
+        AttachmentForCreate {
+            project_id: project.id,
+            filename: filename.clone(),
+            stored_path: stored_path.to_string_lossy().to_string(),
+            media_type: mime.to_string(),
+            size_bytes: size,
+        },
+    )
+    .await?;
 
-    Ok(Json(AddAttachmentResponse {
-        id,
-        filename,
-        size,
-    }).into_response())
+    Ok(Json(AddAttachmentResponse { id, filename, size }).into_response())
 }
 
 #[derive(Deserialize, utoipa::IntoParams)]
@@ -144,7 +151,9 @@ pub async fn get_attachment(
     // Read file
     let path = PathBuf::from(&attachment.stored_path);
     if !path.exists() {
-        return Err(crate::ServerError::NotFound("File on disk not found".into()));
+        return Err(crate::ServerError::NotFound(
+            "File on disk not found".into(),
+        ));
     }
 
     let file = tokio::fs::File::open(path).await?;
@@ -153,7 +162,10 @@ pub async fn get_attachment(
 
     let response = Response::builder()
         .header(header::CONTENT_TYPE, attachment.media_type)
-        .header(header::CONTENT_DISPOSITION, format!("attachment; filename=\"{}\"", attachment.filename))
+        .header(
+            header::CONTENT_DISPOSITION,
+            format!("attachment; filename=\"{}\"", attachment.filename),
+        )
         .body(body)
         .map_err(|e| crate::ServerError::Internal(format!("Failed to build response: {}", e)))?
         .into_response();

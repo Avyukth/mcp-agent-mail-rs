@@ -1,6 +1,6 @@
-use git2::{Repository, Signature, Oid, Error as GitError, Tree};
-use std::path::Path;
 use crate::Result;
+use git2::{Error as GitError, Oid, Repository, Signature, Tree};
+use std::path::Path;
 
 /// Initializes a new Git repository at the given path.
 /// If the repository already exists, it opens it.
@@ -30,7 +30,9 @@ fn create_commit(
 ) -> Result<Oid> {
     let parent_commit_opt = find_last_commit(repo)?;
     let commit_oid = match parent_commit_opt {
-        Some(ref parent) => repo.commit(Some("HEAD"), signature, signature, message, tree, &[parent])?,
+        Some(ref parent) => {
+            repo.commit(Some("HEAD"), signature, signature, message, tree, &[parent])?
+        }
         None => repo.commit(Some("HEAD"), signature, signature, message, tree, &[])?,
     };
     Ok(commit_oid)
@@ -45,7 +47,9 @@ pub fn commit_file<P: AsRef<Path>>(
     author_name: &str,
     author_email: &str,
 ) -> Result<Oid> {
-    let workdir = repo.workdir().ok_or_else(|| GitError::from_str("No working directory"))?;
+    let workdir = repo
+        .workdir()
+        .ok_or_else(|| GitError::from_str("No working directory"))?;
     let full_path = workdir.join(file_path.as_ref());
 
     if let Some(parent) = full_path.parent() {
@@ -86,11 +90,19 @@ fn find_last_commit(repo: &Repository) -> Result<Option<git2::Commit<'_>>> {
         Ok(head) => {
             let obj = head.resolve()?.peel(git2::ObjectType::Commit)?;
             let commit = obj.into_commit().map_err(|obj_not_commit| {
-                GitError::from_str(&format!("Object is not a commit: {:?}", obj_not_commit.id()))
+                GitError::from_str(&format!(
+                    "Object is not a commit: {:?}",
+                    obj_not_commit.id()
+                ))
             })?;
             Ok(Some(commit))
         }
-        Err(ref e) if e.code() == git2::ErrorCode::NotFound || e.code() == git2::ErrorCode::UnbornBranch => Ok(None), // Empty repo
+        Err(ref e)
+            if e.code() == git2::ErrorCode::NotFound
+                || e.code() == git2::ErrorCode::UnbornBranch =>
+        {
+            Ok(None)
+        } // Empty repo
         Err(e) => Err(crate::Error::from(e)),
     }
 }
@@ -101,8 +113,8 @@ pub fn read_file_content<P: AsRef<Path>>(repo: &Repository, file_path: P) -> Res
     let tree = head.peel_to_tree()?;
     let entry = tree.get_path(file_path.as_ref())?;
     let object = entry.to_object(repo)?;
-    let blob = object.as_blob().ok_or_else(|| {
-        GitError::from_str("Object is not a blob")
-    })?;
+    let blob = object
+        .as_blob()
+        .ok_or_else(|| GitError::from_str("Object is not a blob"))?;
     Ok(String::from_utf8_lossy(blob.content()).into_owned())
 }

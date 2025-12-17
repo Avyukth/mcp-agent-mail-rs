@@ -1,8 +1,8 @@
+use crate::Result;
 use crate::ctx::Ctx;
 use crate::model::ModelManager;
-use crate::Result;
-use serde::{Deserialize, Serialize};
 use chrono::NaiveDateTime;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -31,20 +31,24 @@ impl MacroDefBmc {
         let db = mm.db();
         let steps_json = serde_json::to_string(&macro_c.steps)?;
 
-        let stmt = db.prepare(
-            r#"
+        let stmt = db
+            .prepare(
+                r#"
             INSERT INTO macros (project_id, name, description, steps)
             VALUES (?, ?, ?, ?)
             RETURNING id
-            "#
-        ).await?;
+            "#,
+            )
+            .await?;
 
-        let mut rows = stmt.query((
-            macro_c.project_id,
-            macro_c.name.as_str(),
-            macro_c.description.as_str(),
-            steps_json.as_str(),
-        )).await?;
+        let mut rows = stmt
+            .query((
+                macro_c.project_id,
+                macro_c.name.as_str(),
+                macro_c.description.as_str(),
+                steps_json.as_str(),
+            ))
+            .await?;
 
         let id = if let Some(row) = rows.next().await? {
             row.get::<i64>(0)?
@@ -55,35 +59,47 @@ impl MacroDefBmc {
         Ok(id)
     }
 
-    pub async fn get_by_name(_ctx: &Ctx, mm: &ModelManager, project_id: i64, name: &str) -> Result<MacroDef> {
+    pub async fn get_by_name(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        project_id: i64,
+        name: &str,
+    ) -> Result<MacroDef> {
         let db = mm.db();
-        let stmt = db.prepare(
-            r#"
+        let stmt = db
+            .prepare(
+                r#"
             SELECT id, project_id, name, description, steps, created_ts, updated_ts
             FROM macros
             WHERE project_id = ? AND name = ?
-            "#
-        ).await?;
+            "#,
+            )
+            .await?;
 
         let mut rows = stmt.query((project_id, name)).await?;
 
         if let Some(row) = rows.next().await? {
             Ok(Self::from_row(row)?)
         } else {
-            Err(crate::Error::InvalidInput(format!("Macro not found: {}", name)))
+            Err(crate::Error::InvalidInput(format!(
+                "Macro not found: {}",
+                name
+            )))
         }
     }
 
     pub async fn list(_ctx: &Ctx, mm: &ModelManager, project_id: i64) -> Result<Vec<MacroDef>> {
         let db = mm.db();
-        let stmt = db.prepare(
-            r#"
+        let stmt = db
+            .prepare(
+                r#"
             SELECT id, project_id, name, description, steps, created_ts, updated_ts
             FROM macros
             WHERE project_id = ?
             ORDER BY name ASC
-            "#
-        ).await?;
+            "#,
+            )
+            .await?;
 
         let mut rows = stmt.query([project_id]).await?;
         let mut macros = Vec::new();
@@ -94,13 +110,20 @@ impl MacroDefBmc {
         Ok(macros)
     }
 
-    pub async fn delete(_ctx: &Ctx, mm: &ModelManager, project_id: i64, name: &str) -> Result<bool> {
+    pub async fn delete(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        project_id: i64,
+        name: &str,
+    ) -> Result<bool> {
         let db = mm.db();
-        let stmt = db.prepare(
-            r#"
+        let stmt = db
+            .prepare(
+                r#"
             DELETE FROM macros WHERE project_id = ? AND name = ?
-            "#
-        ).await?;
+            "#,
+            )
+            .await?;
         let affected = stmt.execute((project_id, name)).await?;
         Ok(affected > 0)
     }
@@ -110,10 +133,10 @@ impl MacroDefBmc {
         let updated_ts_str: String = row.get(6).unwrap_or_default();
         let steps_str: String = row.get(4).unwrap_or_else(|_| "[]".to_string());
 
-        let created_ts = NaiveDateTime::parse_from_str(&created_ts_str, "%Y-%m-%d %H:%M:%S")
-            .unwrap_or_default();
-        let updated_ts = NaiveDateTime::parse_from_str(&updated_ts_str, "%Y-%m-%d %H:%M:%S")
-            .unwrap_or_default();
+        let created_ts =
+            NaiveDateTime::parse_from_str(&created_ts_str, "%Y-%m-%d %H:%M:%S").unwrap_or_default();
+        let updated_ts =
+            NaiveDateTime::parse_from_str(&updated_ts_str, "%Y-%m-%d %H:%M:%S").unwrap_or_default();
         let steps: Vec<Value> = serde_json::from_str(&steps_str).unwrap_or_default();
 
         Ok(MacroDef {
@@ -128,15 +151,19 @@ impl MacroDefBmc {
     }
 
     /// Ensure all built-in macros exist for a project
-    pub async fn ensure_builtin_macros(ctx: &Ctx, mm: &ModelManager, project_id: i64) -> Result<Vec<String>> {
+    pub async fn ensure_builtin_macros(
+        ctx: &Ctx,
+        mm: &ModelManager,
+        project_id: i64,
+    ) -> Result<Vec<String>> {
         let mut created = Vec::new();
-        
+
         for (name, description, steps) in get_builtin_macros() {
             // Check if macro already exists
             if Self::get_by_name(ctx, mm, project_id, &name).await.is_ok() {
                 continue;
             }
-            
+
             // Create the macro
             let macro_c = MacroDefForCreate {
                 project_id,
@@ -144,11 +171,11 @@ impl MacroDefBmc {
                 description,
                 steps,
             };
-            
+
             Self::create(ctx, mm, macro_c).await?;
             created.push(name);
         }
-        
+
         Ok(created)
     }
 }

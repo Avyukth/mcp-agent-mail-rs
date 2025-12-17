@@ -35,7 +35,8 @@ pub fn Layout() -> impl IntoView {
             }
             // Save to localStorage
             if let Ok(Some(storage)) = window.local_storage() {
-                let _ = storage.set_item("darkMode", if dark_mode.get() { "true" } else { "false" });
+                let _ =
+                    storage.set_item("darkMode", if dark_mode.get() { "true" } else { "false" });
             }
         }
     });
@@ -44,7 +45,7 @@ pub fn Layout() -> impl IntoView {
         <div class="min-h-screen bg-cream-100 dark:bg-charcoal-900 transition-colors flex flex-col">
             // Gradient mesh background overlay
             <div class="fixed inset-0 bg-gradient-mesh pointer-events-none" aria-hidden="true"></div>
-            
+
             // Navigation header with glassmorphism
             <nav class="sticky top-0 z-50 glass border-b border-cream-300/50 dark:border-charcoal-700/50">
                 <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -57,7 +58,7 @@ pub fn Layout() -> impl IntoView {
                                     "MCP Agent Mail"
                                 </span>
                             </a>
-                            
+
                             // Navigation links
                             <div class="hidden md:flex items-center space-x-1">
                                 <NavLink href="/" label="Dashboard" icon="gauge" />
@@ -66,7 +67,7 @@ pub fn Layout() -> impl IntoView {
                                 <NavLink href="/inbox" label="Inbox" icon="inbox" />
                             </div>
                         </div>
-                        
+
                         // Right side actions
                         <div class="flex items-center space-x-3">
                             // Status indicator
@@ -74,7 +75,7 @@ pub fn Layout() -> impl IntoView {
                                 <span class="w-2 h-2 rounded-full bg-teal-500 animate-pulse-gentle"></span>
                                 <span class="text-xs font-medium text-teal-700 dark:text-teal-300">"Online"</span>
                             </div>
-                            
+
                             // Dark mode toggle
                             <button
                                 on:click=move |_| set_dark_mode.update(|v| *v = !*v)
@@ -93,7 +94,7 @@ pub fn Layout() -> impl IntoView {
             </nav>
 
             // Mobile navigation drawer (future enhancement)
-            
+
             // Main content area
             <main class="relative max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8 flex-1 w-full">
                 <div class="animate-fade-in">
