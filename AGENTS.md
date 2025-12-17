@@ -1681,10 +1681,7 @@ git commit -m "fix(<scope>): reviewer fixes for <task-id>
 
 Fixes:
 - <issue 1>
-- <issue 2>
-
-Reviewed-by: reviewer
-🤖 Generated with Claude Code"
+- <issue 2>"
 
 # 5. Merge to main
 cd ../..
