@@ -24,3 +24,6 @@ docs/CRITICAL_GAP_ANALYSIS.md
 # Benchmark results (generated)
 benchmark_results/
 benchmark_*.md
+output.wav
+recordings/
+agent_mail_final.mp4
