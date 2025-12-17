@@ -91,9 +91,6 @@ pub enum ServerError {
     #[error("IO error")]
     Io(#[from] std::io::Error),
 
-    #[error(transparent)]
-    Anyhow(#[from] anyhow::Error),
-
     // -- API-Specific Errors
     #[allow(dead_code)]
     #[error("Resource not found: {0}")]
@@ -321,7 +318,7 @@ impl IntoResponse for ServerError {
                 ErrorResponse::new(ErrorCode::InternalError, "File operation failed"),
             ),
 
-            ServerError::Anyhow(_) | ServerError::Internal(_) => (
+            ServerError::Internal(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 ErrorResponse::new(ErrorCode::InternalError, "An internal error occurred"),
             ),

@@ -164,7 +164,7 @@ impl JwksClient {
         keys.get(kid).cloned()
     }
 
-    async fn refresh_keys(&self) -> Result<(), anyhow::Error> {
+    async fn refresh_keys(&self) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         info!("Refreshing JWKS from {}", self.url);
         let resp = self
             .client

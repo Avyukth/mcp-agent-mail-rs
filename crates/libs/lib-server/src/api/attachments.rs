@@ -1,7 +1,8 @@
 use crate::AppState;
+use crate::auth::AuthenticatedUser;
 use axum::http::header;
 use axum::{
-    Json,
+    Extension, Json,
     body::Body,
     extract::{Path, Query, State},
     response::{IntoResponse, Response},
@@ -13,6 +14,7 @@ use lib_core::model::project::ProjectBmc;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
 use tokio::fs;
+use tracing::warn;
 use utoipa::ToSchema;
 
 #[derive(Deserialize, ToSchema)]
@@ -39,10 +41,18 @@ pub struct AddAttachmentResponse {
 )]
 pub async fn add_attachment(
     State(state): State<AppState>,
+    auth_user: Option<Extension<AuthenticatedUser>>,
     Json(payload): Json<AddAttachmentPayload>,
 ) -> crate::error::Result<Response> {
-    let ctx = Ctx::root_ctx(); // TODO: Use user context
+    let ctx = Ctx::root_ctx();
     let mm = &state.mm;
+
+    if auth_user.is_none() {
+        warn!(
+            "add_attachment called without authenticated user for project: {}",
+            payload.project_slug
+        );
+    }
 
     // 1. Get Project
     let project = ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug).await?;
@@ -123,19 +133,34 @@ pub struct ListAttachmentsParams {
 )]
 pub async fn list_attachments(
     State(state): State<AppState>,
+    auth_user: Option<Extension<AuthenticatedUser>>,
     Query(params): Query<ListAttachmentsParams>,
 ) -> crate::error::Result<Response> {
     let ctx = Ctx::root_ctx();
+
+    if auth_user.is_none() {
+        warn!(
+            "list_attachments called without authenticated user for project: {}",
+            params.project_slug
+        );
+    }
+
     let project = ProjectBmc::get_by_identifier(&ctx, &state.mm, &params.project_slug).await?;
     let items = AttachmentBmc::list_by_project(&ctx, &state.mm, project.id).await?;
     Ok(Json(items).into_response())
+}
+
+#[derive(Deserialize, utoipa::IntoParams)]
+pub struct GetAttachmentParams {
+    pub project_slug: Option<String>,
 }
 
 #[utoipa::path(
     get,
     path = "/api/attachments/{id}",
     params(
-        ("id" = i64, Path, description = "Attachment ID")
+        ("id" = i64, Path, description = "Attachment ID"),
+        GetAttachmentParams
     ),
     responses(
         (status = 200, description = "Download attachment", body = String)
@@ -143,12 +168,39 @@ pub async fn list_attachments(
 )]
 pub async fn get_attachment(
     State(state): State<AppState>,
+    auth_user: Option<Extension<AuthenticatedUser>>,
     Path(id): Path<i64>,
+    Query(params): Query<GetAttachmentParams>,
 ) -> crate::error::Result<Response> {
     let ctx = Ctx::root_ctx();
-    let attachment = AttachmentBmc::get(&ctx, &state.mm, id).await?;
+    let mm = &state.mm;
 
-    // Read file
+    if auth_user.is_none() {
+        warn!(
+            "get_attachment called without authenticated user for id: {}",
+            id
+        );
+    }
+
+    let attachment = AttachmentBmc::get(&ctx, mm, id).await?;
+
+    // Security: Verify project access if project_slug provided
+    if let Some(ref project_slug) = params.project_slug {
+        let project = ProjectBmc::get_by_identifier(&ctx, mm, project_slug).await?;
+        if attachment.project_id != project.id {
+            warn!(
+                "get_attachment: project mismatch - attachment {} belongs to project {}, not {}",
+                id, attachment.project_id, project.id
+            );
+            return Err(crate::ServerError::Forbidden);
+        }
+    } else {
+        warn!(
+            "get_attachment called without project_slug validation for attachment id: {}",
+            id
+        );
+    }
+
     let path = PathBuf::from(&attachment.stored_path);
     if !path.exists() {
         return Err(crate::ServerError::NotFound(

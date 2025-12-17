@@ -36,7 +36,6 @@ tracing-subscriber.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
-anyhow.workspace = true # TODO: remove once fully refactored
 metrics.workspace = true
 metrics-exporter-prometheus.workspace = true
 chrono.workspace = true

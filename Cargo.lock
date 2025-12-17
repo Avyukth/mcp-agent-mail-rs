@@ -3321,7 +3321,6 @@ dependencies = [
 name = "lib-server"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "axum 0.8.7",
  "axum-extra",
  "base64 0.22.1",

@@ -528,6 +528,32 @@ pub struct FileReservationPathsResponse {
     pub conflicts: Vec<FileReservationConflict>,
 }
 
+fn find_path_conflicts(
+    path: &str,
+    agent_id: i64,
+    request_exclusive: bool,
+    active_reservations: &[lib_core::model::file_reservation::FileReservation],
+) -> Vec<FileReservationConflict> {
+    active_reservations
+        .iter()
+        .filter(|res| {
+            res.agent_id != agent_id
+                && (res.exclusive || request_exclusive)
+                && res.path_pattern == path
+        })
+        .map(|res| FileReservationConflict {
+            path_pattern: res.path_pattern.clone(),
+            exclusive: res.exclusive,
+            expires_ts: res.expires_ts.format("%Y-%m-%dT%H:%M:%S").to_string(),
+            conflict_type: "FILE_RESERVATION_CONFLICT".to_string(),
+            message: format!(
+                "Conflict with reservation held by agent ID {}",
+                res.agent_id
+            ),
+        })
+        .collect()
+}
+
 pub async fn file_reservation_paths(
     State(app_state): State<AppState>,
     Json(payload): Json<FileReservationPathsPayload>,
@@ -542,41 +568,24 @@ pub async fn file_reservation_paths(
         lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name)
             .await?;
 
-    // 1. Get active reservations
     let active_reservations =
         FileReservationBmc::list_active_for_project(&ctx, mm, project.id).await?;
-
-    let mut granted = Vec::new();
-    let mut conflicts = Vec::new();
 
     let ttl = payload.ttl_seconds.unwrap_or(3600);
     let now = chrono::Utc::now().naive_utc();
     let expires_ts = now + chrono::Duration::seconds(ttl);
 
-    for path in payload.paths {
-        // Check conflicts using exact path match
-        // Note: Glob pattern matching deferred to bd-577.9
-        for res in &active_reservations {
-            if res.agent_id != agent.id
-                && (res.exclusive || payload.exclusive)
-                && res.path_pattern == path
-            {
-                conflicts.push(FileReservationConflict {
-                    path_pattern: res.path_pattern.clone(),
-                    exclusive: res.exclusive,
-                    expires_ts: res.expires_ts.format("%Y-%m-%dT%H:%M:%S").to_string(),
-                    conflict_type: "FILE_RESERVATION_CONFLICT".to_string(),
-                    message: format!(
-                        "Conflict with reservation held by agent ID {}",
-                        res.agent_id
-                    ),
-                });
-                // We don't break, we collect all conflicts? Or just one per path?
-                // Python collects conflicts.
-            }
-        }
+    let mut granted = Vec::new();
+    let mut conflicts = Vec::new();
 
-        // Advisory model: always grant
+    for path in payload.paths {
+        conflicts.extend(find_path_conflicts(
+            &path,
+            agent.id,
+            payload.exclusive,
+            &active_reservations,
+        ));
+
         let fr_c = FileReservationForCreate {
             project_id: project.id,
             agent_id: agent.id,
@@ -601,7 +610,6 @@ pub async fn file_reservation_paths(
 }
 
 // --- create_agent_identity ---
-// Generates memorable adjective+noun names like BlueMountain, GreenCastle
 const ADJECTIVES: &[&str] = &[
     "Blue", "Green", "Red", "Golden", "Silver", "Crystal", "Dark", "Bright", "Swift", "Calm",
     "Bold", "Wise", "Noble", "Grand", "Mystic", "Ancient", "Lunar", "Solar", "Azure", "Coral",
@@ -615,6 +623,56 @@ const NOUNS: &[&str] = &[
     "Maple", "Birch", "Ash", "Elm", "Stone", "Crystal", "Star", "Moon", "Sun", "Cloud", "Wind",
     "Thunder",
 ];
+
+fn generate_random_names(
+    existing: &std::collections::HashSet<String>,
+    count: usize,
+) -> Vec<String> {
+    let mut names = Vec::new();
+    let mut rng_seed = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos() as usize;
+
+    let mut next_rand = || {
+        rng_seed = rng_seed.wrapping_mul(1103515245).wrapping_add(12345);
+        rng_seed
+    };
+
+    for _ in 0..count * 2 {
+        let adj_idx = next_rand() % ADJECTIVES.len();
+        let noun_idx = next_rand() % NOUNS.len();
+        let name = format!("{}{}", ADJECTIVES[adj_idx], NOUNS[noun_idx]);
+
+        if !existing.contains(&name) && !names.contains(&name) {
+            names.push(name);
+            if names.len() >= count {
+                break;
+            }
+        }
+    }
+    names
+}
+
+fn find_hint_match(
+    hint: &str,
+    existing: &std::collections::HashSet<String>,
+    alternatives: &[String],
+) -> Option<String> {
+    let hint_lower = hint.to_lowercase();
+    for adj in ADJECTIVES {
+        if !adj.to_lowercase().contains(&hint_lower) {
+            continue;
+        }
+        for noun in NOUNS {
+            let name = format!("{adj}{noun}");
+            if !existing.contains(&name) && !alternatives.contains(&name) {
+                return Some(name);
+            }
+        }
+    }
+    None
+}
 
 #[derive(Deserialize)]
 pub struct CreateAgentIdentityPayload {
@@ -640,53 +698,16 @@ pub async fn create_agent_identity(
         lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
             .await?;
 
-    // Get existing agent names to avoid collisions
     let existing_agents =
         lib_core::model::agent::AgentBmc::list_all_for_project(&ctx, mm, project.id).await?;
     let existing_names: std::collections::HashSet<String> =
         existing_agents.iter().map(|a| a.name.clone()).collect();
 
-    // Generate names
-    let mut alternatives = Vec::new();
-    let mut rng_seed = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos() as usize;
+    let mut alternatives = generate_random_names(&existing_names, 5);
 
-    // Simple pseudo-random using seed
-    let mut next_rand = || {
-        rng_seed = rng_seed.wrapping_mul(1103515245).wrapping_add(12345);
-        rng_seed
-    };
-
-    for _ in 0..10 {
-        let adj_idx = next_rand() % ADJECTIVES.len();
-        let noun_idx = next_rand() % NOUNS.len();
-        let name = format!("{}{}", ADJECTIVES[adj_idx], NOUNS[noun_idx]);
-
-        if !existing_names.contains(&name) && !alternatives.contains(&name) {
-            alternatives.push(name);
-            if alternatives.len() >= 5 {
-                break;
-            }
-        }
-    }
-
-    // If hint provided, try to incorporate it
     if let Some(hint) = &payload.hint {
-        let hint_lower = hint.to_lowercase();
-        // Try to find matching adjective or noun
-        for adj in ADJECTIVES {
-            if adj.to_lowercase().contains(&hint_lower) {
-                for noun in NOUNS {
-                    let name = format!("{}{}", adj, noun);
-                    if !existing_names.contains(&name) && !alternatives.contains(&name) {
-                        alternatives.insert(0, name);
-                        break;
-                    }
-                }
-                break;
-            }
+        if let Some(hint_name) = find_hint_match(hint, &existing_names, &alternatives) {
+            alternatives.insert(0, hint_name);
         }
     }
 
@@ -1983,16 +2004,18 @@ async fn call_openai_summarize(
         }))
         .send()
         .await
-        .map_err(|e| anyhow::anyhow!("OpenAI request failed: {}", e))?;
+        .map_err(|e| crate::ServerError::Internal(format!("OpenAI request failed: {}", e)))?;
 
     if !resp.status().is_success() {
-        return Err(anyhow::anyhow!("OpenAI API error: {}", resp.status()).into());
+        return Err(crate::ServerError::Internal(format!(
+            "OpenAI API error: {}",
+            resp.status()
+        )));
     }
 
-    let json: serde_json::Value = resp
-        .json()
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to parse OpenAI response: {}", e))?;
+    let json: serde_json::Value = resp.json().await.map_err(|e| {
+        crate::ServerError::Internal(format!("Failed to parse OpenAI response: {}", e))
+    })?;
 
     let summary = json["choices"][0]["message"]["content"]
         .as_str()
