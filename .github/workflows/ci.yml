@@ -46,8 +46,11 @@ jobs:
       run: cargo test --workspace --exclude e2e-tests
 
   audit:
-    name: Security Audit
+    name: Security Audit (Advisory)
     runs-on: ubuntu-latest
+    # Non-blocking: known advisories are tracked in deny.toml
+    # The rustsec action fails on warnings; we use cargo deny for enforcement
+    continue-on-error: true
     steps:
     - uses: actions/checkout@v4
     - uses: rustsec/audit-check@v2
