@@ -365,6 +365,19 @@ Use `no-auto-claim` label **ONLY** for:
 bd label add <id> no-auto-claim
 ```
 
+#### Safety Nets
+
+VC has robust safety mechanisms that allow it to tackle hard problems:
+
+| Safety Net | Purpose |
+|------------|---------|
+| **Quality gates** | Test/lint/build validate changes before merge |
+| **AI supervision** | Assessment + analysis guides approach, catches mistakes |
+| **Sandbox isolation** | Git worktrees prevent contamination of main branch |
+| **Self-healing** | Automatically fixes broken baselines |
+| **Activity feed** | Full visibility into what's happening |
+| **Human intervention** | Possible at any time via CLI |
+
 #### Integration with bd
 
 VC consumes issues from bd and creates follow-on work automatically:
@@ -975,15 +988,43 @@ cargo test -p lib-core --test integration -- --test-threads=1
 pmat analyze tdg --fail-on-violation --min-grade B
 ```
 
+### Pre-commit Hooks (cargo-husky)
+
+Rust-native pre-commit hooks auto-install on first `cargo test`:
+
+```bash
+# Auto-installed to .git/hooks/pre-commit via cargo-husky
+# Runs:
+#   1. cargo fmt --check (BLOCKING - prevents unformatted commits)
+#   2. cargo clippy (advisory - shows warnings)
+#   3. cargo audit (advisory - shows vulnerabilities)
+#   4. bd sync (beads tracking)
+
+# Manual install
+make install-hooks
+
+# Or run tests (auto-installs)
+cargo test
+```
+
 ### Active Work Areas
 
-Current epics (check `bd ready` for latest):
+Current work is tracked in Beads. Always check for latest:
 
-- **mcp-agent-mail-rs-6et**: GitHub Binary Release v0.1.0
-- **mcp-agent-mail-rs-2ci**: Pre-commit Guard MCP Integration
-- **mcp-agent-mail-rs-7rh**: Workflow Macros Completion
+```bash
+# Find ready (unblocked) work
+bd ready
 
-### MCP Tools Reference (50+)
+# See all open issues
+bd list --status open
+
+# Current epic
+bd show 3gs  # Production Hardening
+```
+
+Use `bd` commands to find current priorities rather than relying on static lists.
+
+### MCP Tools Reference (45 tools)
 
 | Category | Tools |
 |----------|-------|
@@ -1071,17 +1112,22 @@ cargo fmt
 
 ### Pre-Commit Checklist
 
+**Automatic (cargo-husky)**: Hooks auto-install on `cargo test`:
+- `cargo fmt --check` (blocking)
+- `cargo clippy` (advisory)
+- `cargo audit` (advisory)
+- `bd sync` (beads)
+
+**Manual full check**:
 ```bash
-# Run ALL of these after code changes:
 cargo check --all-targets
 cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 cargo test -p lib-core --test integration -- --test-threads=1
 pmat analyze tdg --fail-on-violation --min-grade B
-pmat mutate --target src/ --threshold 80
 ```
 
-Or install pmat hooks: `pmat hooks install --tdg-enforcement`
+**Install hooks manually**: `make install-hooks` or `cargo test`
 
 ### Code Style Guidelines
 
@@ -1185,6 +1231,7 @@ fn send(project: String, agent: String)  // Easy to swap args
 | bv | Bundled with bd | `bv --version` |
 | vc | See vc repo | `vc --version` |
 | pmat | `cargo install pmat` | `pmat --version` |
+| mcp-agent-mail | `cargo install --path crates/services/mcp-agent-mail` | `mcp-agent-mail --version` |
 | ubs | Project-specific | `ubs --version` |
 | ast-grep | `cargo install ast-grep` | `ast-grep --version` |
 | ripgrep | `brew install ripgrep` | `rg --version` |
