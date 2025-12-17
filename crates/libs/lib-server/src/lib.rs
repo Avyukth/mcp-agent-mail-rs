@@ -16,6 +16,11 @@ pub mod openapi;
 pub mod ratelimit;
 pub mod tools;
 
+#[cfg(feature = "with-web-ui")]
+pub mod embedded;
+#[cfg(feature = "with-web-ui")]
+pub mod static_files;
+
 use utoipa::{OpenApi, ToSchema};
 
 use auth::{AuthConfig, JwksClient, auth_middleware};
