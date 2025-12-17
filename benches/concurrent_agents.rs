@@ -12,7 +12,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use reqwest::Client;
 use serde::Serialize;
 use tokio::sync::Semaphore;
@@ -62,6 +62,7 @@ struct EnsureProjectResponse {
 #[derive(Debug)]
 struct BenchmarkStats {
     label: String,
+    #[allow(dead_code)]
     target_rate_str: String,
     actual_rate: f64,
     success_rate: f64,
@@ -304,7 +305,7 @@ async fn main() -> Result<()> {
     println!("==============================================");
     println!("Target: {}", config.base_url);
     println!("Duration per test: {}s", duration);
-    println!("");
+    println!();
 
     let client = Client::builder()
         .timeout(Duration::from_secs(30))
@@ -335,14 +336,14 @@ async fn main() -> Result<()> {
     let mut file = OpenOptions::new().create(true).write(true).truncate(true).open(&report_file)?;
     
     writeln!(file, "# Benchmark Results: {} Concurrent Agents", agents)?;
-    writeln!(file, "")?;
+    writeln!(file)?;
     writeln!(file, "**Date**: {}", chrono::Local::now())?;
     writeln!(file, "**Target**: {}", config.base_url)?;
     writeln!(file, "**Duration**: {}s per test", duration)?;
     writeln!(file, "**Concurrency**: {} agents", agents)?;
-    writeln!(file, "")?;
+    writeln!(file)?;
     writeln!(file, "## Results")?;
-    writeln!(file, "")?;
+    writeln!(file)?;
     writeln!(file, "| Test | Rate (req/s) | Success | P99 Latency | Result |")?;
     writeln!(file, "|------|--------------|---------|-------------|--------|")?;
 
@@ -496,8 +497,7 @@ async fn main() -> Result<()> {
         println!("Skipping Phase 4: Could not create project.");
     }
 
-    // Footer
-    writeln!(file, "")?;
+    writeln!(file)?;
     writeln!(file, "## Analysis")?;
     writeln!(file, "See `scripts/benchmark_concurrent_agents.sh` for interpretation.")?;
 

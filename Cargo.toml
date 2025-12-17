@@ -17,8 +17,10 @@ members = [
 [package]
 name = "mcp-agent-mail-benches"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 publish = false
+repository = "https://github.com/Avyukth/mcp-agent-mail-rs"
+license = "MIT"
 
 [[bin]]
 name = "concurrent-agents-bench"
@@ -37,7 +39,7 @@ chrono = { workspace = true }
 axum = "0.8.7"
 tokio = { version = "1.48.0", features = ["full"] }
 tower-http = { version = "0.6.8", features = ["trace", "cors", "request-id"] }
-reqwest = { version = "0.12", features = ["json", "rustls-tls"], default-features = false }
+reqwest = { version = "0.12.26", features = ["json", "rustls-tls"], default-features = false }
 
 # Metrics
 metrics = "0.24.3"
@@ -51,7 +53,7 @@ chrono = { version = "0.4.42", features = ["serde"] }
 git2 = "0.20.3"
 
 # Templating / Markdown
-minijinja = "2.13.0"
+minijinja = "2.14.0"
 pulldown-cmark = "0.13.0"
 
 # MCP Protocol SDK (Official)
@@ -83,4 +85,12 @@ base64 = "0.22.1"
 lto = true
 opt-level = 'z'
 codegen-units = 1
+
+# Server binaries: speed-optimized (vs WASM size-optimized above)
+[profile.release-server]
+inherits = "release"
+opt-level = 3
+lto = "fat"
+codegen-units = 1
+strip = "symbols"
 

@@ -1,8 +1,10 @@
 [package]
 name = "mcp-stdio"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 description = "MCP stdio server for Agent Mail - Claude Desktop and Antigravity integration"
+repository = "https://github.com/Avyukth/mcp-agent-mail-rs"
+license = "MIT"
 
 [[bin]]
 name = "mcp-stdio-server"
@@ -24,8 +26,8 @@ tracing-subscriber.workspace = true
 anyhow.workspace = true
 serde_json.workspace = true
 clap.workspace = true
-tempfile = "3.20"
-libsql = "0.9"
+tempfile = "3.23.0"
+libsql = "0.9.29"
 
 [dev-dependencies]
 lib-core = { path = "../../libs/lib-core" }

@@ -146,7 +146,7 @@ pub fn Select(
                                     let val = opt.value.clone();
                                     let label = opt.label.clone();
                                     let is_selected = val == current_value;
-                                    let select = select_option.clone();
+                                    let select = select_option;
                                     let val_clone = val.clone();
 
                                     view! {
