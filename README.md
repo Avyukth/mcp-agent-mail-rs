@@ -77,10 +77,56 @@ cargo run -p mcp-server --release
 cargo install --path crates/services/mcp-agent-mail
 
 # Or run directly
-mcp-agent-mail serve              # Start REST API server
-mcp-agent-mail mcp                # Start MCP stdio server
+mcp-agent-mail serve http         # Start REST API server
+mcp-agent-mail serve mcp          # Start MCP stdio server
 mcp-agent-mail tools              # List MCP tools
 mcp-agent-mail schema             # Export JSON schema
+```
+
+### Sidecar Deployment
+
+Build a single binary with optional embedded web UI:
+
+```bash
+# Build with embedded UI (~18MB)
+make build-sidecar
+
+# Build minimal binary without UI (~8MB)
+make build-sidecar-minimal
+
+# Binary location
+./target/release/mcp-agent-mail
+```
+
+**Deployment Modes:**
+
+```bash
+# 1. Claude Desktop (MCP stdio)
+mcp-agent-mail serve mcp --transport stdio
+
+# 2. REST API with embedded web UI
+mcp-agent-mail serve http --port 8765
+
+# 3. Headless API server (no UI)
+mcp-agent-mail serve http --port 8765 --no-ui
+
+# 4. SSE MCP server (for web clients)
+mcp-agent-mail serve mcp --transport sse --port 3000
+```
+
+**Claude Desktop Integration:**
+
+Add to `~/.config/claude/claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "agent-mail": {
+      "command": "/path/to/mcp-agent-mail",
+      "args": ["serve", "mcp", "--transport", "stdio"]
+    }
+  }
+}
 ```
 
 ## Architecture
