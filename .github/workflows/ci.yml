@@ -12,10 +12,9 @@ env:
 jobs:
   test:
     name: Test
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
+    runs-on: ubuntu-latest
+    # NOTE: macOS removed to reduce CI costs (~$3/run)
+    # Build locally for macOS: cargo build --release
 
     steps:
     - uses: actions/checkout@v4
@@ -34,7 +33,7 @@ jobs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
           target/
-        key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+        key: linux-cargo-${{ hashFiles('**/Cargo.lock') }}
 
     - name: Format Check
       run: cargo fmt --all -- --check

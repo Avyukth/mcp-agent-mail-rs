@@ -70,6 +70,39 @@ make build-prod
 cargo run -p mcp-server --release
 ```
 
+### Building for Your Platform
+
+CI only builds Linux binaries to reduce costs. Build locally for your platform:
+
+```bash
+# macOS (Apple Silicon)
+cargo build --release
+# Binary: target/release/mcp-agent-mail
+
+# macOS (Intel)
+rustup target add x86_64-apple-darwin
+cargo build --release --target x86_64-apple-darwin
+# Binary: target/x86_64-apple-darwin/release/mcp-agent-mail
+
+# Linux (x86_64)
+cargo build --release
+# Binary: target/release/mcp-agent-mail
+
+# Linux (ARM64)
+rustup target add aarch64-unknown-linux-gnu
+cargo build --release --target aarch64-unknown-linux-gnu
+# Binary: target/aarch64-unknown-linux-gnu/release/mcp-agent-mail
+
+# Windows (cross-compile from Linux/macOS)
+rustup target add x86_64-pc-windows-gnu
+cargo build --release --target x86_64-pc-windows-gnu
+# Binary: target/x86_64-pc-windows-gnu/release/mcp-agent-mail.exe
+```
+
+**Build Requirements:**
+- Rust 1.85+ (install via [rustup](https://rustup.rs))
+- For cross-compilation: appropriate linker/toolchain for target
+
 ### Using the Unified CLI
 
 ```bash

@@ -10,49 +10,39 @@ permissions:
 
 jobs:
   build:
-    name: Build ${{ matrix.target }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-          - os: macos-13
-            target: x86_64-apple-darwin
-          - os: macos-14
-            target: aarch64-apple-darwin
+    name: Build Linux
+    runs-on: ubuntu-latest
+    # NOTE: macOS builds removed to reduce CI costs
+    # Build locally for macOS: cargo build --release --target aarch64-apple-darwin
+    env:
+      TARGET: x86_64-unknown-linux-gnu
 
     steps:
     - uses: actions/checkout@v4
     
-    - name: Install Dependencies (Linux)
-      if: runner.os == 'Linux'
+    - name: Install Dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y libssl-dev pkg-config cmake
 
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: ${{ matrix.target }}
-        
+
     - name: Build
-      run: cargo build --release --target ${{ matrix.target }} --workspace
-      
+      run: cargo build --release --workspace
+
     - name: Prepare Artifacts
-      shell: bash
       run: |
         mkdir -p release
-        # Copy binaries
-        cp target/${{ matrix.target }}/release/mcp-server release/mcp-server-${{ matrix.target }}
-        cp target/${{ matrix.target }}/release/mcp-cli release/mcp-cli-${{ matrix.target }}
-        cp target/${{ matrix.target }}/release/mcp-agent-mail release/mcp-agent-mail-${{ matrix.target }}
-        cp target/${{ matrix.target }}/release/mcp-stdio release/mcp-stdio-${{ matrix.target }}
-        
+        cp target/release/mcp-server release/mcp-server-linux-x86_64
+        cp target/release/mcp-cli release/mcp-cli-linux-x86_64
+        cp target/release/mcp-agent-mail release/mcp-agent-mail-linux-x86_64
+        cp target/release/mcp-stdio release/mcp-stdio-linux-x86_64
+
     - name: Upload Artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: binaries-${{ matrix.target }}
+        name: binaries-linux
         path: release/*
 
   release:
