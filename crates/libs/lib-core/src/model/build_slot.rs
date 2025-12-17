@@ -23,9 +23,47 @@ pub struct BuildSlotForCreate {
     pub ttl_seconds: i64,
 }
 
+/// Backend Model Controller for Build Slot operations.
+///
+/// Manages CI/CD build slot coordination to prevent concurrent builds.
+/// Uses TTL-based expiration with renewal support.
 pub struct BuildSlotBmc;
 
 impl BuildSlotBmc {
+    /// Acquires a build slot for exclusive use.
+    ///
+    /// This method:
+    /// 1. Checks if slot is currently held by another agent
+    /// 2. Creates new slot reservation with TTL
+    /// 3. Returns slot ID for renewal/release
+    ///
+    /// # Arguments
+    /// * `_ctx` - Request context
+    /// * `mm` - ModelManager
+    /// * `slot_c` - Slot parameters (name, agent, TTL)
+    ///
+    /// # Returns
+    /// The build slot ID
+    ///
+    /// # Errors
+    /// Returns error if slot is already held by another agent
+    ///
+    /// # Example
+    /// ```no_run
+    /// # use lib_core::model::build_slot::*;
+    /// # use lib_core::model::ModelManager;
+    /// # use lib_core::ctx::Ctx;
+    /// # async fn example(mm: &ModelManager) {
+    /// let ctx = Ctx::root_ctx();
+    /// let slot = BuildSlotForCreate {
+    ///     project_id: 1,
+    ///     agent_id: 1,
+    ///     slot_name: "ci-build".to_string(),
+    ///     ttl_seconds: 3600, // 1 hour
+    /// };
+    /// let id = BuildSlotBmc::acquire(&ctx, mm, slot).await.unwrap();
+    /// # }
+    /// ```
     pub async fn acquire(_ctx: &Ctx, mm: &ModelManager, slot_c: BuildSlotForCreate) -> Result<i64> {
         let db = mm.db();
         let now = chrono::Utc::now().naive_utc();
@@ -84,6 +122,19 @@ impl BuildSlotBmc {
         Ok(id)
     }
 
+    /// Renews (extends) a build slot's TTL.
+    ///
+    /// # Arguments
+    /// * `_ctx` - Request context
+    /// * `mm` - ModelManager
+    /// * `slot_id` - Slot to renew
+    /// * `ttl_seconds` - New TTL duration
+    ///
+    /// # Returns
+    /// New expiration timestamp
+    ///
+    /// # Errors
+    /// Returns error if slot doesn't exist or is already released
     pub async fn renew(
         _ctx: &Ctx,
         mm: &ModelManager,
@@ -105,6 +156,15 @@ impl BuildSlotBmc {
         Ok(new_expires)
     }
 
+    /// Releases a build slot.
+    ///
+    /// # Arguments
+    /// * `_ctx` - Request context
+    /// * `mm` - ModelManager
+    /// * `slot_id` - Slot ID to release
+    ///
+    /// # Errors
+    /// Returns error if slot doesn't exist
     pub async fn release(_ctx: &Ctx, mm: &ModelManager, slot_id: i64) -> Result<()> {
         let db = mm.db();
         let now = chrono::Utc::now().naive_utc();
@@ -121,6 +181,15 @@ impl BuildSlotBmc {
         Ok(())
     }
 
+    /// Lists all active (non-released, non-expired) build slots for a project.
+    ///
+    /// # Arguments
+    /// * `_ctx` - Request context
+    /// * `mm` - ModelManager
+    /// * `project_id` - Project database ID
+    ///
+    /// # Returns
+    /// Vector of active build slots (may be empty)
     pub async fn list_active(
         _ctx: &Ctx,
         mm: &ModelManager,
