@@ -5,7 +5,13 @@ use tokio::io::{stdin, stdout};
 
 pub mod docs;
 pub mod tools;
-use tools::AgentMailService;
+pub use tools::{
+    AgentMailService, 
+    ListMacrosParams, 
+    RegisterMacroParams, 
+    UnregisterMacroParams, 
+    InvokeMacroParams
+};
 
 pub async fn run_stdio(_config: McpConfig) -> Result<()> {
     // Initializing logging to stderr is crucial for MCP stdio transport
