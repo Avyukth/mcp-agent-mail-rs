@@ -1619,6 +1619,7 @@ send_message(
   project_key="<repo-path>",
   sender_name="worker-<task-id>",
   recipient_names=["reviewer"],  # or ["human"] if no reviewer
+  cc_names=["human"],  # Human CCed for audit trail
   subject="[COMPLETION] <task-id>: <task-title>",
   body_md="<markdown report above>",
   thread_id="TASK-<task-id>",
@@ -1626,9 +1627,11 @@ send_message(
 )
 ```
 
+**Note**: Human is CCed so they see all completions even before review.
+
 ### Phase 4: Review (Reviewer Agent)
 
-#### 4.1 Check Inbox
+#### 4.1 Check Inbox and State
 
 ```python
 # Check for completion mails
@@ -1640,6 +1643,23 @@ inbox = fetch_inbox(
 
 # Filter for COMPLETION mails
 completion_mails = [m for m in inbox if "[COMPLETION]" in m.subject]
+
+# For each completion mail, check thread state before reviewing
+for mail in completion_mails:
+    thread = get_thread(
+      project_key="<repo-path>",
+      thread_id=mail.thread_id
+    )
+
+    # Skip if already reviewed or being reviewed
+    subjects = [m.subject for m in thread.messages]
+    if any("[APPROVED]" in s or "[FIXED]" in s for s in subjects):
+        continue  # Already reviewed
+    if any("[REVIEWING]" in s for s in subjects):
+        continue  # Another reviewer claimed it
+
+    # Claim and review this task
+    claim_review(mail)
 ```
 
 #### 4.2 Validation Checklist
@@ -1757,14 +1777,27 @@ Document any gaps found:
 #### 4.3 If Review PASSES
 
 ```python
-# 1. Mark task complete in beads
-bd close <task-id> --reason "Implementation verified by reviewer"
-
-# 2. Send approval to Human
-send_message(
+# 1. First, claim the review (sends [REVIEWING] message)
+reviewing_msg = reply_message(
   project_key="<repo-path>",
+  message_id=<completion-mail-id>,
   sender_name="reviewer",
-  recipient_names=["human"],
+  subject="[REVIEWING] <task-id>: <task-title>",
+  body_md="Review claimed. Starting validation...",
+  cc_names=["human"],
+  thread_id="TASK-<task-id>"
+)
+
+# 2. Perform validation (steps 1-7 from checklist)
+# ... validation work ...
+
+# 3. Send approval (reply to REVIEWING message)
+reply_message(
+  project_key="<repo-path>",
+  message_id=reviewing_msg.id,
+  sender_name="reviewer",
+  recipient_names=["worker-<task-id>"],
+  cc_names=["human"],  # Human CCed for audit
   subject="[APPROVED] <task-id>: <task-title>",
   body_md="""
 ## Review Complete - APPROVED
@@ -1787,7 +1820,10 @@ No issues found. Ready for production.
   thread_id="TASK-<task-id>"
 )
 
-# 3. Acknowledge worker's mail
+# 4. Mark task complete in beads
+bd close <task-id> --reason "Implementation verified by reviewer"
+
+# 5. Acknowledge worker's original mail
 acknowledge_message(
   project_key="<repo-path>",
   message_id=<completion-mail-id>,
@@ -1828,13 +1864,16 @@ git worktree remove .sandboxes/reviewer-fix-<task-id>
 git branch -d fix/<task-id>
 ```
 
-Then send completion mail to Human with fix details:
+Then send fix completion mail (reply to REVIEWING message):
 
 ```python
-send_message(
+# Reply to the REVIEWING message with [FIXED] result
+reply_message(
   project_key="<repo-path>",
+  message_id=reviewing_msg.id,
   sender_name="reviewer",
-  recipient_names=["human"],
+  recipient_names=["worker-<task-id>"],
+  cc_names=["human"],  # Human CCed for audit trail
   subject="[FIXED] <task-id>: <task-title>",
   body_md="""
 ## Review Complete - FIXED
@@ -1863,6 +1902,9 @@ send_message(
   """,
   thread_id="TASK-<task-id>"
 )
+
+# Close task in beads
+bd close <task-id> --reason "Fixed by reviewer"
 ```
 
 ### Phase 5: Human Notification
@@ -1960,6 +2002,183 @@ register_agent(
 | `REVIEW-<date>` | Daily review summaries |
 | `ESCALATE-<id>` | Issues needing human attention |
 | `SYSTEM` | Infrastructure/tooling messages |
+
+### Review State Tracking (Thread-Based)
+
+**Problem**: How does Reviewer know if a task has already been reviewed?
+
+**Solution**: Use threads as state machines. All task messages share `thread_id="TASK-<beads-id>"`. Check thread history before acting.
+
+#### State Machine (via Subject Prefixes)
+
+```
+[TASK_STARTED] → [COMPLETION] → [REVIEWING] → [APPROVED|REJECTED|FIXED] → [ACK]
+     ↑              ↑                ↑                    ↑                  ↑
+   Worker        Worker          Reviewer             Reviewer            Human
+```
+
+| State | Subject Prefix | Sender | Meaning |
+|-------|---------------|--------|---------|
+| `STARTED` | `[TASK_STARTED]` | Worker | Work begun |
+| `COMPLETED` | `[COMPLETION]` | Worker | Ready for review |
+| `CLAIMED` | `[REVIEWING]` | Reviewer | Review in progress (prevents duplicates) |
+| `APPROVED` | `[APPROVED]` | Reviewer | Passed review |
+| `REJECTED` | `[REJECTED]` | Reviewer | Failed, needs rework |
+| `FIXED` | `[FIXED]` | Reviewer | Failed but fixed by reviewer |
+| `ACKNOWLEDGED` | `[ACK]` | Human | Human confirmed |
+
+#### Check Thread State Before Review
+
+```python
+# Reviewer: Check if already reviewed
+thread = get_thread(
+  project_key="<repo-path>",
+  thread_id="TASK-<task-id>"
+)
+
+# Parse thread to determine current state
+states_found = []
+for msg in thread.messages:
+    if "[APPROVED]" in msg.subject:
+        states_found.append("APPROVED")
+    elif "[REJECTED]" in msg.subject:
+        states_found.append("REJECTED")
+    elif "[FIXED]" in msg.subject:
+        states_found.append("FIXED")
+    elif "[REVIEWING]" in msg.subject:
+        states_found.append("REVIEWING")
+    elif "[COMPLETION]" in msg.subject:
+        states_found.append("COMPLETED")
+
+# Decision logic
+if "APPROVED" in states_found or "FIXED" in states_found:
+    # Already reviewed and passed - skip
+    print(f"Task {task_id} already reviewed")
+    return
+
+if "REVIEWING" in states_found:
+    # Another reviewer claimed it - skip
+    print(f"Task {task_id} being reviewed by another agent")
+    return
+
+if "COMPLETED" in states_found:
+    # Ready for review - proceed
+    claim_and_review(task_id)
+```
+
+#### Review Claim Protocol (Prevent Duplicates)
+
+Before starting review, Reviewer sends a `[REVIEWING]` message to claim the task:
+
+```python
+# Step 1: Claim the review (atomic operation)
+reply_message(
+  project_key="<repo-path>",
+  message_id=<completion-mail-id>,  # Reply to completion mail
+  sender_name="reviewer",
+  subject="[REVIEWING] <task-id>: <task-title>",
+  body_md="Review claimed by reviewer. Starting validation...",
+  cc_names=["human"],  # Human knows review started
+  thread_id="TASK-<task-id>"
+)
+
+# Step 2: Perform review (validation checklist)
+# ... detailed review steps ...
+
+# Step 3: Send result (reply to own REVIEWING message)
+reply_message(
+  project_key="<repo-path>",
+  message_id=<reviewing-mail-id>,
+  sender_name="reviewer",
+  recipient_names=["worker-<task-id>"],
+  subject="[APPROVED] <task-id>: <task-title>",
+  body_md="<review results>",
+  cc_names=["human"],  # Human CCed on all outcomes
+  thread_id="TASK-<task-id>"
+)
+```
+
+#### CC/BCC Usage for Audit Trail
+
+| Field | Recipients | Purpose |
+|-------|------------|---------|
+| **To** | Primary actor (worker or reviewer) | Direct communication |
+| **CC** | `human` | Audit trail - human sees all state changes |
+| **BCC** | `metrics` (optional) | Analytics without cluttering thread |
+
+**CC Rules:**
+- Worker `[COMPLETION]` → CC: `human` (human knows work done)
+- Reviewer `[REVIEWING]` → CC: `human` (human knows review started)
+- Reviewer `[APPROVED/REJECTED/FIXED]` → To: `worker`, CC: `human`
+- Human `[ACK]` → To: `reviewer`, CC: `worker`
+
+#### Complete Message Chain Example
+
+```
+Thread: TASK-abc123
+─────────────────────────────────────────────────────────────────
+
+[1] From: worker-abc123
+    To: reviewer
+    CC: human
+    Subject: [COMPLETION] abc123: Add input validation
+    Body: ## Task Completion Report...
+
+    [2] From: reviewer
+        To: worker-abc123
+        CC: human
+        Subject: [REVIEWING] abc123: Add input validation
+        Body: Review claimed. Starting validation...
+
+        [3] From: reviewer
+            To: worker-abc123
+            CC: human
+            Subject: [APPROVED] abc123: Add input validation
+            Body: ## Review Complete - APPROVED...
+
+            [4] From: human
+                To: reviewer
+                CC: worker-abc123
+                Subject: [ACK] abc123: Add input validation
+                Body: Acknowledged. Closing task.
+```
+
+#### Query Review History
+
+```python
+# Get full review history for a task
+thread = get_thread(
+  project_key="<repo-path>",
+  thread_id="TASK-<task-id>",
+  include_bodies=True
+)
+
+# Summarize thread for quick status
+summary = summarize_thread(
+  project_key="<repo-path>",
+  thread_id="TASK-<task-id>"
+)
+
+# Search for all reviewed tasks
+reviewed = search_messages(
+  project_key="<repo-path>",
+  query="[APPROVED] OR [FIXED]",
+  agent_name="reviewer"
+)
+```
+
+#### State Transition Rules
+
+| Current State | Valid Next States | Invalid Transitions |
+|---------------|-------------------|---------------------|
+| (none) | STARTED | - |
+| STARTED | COMPLETION | APPROVED, FIXED |
+| COMPLETION | REVIEWING | APPROVED (must claim first) |
+| REVIEWING | APPROVED, REJECTED, FIXED | COMPLETION (can't go back) |
+| REJECTED | COMPLETION (rework) | APPROVED (must re-review) |
+| APPROVED | ACK | REJECTED (too late) |
+| FIXED | ACK | REJECTED |
+| ACK | (terminal) | All (task closed) |
 
 ### Environment Variables for Orchestration
 
