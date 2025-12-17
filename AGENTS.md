@@ -1366,8 +1366,8 @@ This document should be updated when:
 - Common issues are discovered
 - Project-specific sections need updating
 
-**Version**: 1.1.0
-**Last Updated**: 2025-12-17
+**Version**: 1.2.0
+**Last Updated**: 2025-12-18
 **Maintainer**: Avyukth
 
 ---
@@ -1422,6 +1422,459 @@ cat ~/.claude/skills/skill-rules.json | jq '.skills["rust-skills"]'
 ### Project Export
 
 Skills exported to `.tmp/skills/` for reference (gitignored).
+
+---
+
+## 🤖 LAYER 5: MULTI-AGENT ORCHESTRATION
+
+This layer defines the workflow for autonomous multi-agent task execution with review and human oversight.
+
+### Agent Roles
+
+| Role | Agent Name | Responsibility |
+|------|------------|----------------|
+| **Worker** | `worker-<id>` | Claims tasks from beads, implements code, runs quality gates |
+| **Reviewer** | `reviewer` | Validates implementations, fixes issues, ensures quality |
+| **Human** | `human` | Final oversight, receives completion reports |
+
+### Workflow Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    MULTI-AGENT ORCHESTRATION FLOW                          │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌──────────┐  │
+│  │   BEADS     │────▶│   WORKER    │────▶│  REVIEWER   │────▶│  HUMAN   │  │
+│  │  (bd ready) │     │   AGENT     │     │   AGENT     │     │  AGENT   │  │
+│  └─────────────┘     └─────────────┘     └─────────────┘     └──────────┘  │
+│                             │                   │                          │
+│                             │ COMPLETION_MAIL   │ REVIEW_COMPLETE_MAIL     │
+│                             ▼                   ▼                          │
+│                      ┌─────────────┐     ┌─────────────┐                   │
+│                      │ Git Worktree│     │ Git Worktree│                   │
+│                      │ (implement) │     │ (fix if bad)│                   │
+│                      └─────────────┘     └─────────────┘                   │
+│                                                                             │
+│  SINGLE-AGENT FALLBACK: If no Reviewer present, Worker does one-pass       │
+│  self-review and sends directly to Human.                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Phase 1: Task Claim (Worker Agent)
+
+```bash
+# 1. Check for available work
+bd ready --json
+
+# 2. Claim the task
+bd update <task-id> --status in_progress --json
+
+# 3. Register as worker agent
+ensure_project(project_key="<repo-path>", human_key="mcp-agent-mail-rs")
+register_agent(
+  project_key="<repo-path>",
+  agent_name="worker-<task-id>",
+  program="claude-code"
+)
+
+# 4. Reserve files for exclusive access
+file_reservation_paths(
+  project_key="<repo-path>",
+  agent_name="worker-<task-id>",
+  paths=["src/**/*.rs", "Cargo.toml"],  # Based on task scope
+  ttl_seconds=7200,  # 2 hours
+  exclusive=true
+)
+
+# 5. (Optional) Notify reviewer that work started
+send_message(
+  project_key="<repo-path>",
+  sender_name="worker-<task-id>",
+  recipient_names=["reviewer"],
+  subject="[TASK_STARTED] <task-id>: <task-title>",
+  body_md="Starting work on task. ETA: <estimate>",
+  thread_id="TASK-<task-id>"
+)
+```
+
+### Phase 2: Implementation (Worker Agent)
+
+```bash
+# 1. Create isolated worktree
+git worktree add .sandboxes/worker-<task-id> -b feature/<task-id>
+cd .sandboxes/worker-<task-id>
+
+# 2. Implement based on beads acceptance criteria
+# ... coding work ...
+
+# 3. Run quality gates
+cargo check --all-targets
+cargo clippy --all-targets -- -D warnings
+cargo fmt --check
+cargo test -p lib-core --test integration -- --test-threads=1
+
+# 4. Commit changes
+git add -A
+git commit -m "feat(<scope>): <description>
+
+Implements: <task-id>
+- <change 1>
+- <change 2>
+
+🤖 Generated with Claude Code"
+
+# 5. Return to main and merge
+cd ../..
+git checkout main
+git merge feature/<task-id> --no-edit
+
+# 6. Clean up worktree
+git worktree remove .sandboxes/worker-<task-id>
+git branch -d feature/<task-id>
+```
+
+### Phase 3: Completion Mail (Worker → Reviewer)
+
+**Mail Subject Format**: `[COMPLETION] <task-id>: <task-title>`
+
+**Required Fields**:
+
+```markdown
+## Task Completion Report
+
+**Task ID**: <beads-id>
+**Task Title**: <title from beads>
+**Commit ID**: <40-char git SHA>
+**Branch**: main (merged from feature/<task-id>)
+
+### Files Changed
+<output of: git diff --name-only <merge-base>..HEAD>
+
+### Summary of Changes
+<2-3 sentence summary of what was implemented>
+
+### Acceptance Criteria Status
+- [x] Criterion 1 from beads
+- [x] Criterion 2 from beads
+- [ ] Criterion 3 (partial - see notes)
+
+### Quality Gates
+| Gate | Status | Notes |
+|------|--------|-------|
+| cargo check | ✅ PASS | |
+| cargo clippy | ✅ PASS | 0 warnings |
+| cargo fmt | ✅ PASS | |
+| cargo test | ✅ PASS | 42 tests |
+
+### Notes for Reviewer
+<any context, caveats, or areas needing attention>
+
+### Verification Command
+```bash
+git show <commit-id> --stat
+cargo test -p <affected-crate>
+```
+```
+
+**MCP Call**:
+
+```python
+send_message(
+  project_key="<repo-path>",
+  sender_name="worker-<task-id>",
+  recipient_names=["reviewer"],  # or ["human"] if no reviewer
+  subject="[COMPLETION] <task-id>: <task-title>",
+  body_md="<markdown report above>",
+  thread_id="TASK-<task-id>",
+  priority="high"
+)
+```
+
+### Phase 4: Review (Reviewer Agent)
+
+#### 4.1 Check Inbox
+
+```python
+# Check for completion mails
+inbox = fetch_inbox(
+  project_key="<repo-path>",
+  agent_name="reviewer",
+  unread_only=true
+)
+
+# Filter for COMPLETION mails
+completion_mails = [m for m in inbox if "[COMPLETION]" in m.subject]
+```
+
+#### 4.2 Validation Checklist
+
+The Reviewer MUST verify:
+
+| Check | How to Verify | Fail Action |
+|-------|---------------|-------------|
+| **Not Placeholder** | Code has actual implementation, not `todo!()` or `unimplemented!()` | Fix in worktree |
+| **Meets Acceptance Criteria** | All criteria from beads marked complete | Fix in worktree |
+| **Quality Gates Pass** | Re-run quality gates on main | Fix in worktree |
+| **No Regressions** | Existing tests still pass | Fix in worktree |
+| **Code Style** | Follows BMC pattern, proper error handling | Fix in worktree |
+
+#### 4.3 If Review PASSES
+
+```python
+# 1. Mark task complete in beads
+bd close <task-id> --reason "Implementation verified by reviewer"
+
+# 2. Send approval to Human
+send_message(
+  project_key="<repo-path>",
+  sender_name="reviewer",
+  recipient_names=["human"],
+  subject="[APPROVED] <task-id>: <task-title>",
+  body_md="""
+## Review Complete - APPROVED
+
+**Task ID**: <task-id>
+**Commit ID**: <commit-sha>
+**Worker**: worker-<task-id>
+
+### Verification Summary
+- Implementation is complete (not placeholder)
+- All acceptance criteria met
+- Quality gates passed
+- Code follows project standards
+
+### Files Changed
+<list of files>
+
+No issues found. Ready for production.
+  """,
+  thread_id="TASK-<task-id>"
+)
+
+# 3. Acknowledge worker's mail
+acknowledge_message(
+  project_key="<repo-path>",
+  message_id=<completion-mail-id>,
+  agent_name="reviewer"
+)
+```
+
+#### 4.4 If Review FAILS (Fix Flow)
+
+```bash
+# 1. Create review worktree
+git worktree add .sandboxes/reviewer-fix-<task-id> -b fix/<task-id>
+cd .sandboxes/reviewer-fix-<task-id>
+
+# 2. Fix identified issues
+# ... fix placeholder code, missing implementations, etc. ...
+
+# 3. Run quality gates
+cargo check --all-targets
+cargo clippy --all-targets -- -D warnings
+cargo test
+
+# 4. Commit fixes
+git add -A
+git commit -m "fix(<scope>): reviewer fixes for <task-id>
+
+Fixes:
+- <issue 1>
+- <issue 2>
+
+Reviewed-by: reviewer
+🤖 Generated with Claude Code"
+
+# 5. Merge to main
+cd ../..
+git checkout main
+git merge fix/<task-id> --no-edit
+
+# 6. Clean up
+git worktree remove .sandboxes/reviewer-fix-<task-id>
+git branch -d fix/<task-id>
+```
+
+Then send completion mail to Human with fix details:
+
+```python
+send_message(
+  project_key="<repo-path>",
+  sender_name="reviewer",
+  recipient_names=["human"],
+  subject="[FIXED] <task-id>: <task-title>",
+  body_md="""
+## Review Complete - FIXED
+
+**Task ID**: <task-id>
+**Original Commit**: <worker-commit-sha>
+**Fix Commit**: <reviewer-fix-sha>
+**Worker**: worker-<task-id>
+
+### Issues Found
+1. <issue description>
+2. <issue description>
+
+### Fixes Applied
+1. <fix description>
+2. <fix description>
+
+### Final Status
+- All acceptance criteria now met
+- Quality gates passing
+- Ready for production
+
+### Commits
+- `<worker-sha>` - Original implementation
+- `<fix-sha>` - Reviewer fixes
+  """,
+  thread_id="TASK-<task-id>"
+)
+```
+
+### Phase 5: Human Notification
+
+Human agent receives final report and can:
+
+1. **Acknowledge** - Task complete, no further action
+2. **Request Changes** - Send message back to reviewer/worker
+3. **Close Loop** - Mark beads task as done
+
+```python
+# Human acknowledges completion
+acknowledge_message(
+  project_key="<repo-path>",
+  message_id=<completion-mail-id>,
+  agent_name="human"
+)
+
+# Human closes task (if not already closed)
+bd close <task-id> --reason "Verified by human"
+```
+
+### Single-Agent Fallback Mode
+
+When **no Reviewer agent is present**, Worker performs self-review:
+
+```python
+# Check if reviewer exists
+agents = list_agents(project_key="<repo-path>")
+reviewer_exists = any(a.name == "reviewer" for a in agents)
+
+if not reviewer_exists:
+    # Self-review: Worker validates own work
+    # 1. Re-run quality gates
+    # 2. Verify acceptance criteria
+    # 3. Send directly to Human
+
+    send_message(
+      project_key="<repo-path>",
+      sender_name="worker-<task-id>",
+      recipient_names=["human"],  # Skip reviewer, go direct
+      subject="[COMPLETION] <task-id>: <task-title> (Self-Reviewed)",
+      body_md="""
+## Task Completion Report (Self-Reviewed)
+
+**Note**: No reviewer agent present. Worker performed self-review.
+
+<... standard completion report ...>
+
+### Self-Review Checklist
+- [x] Implementation is not placeholder
+- [x] Acceptance criteria met
+- [x] Quality gates passed
+- [x] Code follows project standards
+      """,
+      thread_id="TASK-<task-id>"
+    )
+```
+
+### Agent Registration Protocol
+
+At session start, each agent type registers:
+
+```python
+# Worker agent registration
+register_agent(
+  project_key="<repo-path>",
+  agent_name="worker-<session-id>",
+  program="claude-code",
+  capabilities=["code", "test", "commit"]
+)
+
+# Reviewer agent registration (persistent)
+register_agent(
+  project_key="<repo-path>",
+  agent_name="reviewer",
+  program="claude-code",
+  capabilities=["review", "fix", "approve"]
+)
+
+# Human agent registration (for notifications)
+register_agent(
+  project_key="<repo-path>",
+  agent_name="human",
+  program="human",
+  capabilities=["approve", "reject", "escalate"]
+)
+```
+
+### Message Thread Conventions
+
+| Thread ID Pattern | Purpose |
+|-------------------|---------|
+| `TASK-<beads-id>` | All messages about a specific task |
+| `REVIEW-<date>` | Daily review summaries |
+| `ESCALATE-<id>` | Issues needing human attention |
+| `SYSTEM` | Infrastructure/tooling messages |
+
+### Environment Variables for Orchestration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AGENT_ROLE` | worker | Agent role (worker, reviewer, human) |
+| `AGENT_NAME` | auto | Agent identifier |
+| `REVIEWER_REQUIRED` | true | Require reviewer before human notification |
+| `AUTO_FIX_ENABLED` | true | Allow reviewer to auto-fix issues |
+| `WORKTREE_BASE` | .sandboxes | Base directory for agent worktrees |
+
+### Quality Gate Enforcement
+
+All agents MUST run quality gates before any commit:
+
+```bash
+# Minimum gates (blocking)
+cargo check --all-targets
+cargo clippy --all-targets -- -D warnings
+cargo fmt --check
+
+# Extended gates (advisory but logged)
+cargo test --workspace
+pmat analyze tdg
+cargo audit
+```
+
+### Error Recovery
+
+| Scenario | Recovery Action |
+|----------|-----------------|
+| Worker crashes mid-task | Reviewer claims abandoned task, continues in worktree |
+| Reviewer crashes mid-review | Human notified, can reassign to new reviewer |
+| Git merge conflict | Agent creates conflict resolution commit, notifies in thread |
+| Quality gate failure | Task stays open, failure details in completion mail |
+| Message delivery failure | Retry with exponential backoff, escalate after 3 failures |
+
+### Orchestration Metrics
+
+Track via `list_tool_metrics()`:
+
+| Metric | Target |
+|--------|--------|
+| Task claim → completion | < 2 hours |
+| Review turnaround | < 30 minutes |
+| Fix turnaround | < 1 hour |
+| Human acknowledgment | < 24 hours |
 
 ---
 
