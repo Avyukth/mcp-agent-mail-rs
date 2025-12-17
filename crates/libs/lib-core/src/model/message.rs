@@ -828,3 +828,248 @@ async fn commit_message_to_git(
     info!("Background git commit succeeded for message {}", id);
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::TempDir;
+
+    // ============================================================================
+    // TDD Tests for build_message_paths
+    // ============================================================================
+
+    #[test]
+    fn test_build_message_paths_canonical_structure() {
+        let paths = build_message_paths(
+            "my-project",
+            "sender-agent",
+            &["recipient1".to_string()],
+            "2025-01-01__test-msg__1.md",
+            "2025",
+            "01",
+        );
+
+        assert_eq!(
+            paths.canonical,
+            PathBuf::from("projects/my-project/messages/2025/01/2025-01-01__test-msg__1.md")
+        );
+    }
+
+    #[test]
+    fn test_build_message_paths_outbox_structure() {
+        let paths = build_message_paths(
+            "my-project",
+            "alice",
+            &["bob".to_string()],
+            "msg.md",
+            "2025",
+            "12",
+        );
+
+        assert_eq!(
+            paths.outbox,
+            PathBuf::from("projects/my-project/agents/alice/outbox/2025/12/msg.md")
+        );
+    }
+
+    #[test]
+    fn test_build_message_paths_single_recipient_inbox() {
+        let paths = build_message_paths(
+            "proj",
+            "sender",
+            &["bob".to_string()],
+            "msg.md",
+            "2025",
+            "01",
+        );
+
+        assert_eq!(paths.inboxes.len(), 1);
+        assert_eq!(
+            paths.inboxes[0],
+            PathBuf::from("projects/proj/agents/bob/inbox/2025/01/msg.md")
+        );
+    }
+
+    #[test]
+    fn test_build_message_paths_multiple_recipients() {
+        let paths = build_message_paths(
+            "proj",
+            "sender",
+            &["alice".to_string(), "bob".to_string(), "charlie".to_string()],
+            "msg.md",
+            "2025",
+            "06",
+        );
+
+        assert_eq!(paths.inboxes.len(), 3);
+        assert!(paths.inboxes.iter().any(|p| p.to_string_lossy().contains("alice/inbox")));
+        assert!(paths.inboxes.iter().any(|p| p.to_string_lossy().contains("bob/inbox")));
+        assert!(paths.inboxes.iter().any(|p| p.to_string_lossy().contains("charlie/inbox")));
+    }
+
+    #[test]
+    fn test_build_message_paths_empty_recipients() {
+        let paths = build_message_paths("proj", "sender", &[], "msg.md", "2025", "01");
+
+        assert_eq!(paths.inboxes.len(), 0);
+        // Canonical and outbox should still be valid
+        assert!(paths.canonical.to_string_lossy().contains("messages"));
+        assert!(paths.outbox.to_string_lossy().contains("outbox"));
+    }
+
+    // ============================================================================
+    // TDD Tests for format_message_content
+    // ============================================================================
+
+    #[test]
+    fn test_format_message_content_has_frontmatter() {
+        let content = format_message_content(
+            123,
+            "test-proj",
+            "alice",
+            &["bob".to_string()],
+            "Test Subject",
+            "Body text here",
+            "THREAD-001",
+            "high",
+            "2025-01-01T12:00:00Z",
+        )
+        .unwrap();
+
+        assert!(content.starts_with("---json\n"));
+        assert!(content.contains("---\n\n"));
+        assert!(content.ends_with("Body text here"));
+    }
+
+    #[test]
+    fn test_format_message_content_includes_all_fields() {
+        let content = format_message_content(
+            42,
+            "my-project",
+            "sender",
+            &["r1".to_string(), "r2".to_string()],
+            "Important",
+            "Message body",
+            "THR-99",
+            "normal",
+            "2025-12-17T10:30:00Z",
+        )
+        .unwrap();
+
+        assert!(content.contains("\"id\": 42"));
+        assert!(content.contains("\"project\": \"my-project\""));
+        assert!(content.contains("\"from\": \"sender\""));
+        assert!(content.contains("\"subject\": \"Important\""));
+        assert!(content.contains("\"thread_id\": \"THR-99\""));
+        assert!(content.contains("\"importance\": \"normal\""));
+        assert!(content.contains("\"created\": \"2025-12-17T10:30:00Z\""));
+    }
+
+    #[test]
+    fn test_format_message_content_recipients_array() {
+        let content = format_message_content(
+            1,
+            "p",
+            "s",
+            &["a".to_string(), "b".to_string()],
+            "subj",
+            "body",
+            "t",
+            "low",
+            "2025-01-01",
+        )
+        .unwrap();
+
+        // Should contain recipients as JSON array
+        assert!(content.contains("\"to\": ["));
+        assert!(content.contains("\"a\""));
+        assert!(content.contains("\"b\""));
+    }
+
+    // ============================================================================
+    // TDD Tests for write_archive_file
+    // ============================================================================
+
+    #[test]
+    fn test_write_archive_file_creates_directories() {
+        let temp_dir = TempDir::new().unwrap();
+        let rel_path = PathBuf::from("deep/nested/path/file.md");
+
+        write_archive_file(temp_dir.path(), &rel_path, "test content").unwrap();
+
+        let full_path = temp_dir.path().join(&rel_path);
+        assert!(full_path.exists());
+        assert_eq!(std::fs::read_to_string(&full_path).unwrap(), "test content");
+    }
+
+    #[test]
+    fn test_write_archive_file_overwrites_existing() {
+        let temp_dir = TempDir::new().unwrap();
+        let rel_path = PathBuf::from("file.md");
+
+        write_archive_file(temp_dir.path(), &rel_path, "first").unwrap();
+        write_archive_file(temp_dir.path(), &rel_path, "second").unwrap();
+
+        let full_path = temp_dir.path().join(&rel_path);
+        assert_eq!(std::fs::read_to_string(&full_path).unwrap(), "second");
+    }
+
+    #[test]
+    fn test_write_archive_file_empty_content() {
+        let temp_dir = TempDir::new().unwrap();
+        let rel_path = PathBuf::from("empty.md");
+
+        write_archive_file(temp_dir.path(), &rel_path, "").unwrap();
+
+        let full_path = temp_dir.path().join(&rel_path);
+        assert!(full_path.exists());
+        assert_eq!(std::fs::read_to_string(&full_path).unwrap(), "");
+    }
+
+    // ============================================================================
+    // TDD Tests for write_message_to_archive
+    // ============================================================================
+
+    #[test]
+    fn test_write_message_to_archive_creates_all_files() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = MessageArchivePaths {
+            canonical: PathBuf::from("messages/2025/01/msg.md"),
+            outbox: PathBuf::from("agents/sender/outbox/2025/01/msg.md"),
+            inboxes: vec![
+                PathBuf::from("agents/alice/inbox/2025/01/msg.md"),
+                PathBuf::from("agents/bob/inbox/2025/01/msg.md"),
+            ],
+        };
+
+        write_message_to_archive(temp_dir.path(), &paths, "test content").unwrap();
+
+        // All 4 files should exist with same content
+        assert!(temp_dir.path().join(&paths.canonical).exists());
+        assert!(temp_dir.path().join(&paths.outbox).exists());
+        assert!(temp_dir.path().join(&paths.inboxes[0]).exists());
+        assert!(temp_dir.path().join(&paths.inboxes[1]).exists());
+
+        // Verify content
+        assert_eq!(
+            std::fs::read_to_string(temp_dir.path().join(&paths.canonical)).unwrap(),
+            "test content"
+        );
+    }
+
+    #[test]
+    fn test_write_message_to_archive_empty_inboxes() {
+        let temp_dir = TempDir::new().unwrap();
+        let paths = MessageArchivePaths {
+            canonical: PathBuf::from("msg.md"),
+            outbox: PathBuf::from("out.md"),
+            inboxes: vec![],
+        };
+
+        // Should succeed even with no inboxes
+        write_message_to_archive(temp_dir.path(), &paths, "content").unwrap();
+
+        assert!(temp_dir.path().join(&paths.canonical).exists());
+        assert!(temp_dir.path().join(&paths.outbox).exists());
+    }
+}
