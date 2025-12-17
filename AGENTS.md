@@ -67,6 +67,8 @@ These tools work across ALL projects. Learn them once, use them everywhere.
 | **Find ready issues** | bd | `bd ready --json` |
 | **Search past sessions** | cass | `cass search "query" --robot` |
 | **Graph analysis of issues** | bv | `bv --robot-insights` |
+| **AI-supervised execution** | vc | `vc run` / `vc status` |
+| **Quality gates / TDG** | pmat | `pmat analyze tdg` / `pmat mutate` |
 | **Bug scan before commit** | ubs | `ubs $(git diff --name-only --cached)` |
 | **Structural code search** | ast-grep | `ast-grep run -l <lang> -p 'pattern'` |
 | **Text search** | ripgrep | `rg "pattern"` |
@@ -291,6 +293,212 @@ bv --robot-diff --diff-since <commit|date>  # Changes since point
 
 ---
 
+### 🤖 vc (AI-Supervised Executor) — Autonomous Agent Colony
+
+**What it does**: Orchestrates AI coding agents with supervision, quality gates, and automatic work discovery. VC claims issues from bd, spawns coding agents, and creates follow-on issues for discovered work.
+
+#### Core Concepts
+
+| Concept | Description |
+|---------|-------------|
+| **Zero Framework Cognition (ZFC)** | All decisions delegated to AI—no heuristics or regex in orchestration |
+| **Issue-Oriented Orchestration** | Work flows through bd issue tracker with explicit dependencies |
+| **Nondeterministic Idempotence** | Operations can crash and resume; AI figures out where to continue |
+| **AI Supervision** | Assessment before work, analysis after—catches mistakes early |
+
+#### Workflow
+
+```
+1. User: "Fix bug X" (or vc finds ready work)
+2. VC claims issue atomically from bd
+3. AI assesses: strategy, steps, risks
+4. Agent executes the work (Amp/Claude Code)
+5. AI analyzes: completion, punted items, discovered bugs
+6. Auto-create follow-on issues
+7. Quality gates enforce standards
+8. Repeat until done
+```
+
+#### Key Commands
+
+| Command | Purpose |
+|---------|---------|
+| `vc run` | Start executor loop |
+| `vc status` | View executor state |
+| `vc activity` | View activity feed |
+| `vc repl` | Interactive natural language interface |
+
+#### Environment Variables
+
+| Variable | Required | Purpose |
+|----------|----------|---------|
+| `ANTHROPIC_API_KEY` | Yes | AI supervision (assessment/analysis) |
+| `VC_DEBUG_PROMPTS` | No | Log full prompts sent to agents |
+| `VC_DEBUG_EVENTS` | No | Log JSON event parsing |
+| `VC_DEBUG_STATUS` | No | Log issue status changes |
+| `VC_DEBUG_WORK_SELECTION` | No | Log work selection filtering |
+
+#### Blocker-First Prioritization
+
+VC uses blocker-first prioritization to ensure missions complete:
+
+1. Baseline-failure issues (self-healing mode)
+2. Discovered blockers (`discovered:blocker` label)
+3. Regular ready work (sorted by priority)
+4. Discovered related work (`discovered:related` label)
+
+**Work starvation is acceptable** for mission convergence—blockers always take precedence.
+
+#### Executor Exclusion
+
+Use `no-auto-claim` label **ONLY** for:
+- External coordination (other teams, approvals)
+- Human creativity (UX, branding, marketing)
+- Business judgment (pricing, legal, compliance)
+- Pure research (no clear deliverable)
+
+**Everything else is fair game**—VC has robust safety nets (quality gates, AI supervision, sandbox isolation, self-healing).
+
+```bash
+# Prevent executor from auto-claiming an issue
+bd label add <id> no-auto-claim
+```
+
+#### Integration with bd
+
+VC consumes issues from bd and creates follow-on work automatically:
+
+```bash
+# VC claims ready work
+bd ready --json  # VC queries this
+
+# VC creates discovered issues
+bd create "Found during work" --deps discovered-from:<parent> --json
+
+# VC closes completed work
+bd close <id> --reason "Completed" --json
+```
+
+---
+
+### 📊 pmat (Pragmatic Multi-language Agent Toolkit) — Quality Gates & Analysis
+
+**What it does**: Zero-configuration code quality analysis, technical debt grading, mutation testing, and AI context generation. Supports 17+ languages.
+
+#### Core Capabilities
+
+| Feature | Purpose |
+|---------|---------|
+| **Context Generation** | Deep analysis for Claude, GPT, and other LLMs |
+| **Technical Debt Grading (TDG)** | A+ through F scoring with 6 orthogonal metrics |
+| **Mutation Testing** | Test suite quality validation (85%+ kill rate target) |
+| **Repository Scoring** | Quantitative health assessment (0-211 scale) |
+| **Semantic Search** | Natural language code discovery |
+| **Quality Gates** | Pre-commit hooks, CI/CD integration |
+
+#### Essential Commands
+
+```bash
+# Generate AI-ready context
+pmat context --output context.md --format llm-optimized
+
+# Analyze code complexity
+pmat analyze complexity
+
+# Grade technical debt (A+ through F)
+pmat analyze tdg
+
+# Score repository health (Rust projects)
+pmat rust-project-score           # Fast mode (~3 min)
+pmat rust-project-score --full    # Comprehensive (~10-15 min)
+
+# Run mutation testing
+pmat mutate --target src/ --threshold 85
+```
+
+#### Technical Debt Grading (TDG)
+
+TDG provides six orthogonal metrics for accurate quality assessment:
+
+```bash
+pmat analyze tdg                       # Project-wide grade
+pmat analyze tdg --include-components  # Per-component breakdown
+pmat tdg baseline create               # Create quality baseline
+pmat tdg check-regression              # Detect quality degradation
+```
+
+**Grading Scale**:
+
+| Grade | Meaning |
+|-------|---------|
+| A+/A | Excellent quality, minimal debt |
+| B+/B | Good quality, manageable debt |
+| C+/C | Needs improvement |
+| D/F | Significant technical debt |
+
+#### Quality Baseline Workflow
+
+```bash
+# 1. Create baseline (do this when quality is good)
+pmat tdg baseline create --output .pmat/baseline.json
+
+# 2. Check for regressions (in CI or pre-commit)
+pmat tdg check-regression \
+  --baseline .pmat/baseline.json \
+  --max-score-drop 5.0 \
+  --fail-on-regression
+```
+
+#### Mutation Testing
+
+Validates test suite effectiveness by introducing mutations and checking if tests catch them:
+
+```bash
+pmat mutate --target src/lib.rs           # Single file
+pmat mutate --target src/ --threshold 85  # Quality gate (85% kill rate)
+pmat mutate --failures-only               # CI optimization (faster)
+```
+
+**Supported languages**: Rust, Python, TypeScript, JavaScript, Go, C++
+
+#### Git Hooks Integration
+
+```bash
+pmat hooks install                     # Install pre-commit hooks
+pmat hooks install --tdg-enforcement   # With TDG quality gates
+pmat hooks status                      # Check hook status
+```
+
+#### Workflow Prompts
+
+Pre-configured AI prompts enforcing EXTREME TDD:
+
+```bash
+pmat prompt --list                     # Available prompts
+pmat prompt code-coverage              # 85%+ coverage enforcement
+pmat prompt debug                      # Five Whys analysis
+pmat prompt quality-enforcement        # All quality gates
+```
+
+#### MCP Server Mode
+
+```bash
+# Start MCP server for Claude Code, Cline, etc.
+pmat mcp
+```
+
+Provides 19 tools for AI agents via MCP protocol.
+
+#### CI/CD Integration Example
+
+```yaml
+# .github/workflows/quality.yml
+- run: pmat analyze tdg --fail-on-violation --min-grade B
+- run: pmat mutate --target src/ --threshold 80
+```
+
+---
+
 ### 🔍 ubs (Ultimate Bug Scanner) — Pre-Commit Validation
 
 **What it does**: Static analysis across multiple languages. Run before EVERY commit.
@@ -372,6 +580,80 @@ fetch_inbox → acknowledge_message
 
 ## 🔄 LAYER 2: SESSION WORKFLOW
 
+### Git Worktree Flow (Sandbox Isolation)
+
+**What it does**: Git worktrees allow multiple working directories from the same repository, enabling safe parallel work and sandbox isolation.
+
+#### When to Use Worktrees
+
+- ✅ Working on risky/experimental changes
+- ✅ Testing in isolation without affecting main work
+- ✅ Parallel feature development
+- ✅ AI executor sandboxes (VC uses this)
+- ✅ Code review with local testing
+
+#### Basic Worktree Commands
+
+```bash
+# Create a worktree for a new branch
+git worktree add ../project-feature feature-branch
+
+# Create worktree from existing branch
+git worktree add ../project-bugfix bugfix-branch
+
+# List all worktrees
+git worktree list
+
+# Remove a worktree (when done)
+git worktree remove ../project-feature
+
+# Prune stale worktree references
+git worktree prune
+```
+
+#### Sandbox Pattern for Safe Experimentation
+
+```bash
+# 1. Create isolated sandbox
+git worktree add ../sandbox-experiment -b experiment/risky-change
+
+# 2. Work in sandbox (cd to it)
+cd ../sandbox-experiment
+
+# 3. Make changes, test, iterate
+# ... your work here ...
+
+# 4. If successful: merge back
+git checkout main
+git merge experiment/risky-change
+
+# 5. Clean up
+git worktree remove ../sandbox-experiment
+git branch -d experiment/risky-change
+```
+
+#### Worktree + bd Integration
+
+**IMPORTANT**: bd daemon mode is NOT supported in worktrees. Use `--no-daemon` flag:
+
+```bash
+# In a worktree, always use --no-daemon
+bd --no-daemon ready
+bd --no-daemon update <id> --status in_progress
+bd --no-daemon close <id> --reason "Done"
+```
+
+#### Worktree Best Practices
+
+| Practice | Reason |
+|----------|--------|
+| Use descriptive directory names | `../project-feature-auth` not `../wt1` |
+| Clean up when done | Avoid accumulating stale worktrees |
+| Don't nest worktrees | Keep them siblings, not children |
+| Prune regularly | `git worktree prune` removes stale refs |
+
+---
+
 ### Starting a Session
 
 ```bash
@@ -438,9 +720,20 @@ bd create "Follow-up task discovered" \
 #### 2. Run Quality Gates (if code changed)
 
 ```bash
-# Run tests (project-specific command)
-# Run linters (project-specific command)
+# Project-specific tests and lints (see Layer 4)
+# ...
+
+# Universal quality gates (pmat)
+pmat analyze tdg                           # Check technical debt grade
+pmat tdg check-regression --baseline .pmat/baseline.json  # If baseline exists
+pmat mutate --target <changed-files> --threshold 80       # Mutation testing
+
 # File P0 issues for any failures
+bd create "Quality gate failure: TDG grade dropped to C" \
+  -t bug -p 0 \
+  --description="pmat analyze tdg shows grade C, was B. Details: ..." \
+  --label quality-gate-failure \
+  --json
 ```
 
 #### 3. Update Issues
@@ -606,6 +899,7 @@ cargo check --all-targets
 cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 cargo test -p lib-core --test integration -- --test-threads=1
+pmat analyze tdg --fail-on-violation --min-grade B
 ```
 
 ### Active Work Areas
@@ -710,7 +1004,11 @@ cargo check --all-targets
 cargo clippy --all-targets -- -D warnings
 cargo fmt --check
 cargo test -p lib-core --test integration -- --test-threads=1
+pmat analyze tdg --fail-on-violation --min-grade B
+pmat mutate --target src/ --threshold 80
 ```
+
+Or install pmat hooks: `pmat hooks install --tdg-enforcement`
 
 ### Code Style Guidelines
 
@@ -812,6 +1110,8 @@ fn send(project: String, agent: String)  // Easy to swap args
 | cass | `curl \| bash` installer | `cass --version` |
 | bd | `brew install bd` | `bd version` |
 | bv | Bundled with bd | `bv --version` |
+| vc | See vc repo | `vc --version` |
+| pmat | `cargo install pmat` | `pmat --version` |
 | ubs | Project-specific | `ubs --version` |
 | ast-grep | `cargo install ast-grep` | `ast-grep --version` |
 | ripgrep | `brew install ripgrep` | `rg --version` |
@@ -824,6 +1124,8 @@ fn send(project: String, agent: String)  // Easy to swap args
 | cass | `cass robot-docs guide`, `cass capabilities --json` |
 | bd | `bd --help`, `bd <cmd> --help` |
 | bv | `bv --robot-help` |
+| vc | `vc --help`, `docs/CONFIGURATION.md`, `docs/FEATURES.md` |
+| pmat | `pmat --help`, [PMAT Book](https://paiml.github.io/pmat-book/) |
 
 ### CLI Tool Preferences
 
@@ -848,6 +1150,7 @@ fn send(project: String, agent: String)  // Easy to swap args
 | Git push fails | Pull with rebase, resolve conflicts, push again |
 | Issues not syncing | Run `bd sync` and `bd hooks install` |
 | Test DB conflicts | Use `--test-threads=1` for integration tests |
+| bd in worktree fails | Use `bd --no-daemon` flag |
 
 ### Health Checks
 
@@ -866,6 +1169,9 @@ git status
 
 # Rust build
 cargo check --all-targets
+
+# Quality grade
+pmat analyze tdg
 ```
 
 ---
@@ -878,7 +1184,7 @@ This document should be updated when:
 - Common issues are discovered
 - Project-specific sections need updating
 
-**Version**: 1.0.0
+**Version**: 1.1.0
 **Last Updated**: 2025-12-17
 **Maintainer**: Avyukth
 
@@ -891,6 +1197,7 @@ This document should be updated when:
 - [.env.example](.env.example) — All environment variables
 - [scripts/integrations/](scripts/integrations/) — Agent integration configs
 - [MCP Protocol](https://modelcontextprotocol.io)
+- [PMAT Book](https://paiml.github.io/pmat-book/) — pmat documentation
 
 ---
 
