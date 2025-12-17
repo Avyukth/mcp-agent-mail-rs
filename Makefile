@@ -75,6 +75,31 @@ run-prod: build-prod
 	cargo run -p mcp-server --release
 
 # ============================================================================
+# Sidecar Build Targets
+# ============================================================================
+
+## Build unified sidecar binary with embedded UI
+build-sidecar:
+	@echo "🔧 Building web UI..."
+	cd crates/services/web-ui-leptos && trunk build --release
+	@echo "🔧 Building sidecar binary with embedded UI..."
+	cargo build -p mcp-agent-mail --release --features with-web-ui
+	@echo "✅ Binary: target/release/mcp-agent-mail"
+	@ls -lh target/release/mcp-agent-mail
+
+## Build minimal sidecar binary (no UI)
+build-sidecar-minimal:
+	@echo "🔧 Building minimal sidecar binary (no UI)..."
+	cargo build -p mcp-agent-mail --release
+	@echo "✅ Minimal binary: target/release/mcp-agent-mail"
+	@ls -lh target/release/mcp-agent-mail
+
+## Build for Claude Desktop (stdio MCP server)
+build-claude-desktop: build-sidecar-minimal
+	@echo "📋 Add to claude_desktop_config.json:"
+	@echo '  "agent-mail": { "command": "$(PWD)/target/release/mcp-agent-mail", "args": ["serve", "mcp", "--transport", "stdio"] }'
+
+# ============================================================================
 # Testing
 # ============================================================================
 
@@ -192,6 +217,11 @@ help:
 	@echo "Production:"
 	@echo "  run          Run API server (release mode)"
 	@echo "  run-prod     Build and run production server"
+	@echo ""
+	@echo "Sidecar (single binary):"
+	@echo "  build-sidecar         Build binary with embedded web UI"
+	@echo "  build-sidecar-minimal Build minimal binary (no UI)"
+	@echo "  build-claude-desktop  Build for Claude Desktop integration"
 	@echo ""
 	@echo "Testing:"
 	@echo "  test         Run all integration tests"
