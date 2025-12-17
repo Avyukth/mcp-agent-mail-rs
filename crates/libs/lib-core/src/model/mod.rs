@@ -10,6 +10,7 @@ pub mod macro_def;
 pub mod message;
 pub mod message_recipient;
 pub mod overseer_message;
+pub mod precommit_guard;
 pub mod product;
 pub mod project;
 pub mod project_sibling_suggestion;

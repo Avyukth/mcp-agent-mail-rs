@@ -1793,6 +1793,22 @@ pub struct ListActivityParams {
     pub limit: Option<i64>,
 }
 
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct InstallPrecommitGuardParams {
+    /// Project slug
+    pub project_slug: String,
+    /// Git repository path (absolute)
+    pub git_repo_path: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct UninstallPrecommitGuardParams {
+    /// Project slug
+    pub project_slug: String,
+    /// Git repository path (absolute)
+    pub git_repo_path: String,
+}
+
 // ============================================================================
 // Tool Implementations
 // ============================================================================
@@ -4028,6 +4044,48 @@ exit 0
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
         Ok(CallToolResult::success(vec![Content::text(json_str)]))
+    }
+
+    /// Install pre-commit guard hook
+    #[tool(description = "Install git pre-commit hook that checks file reservations before allowing commits.")]
+    async fn install_precommit_guard(
+        &self,
+        params: Parameters<InstallPrecommitGuardParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::precommit_guard::PrecommitGuardBmc;
+        use std::path::PathBuf;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        let git_repo = PathBuf::from(&p.git_repo_path);
+        
+        let result = PrecommitGuardBmc::install(&ctx, &self.mm, &git_repo)
+            .await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        Ok(CallToolResult::success(vec![Content::text(result)]))
+    }
+
+    /// Uninstall pre-commit guard hook
+    #[tool(description = "Remove the pre-commit guard hook from the git repository.")]
+    async fn uninstall_precommit_guard(
+        &self,
+        params: Parameters<UninstallPrecommitGuardParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::precommit_guard::PrecommitGuardBmc;
+        use std::path::PathBuf;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        let git_repo = PathBuf::from(&p.git_repo_path);
+        
+        let result = PrecommitGuardBmc::uninstall(&ctx, &self.mm, &git_repo)
+            .await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        Ok(CallToolResult::success(vec![Content::text(result)]))
     }
 }
 
