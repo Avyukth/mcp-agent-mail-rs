@@ -2,6 +2,7 @@
 //! Digital Correspondence design with Lucide icons.
 
 use crate::api::client::{self, Project};
+use crate::components::{ProjectCard, ProjectStatus};
 use leptos::prelude::*;
 
 /// Projects page component.
@@ -197,38 +198,21 @@ pub fn Projects() -> impl IntoView {
                         // Responsive layout: Cards on mobile, Table on desktop
                         view! {
                             <div>
-                                // Mobile Card Layout (visible on small screens only)
-                                <div class="lg:hidden space-y-3">
+                                // Mobile Card Layout using ProjectCard component
+                                <div class="lg:hidden grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     {project_list.clone().into_iter().map(|project| {
                                         let slug = project.slug.clone();
-                                        let href = format!("/projects/{}", slug);
                                         let human_key = project.human_key.clone().unwrap_or_default();
                                         let created = project.created_at.clone().unwrap_or_default();
                                         view! {
-                                            <a
-                                                href=href
-                                                class="card-elevated block p-4 group hover:border-amber-300 dark:hover:border-amber-700 transition-all"
-                                            >
-                                                <div class="flex items-start justify-between gap-3">
-                                                    <div class="flex items-start gap-3 min-w-0 flex-1">
-                                                        <div class="flex-shrink-0 w-9 h-9 rounded-lg bg-amber-100 dark:bg-amber-900/50 flex items-center justify-center">
-                                                            <i data-lucide="folder" class="icon-base text-amber-600 dark:text-amber-400"></i>
-                                                        </div>
-                                                        <div class="min-w-0 flex-1">
-                                                            <h3 class="font-medium text-charcoal-800 dark:text-cream-100 truncate text-sm">
-                                                                {slug}
-                                                            </h3>
-                                                            <p class="text-xs text-charcoal-500 dark:text-charcoal-400 font-mono truncate mt-0.5">
-                                                                {human_key}
-                                                            </p>
-                                                            <p class="text-xs text-charcoal-400 dark:text-charcoal-500 mt-1">
-                                                                {format_date(&created)}
-                                                            </p>
-                                                        </div>
-                                                    </div>
-                                                    <i data-lucide="chevron-right" class="icon-sm flex-shrink-0 text-charcoal-300 dark:text-charcoal-600 group-hover:text-amber-500 self-center"></i>
-                                                </div>
-                                            </a>
+                                            <ProjectCard
+                                                slug={slug}
+                                                human_key={human_key}
+                                                created_at={created}
+                                                status={ProjectStatus::Active}
+                                                agent_count=0
+                                                message_count=0
+                                            />
                                         }
                                     }).collect::<Vec<_>>()}
                                 </div>

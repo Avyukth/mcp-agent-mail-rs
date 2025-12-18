@@ -187,18 +187,12 @@ mod tests {
 
     #[test]
     fn test_determine_status_with_agents() {
-        assert_eq!(
-            determine_project_status(None, 3),
-            ProjectStatus::Active
-        );
+        assert_eq!(determine_project_status(None, 3), ProjectStatus::Active);
     }
 
     #[test]
     fn test_determine_status_no_agents_no_activity() {
-        assert_eq!(
-            determine_project_status(None, 0),
-            ProjectStatus::Inactive
-        );
+        assert_eq!(determine_project_status(None, 0), ProjectStatus::Inactive);
     }
 
     #[test]
