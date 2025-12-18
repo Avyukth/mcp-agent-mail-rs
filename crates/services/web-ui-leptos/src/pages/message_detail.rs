@@ -2,7 +2,9 @@
 //! Digital Correspondence design with Lucide icons.
 
 use crate::api::client::{self, Agent, Message};
-use crate::components::{AgentAvatar, ComposeMessage, ComposeProps, MessageDetailHeader, ReplyTo};
+use crate::components::{
+    Button, ButtonVariant, ComposeMessage, ComposeProps, MessageDetailHeader, ReplyTo,
+};
 use leptos::prelude::*;
 use leptos_router::hooks::{use_params_map, use_query_map};
 
@@ -167,13 +169,13 @@ pub fn MessageDetail() -> impl IntoView {
                                 </div>
                                 {if can_reply {
                                     Some(view! {
-                                        <button
-                                            on:click=move |_| show_reply.set(true)
-                                            class="btn-primary flex items-center gap-2"
+                                        <Button
+                                            variant=ButtonVariant::Default
+                                            on_click=Callback::new(move |_| show_reply.set(true))
                                         >
                                             <i data-lucide="reply" class="icon-sm"></i>
                                             <span>"Reply"</span>
-                                        </button>
+                                        </Button>
                                     })
                                 } else {
                                     None
@@ -221,13 +223,13 @@ pub fn MessageDetail() -> impl IntoView {
                             </a>
                             {if can_reply {
                                 Some(view! {
-                                    <button
-                                        on:click=move |_| show_reply.set(true)
-                                        class="btn-primary flex items-center gap-2"
+                                    <Button
+                                        variant=ButtonVariant::Default
+                                        on_click=Callback::new(move |_| show_reply.set(true))
                                     >
                                         <i data-lucide="reply" class="icon-sm"></i>
                                         "Reply to Message"
-                                    </button>
+                                    </Button>
                                 })
                             } else {
                                 None

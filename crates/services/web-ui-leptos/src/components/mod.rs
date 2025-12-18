@@ -1,6 +1,7 @@
 //! UI components.
 
 pub mod avatar;
+pub mod badge;
 pub mod breadcrumb;
 pub mod button;
 pub mod card;
@@ -16,6 +17,7 @@ pub mod select;
 pub mod split_view;
 
 pub use avatar::AgentAvatar;
+pub use badge::{Badge, BadgeVariant};
 pub use breadcrumb::{Breadcrumb, BreadcrumbItem};
 pub use button::{Button, ButtonSize, ButtonVariant};
 pub use card::{Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle};

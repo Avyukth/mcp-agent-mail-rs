@@ -2,7 +2,7 @@
 //! Digital Correspondence design with Lucide icons.
 
 use crate::api::client::{self, Project};
-use crate::components::{ProjectCard, ProjectStatus};
+use crate::components::{Button, ButtonVariant, Input, ProjectCard, ProjectStatus};
 use leptos::prelude::*;
 
 /// Projects page component.
@@ -84,13 +84,13 @@ pub fn Projects() -> impl IntoView {
                     </h1>
                     <p class="text-charcoal-500 dark:text-charcoal-400">"Manage your agent mail projects"</p>
                 </div>
-                <button
-                    on:click=move |_| show_new_form.update(|v| *v = !*v)
-                    class="btn-primary flex items-center gap-2"
+                <Button
+                    variant=ButtonVariant::Default
+                    on_click=Callback::new(move |_| show_new_form.update(|v| *v = !*v))
                 >
                     <i data-lucide="folder-plus" class="icon-sm"></i>
                     <span>"New Project"</span>
-                </button>
+                </Button>
             </div>
 
             // New Project Form
@@ -107,23 +107,20 @@ pub fn Projects() -> impl IntoView {
                                     <label for="projectPath" class="block text-sm font-medium text-charcoal-700 dark:text-charcoal-300 mb-2">
                                         "Project Path (human_key)"
                                     </label>
-                                    <input
-                                        id="projectPath"
-                                        type="text"
-                                        prop:value=move || new_project_path.get()
-                                        on:input=move |ev| new_project_path.set(event_target_value(&ev))
-                                        placeholder="/path/to/your/project"
-                                        class="input"
+                                    <Input
+                                        id="projectPath".to_string()
+                                        value=new_project_path
+                                        placeholder="/path/to/your/project".to_string()
                                     />
                                     <p class="mt-1 text-sm text-charcoal-500 dark:text-charcoal-400">
                                         "The absolute path to your project directory"
                                     </p>
                                 </div>
                                 <div class="flex gap-3">
-                                    <button
-                                        type="submit"
-                                        disabled=move || creating.get() || new_project_path.get().trim().is_empty()
-                                        class="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    <Button
+                                        variant=ButtonVariant::Default
+                                        button_type="submit"
+                                        disabled=creating.get() || new_project_path.get().trim().is_empty()
                                     >
                                         {move || if creating.get() {
                                             view! { <i data-lucide="loader-2" class="icon-sm animate-spin"></i> }
@@ -131,14 +128,13 @@ pub fn Projects() -> impl IntoView {
                                             view! { <i data-lucide="plus" class="icon-sm"></i> }
                                         }}
                                         {move || if creating.get() { "Creating..." } else { "Create Project" }}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        on:click=move |_| { show_new_form.set(false); new_project_path.set(String::new()); }
-                                        class="btn-secondary"
+                                    </Button>
+                                    <Button
+                                        variant=ButtonVariant::Secondary
+                                        on_click=Callback::new(move |_| { show_new_form.set(false); new_project_path.set(String::new()); })
                                     >
                                         "Cancel"
-                                    </button>
+                                    </Button>
                                 </div>
                             </form>
                         </div>

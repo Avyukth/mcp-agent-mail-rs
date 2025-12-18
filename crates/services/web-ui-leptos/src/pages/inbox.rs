@@ -2,7 +2,7 @@
 //! Digital Correspondence design - envelope-style message cards.
 
 use crate::api::client::{self, Agent, InboxMessage, Project};
-use crate::components::{AgentAvatar, Select, SelectOption};
+use crate::components::{AgentAvatar, Button, ButtonVariant, Select, SelectOption};
 use leptos::prelude::*;
 use leptos_router::hooks::use_query_map;
 
@@ -215,13 +215,13 @@ pub fn Inbox() -> impl IntoView {
                     let agent = selected_agent.get();
                     if !project.is_empty() && !agent.is_empty() {
                         Some(view! {
-                            <button
-                                on:click=move |_| show_compose.set(true)
-                                class="btn-primary flex items-center gap-2"
+                            <Button
+                                variant=ButtonVariant::Default
+                                on_click=Callback::new(move |_| show_compose.set(true))
                             >
                                 <i data-lucide="square-pen" class="icon-sm"></i>
                                 <span>"Compose"</span>
-                            </button>
+                            </Button>
                         })
                     } else {
                         None
@@ -288,10 +288,10 @@ pub fn Inbox() -> impl IntoView {
                         if !project.is_empty() && !agent.is_empty() {
                             Some(view! {
                                 <div class="flex items-end">
-                                    <button
-                                        on:click=move |_| refresh()
-                                        disabled=move || loading_messages.get()
-                                        class="btn-secondary flex items-center gap-2 disabled:opacity-50"
+                                    <Button
+                                        variant=ButtonVariant::Secondary
+                                        disabled=loading_messages.get()
+                                        on_click=Callback::new(move |_| refresh())
                                     >
                                         {move || if loading_messages.get() {
                                             view! { <i data-lucide="loader-2" class="icon-sm animate-spin"></i> }
@@ -299,7 +299,7 @@ pub fn Inbox() -> impl IntoView {
                                             view! { <i data-lucide="refresh-cw" class="icon-sm"></i> }
                                         }}
                                         <span>"Refresh"</span>
-                                    </button>
+                                    </Button>
                                 </div>
                             })
                         } else {
@@ -368,13 +368,14 @@ pub fn Inbox() -> impl IntoView {
                                 <p class="text-charcoal-500 dark:text-charcoal-400 mb-6">
                                     "No messages for " <span class="font-medium text-charcoal-700 dark:text-cream-200">{agent}</span> " yet."
                                 </p>
-                                <button
-                                    on:click=move |_| show_compose.set(true)
-                                    class="btn-primary flex items-center gap-2 mx-auto"
+                                <Button
+                                    variant=ButtonVariant::Default
+                                    on_click=Callback::new(move |_| show_compose.set(true))
+                                    class="mx-auto"
                                 >
                                     <i data-lucide="send" class="icon-sm"></i>
                                     "Send a Message"
-                                </button>
+                                </Button>
                             </div>
                         }.into_any()
                     } else {
