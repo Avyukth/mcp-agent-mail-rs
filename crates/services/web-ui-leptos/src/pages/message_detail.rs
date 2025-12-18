@@ -2,7 +2,7 @@
 //! Digital Correspondence design with Lucide icons.
 
 use crate::api::client::{self, Agent, Message};
-use crate::components::{ComposeMessage, ComposeProps, ReplyTo};
+use crate::components::{AgentAvatar, ComposeMessage, ComposeProps, MessageDetailHeader, ReplyTo};
 use leptos::prelude::*;
 use leptos_router::hooks::{use_params_map, use_query_map};
 
@@ -98,8 +98,10 @@ pub fn MessageDetail() -> impl IntoView {
             // Content
             {
                 let back_url_for_content = back_url.clone();
+                let project_slug_for_detail = project_slug.clone();
                 move || {
                 let back_url = back_url_for_content.clone();
+                let project_slug = project_slug_for_detail.clone();
                 if loading.get() {
                     view! {
                         <div class="flex items-center justify-center py-16">
@@ -122,71 +124,60 @@ pub fn MessageDetail() -> impl IntoView {
 
                     view! {
                         <div class="card-elevated overflow-hidden">
-                            // Message Header
-                            <div class="p-6 border-b border-cream-200 dark:border-charcoal-700">
-                                <div class="flex items-start justify-between gap-4">
-                                    <div class="flex-1">
-                                        <h1 class="font-display text-xl font-bold text-charcoal-800 dark:text-cream-100 mb-3 flex items-center gap-2">
-                                            <i data-lucide="mail" class="icon-lg text-amber-500"></i>
-                                            {subject.clone()}
-                                        </h1>
-                                        <div class="flex flex-wrap items-center gap-2 text-sm">
-                                            {if importance != "normal" {
-                                                let badge_class = get_importance_badge(&importance);
-                                                Some(view! {
-                                                    <span class={format!("badge {}", badge_class)}>
-                                                        <i data-lucide={if importance == "high" { "alert-circle" } else { "minus-circle" }} class="icon-xs"></i>
-                                                        {importance.clone()} " priority"
-                                                    </span>
-                                                })
-                                            } else {
-                                                None
-                                            }}
-                                            {if ack_required {
-                                                Some(view! {
-                                                    <span class="badge badge-amber flex items-center gap-1">
-                                                        <i data-lucide="check-circle" class="icon-xs"></i>
-                                                        "Acknowledgment required"
-                                                    </span>
-                                                })
-                                            } else {
-                                                None
-                                            }}
-                                            {thread_id.as_ref().map(|tid| view! {
-                                                <span class="badge badge-violet flex items-center gap-1">
-                                                    <i data-lucide="git-branch" class="icon-xs"></i>
-                                                    "Thread: " {tid.clone()}
-                                                </span>
-                                            })}
-                                        </div>
-                                    </div>
-                                    {if can_reply {
+                            // Message Header using new component with AgentAvatar
+                            <MessageDetailHeader
+                                subject={subject.clone()}
+                                sender={sender.clone()}
+                                recipients={vec!["recipient".to_string()]} // TODO: get from msg
+                                project_slug={project_slug.clone()}
+                                sent_at={created.clone()}
+                                message_id={msg_id}
+                            />
+                            
+                            // Badges and Reply button
+                            <div class="px-6 py-3 border-b border-cream-200 dark:border-charcoal-700 flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex flex-wrap items-center gap-2 text-sm">
+                                    {if importance != "normal" {
+                                        let badge_class = get_importance_badge(&importance);
                                         Some(view! {
-                                            <button
-                                                on:click=move |_| show_reply.set(true)
-                                                class="btn-primary flex items-center gap-2"
-                                            >
-                                                <i data-lucide="reply" class="icon-sm"></i>
-                                                <span>"Reply"</span>
-                                            </button>
+                                            <span class={format!("badge {}", badge_class)}>
+                                                <i data-lucide={if importance == "high" { "alert-circle" } else { "minus-circle" }} class="icon-xs"></i>
+                                                {importance.clone()} " priority"
+                                            </span>
                                         })
                                     } else {
                                         None
                                     }}
-                                </div>
-
-                                <div class="mt-4 text-sm text-charcoal-500 dark:text-charcoal-400">
-                                    <div class="flex items-center gap-4">
-                                        <span class="flex items-center gap-1.5">
-                                            <i data-lucide="user" class="icon-xs"></i>
-                                            "From: " {sender.clone()}
+                                    {if ack_required {
+                                        Some(view! {
+                                            <span class="badge badge-amber flex items-center gap-1">
+                                                <i data-lucide="check-circle" class="icon-xs"></i>
+                                                "Acknowledgment required"
+                                            </span>
+                                        })
+                                    } else {
+                                        None
+                                    }}
+                                    {thread_id.as_ref().map(|tid| view! {
+                                        <span class="badge badge-violet flex items-center gap-1">
+                                            <i data-lucide="git-branch" class="icon-xs"></i>
+                                            "Thread: " {tid.clone()}
                                         </span>
-                                        <span class="flex items-center gap-1.5">
-                                            <i data-lucide="calendar" class="icon-xs"></i>
-                                            "Received: " {format_date(&created)}
-                                        </span>
-                                    </div>
+                                    })}
                                 </div>
+                                {if can_reply {
+                                    Some(view! {
+                                        <button
+                                            on:click=move |_| show_reply.set(true)
+                                            class="btn-primary flex items-center gap-2"
+                                        >
+                                            <i data-lucide="reply" class="icon-sm"></i>
+                                            <span>"Reply"</span>
+                                        </button>
+                                    })
+                                } else {
+                                    None
+                                }}
                             </div>
 
                             // Message Body

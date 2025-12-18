@@ -113,20 +113,20 @@ pub fn MessageDetailHeader(
 ) -> impl IntoView {
     // State for copy button feedback
     let copied = RwSignal::new(false);
-    
+
     let message_id_for_copy = message_id;
     let copy_link = move |_| {
         let url = format!("{}/inbox/{}", window_origin(), message_id_for_copy);
         copy_to_clipboard(&url);
         copied.set(true);
-        
+
         // Reset after 2 seconds
         leptos::task::spawn_local(async move {
             gloo_timers::future::TimeoutFuture::new(2000).await;
             copied.set(false);
         });
     };
-    
+
     let project_link = format!("/projects/{}", project_slug);
     let project_link_button = project_link.clone();
     let recipients_display = recipients.join(", ");
@@ -139,14 +139,14 @@ pub fn MessageDetailHeader(
                 <i data-lucide="mail" class="icon-lg text-amber-500"></i>
                 {subject}
             </h1>
-            
+
             // Metadata Grid
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 <MetadataItem label="From" icon="user">
                     <AgentAvatar name={sender.clone()} size="sm" />
                     <span class="font-medium">{sender}</span>
                 </MetadataItem>
-                
+
                 <MetadataItem label="To" icon="users">
                     {if !first_recipient.is_empty() {
                         Some(view! { <AgentAvatar name={first_recipient.clone()} size="sm" /> })
@@ -155,25 +155,25 @@ pub fn MessageDetailHeader(
                     }}
                     <span>{recipients_display}</span>
                 </MetadataItem>
-                
+
                 <MetadataItem label="Project" icon="folder">
-                    <a 
-                        href={project_link.clone()} 
+                    <a
+                        href={project_link.clone()}
                         class="text-amber-600 dark:text-amber-400 hover:underline truncate max-w-[150px]"
                         title={project_slug.clone()}
                     >
                         {project_slug.clone()}
                     </a>
                 </MetadataItem>
-                
+
                 <MetadataItem label="Sent" icon="calendar">
                     <span class="font-mono text-xs">{format_timestamp(&sent_at)}</span>
                 </MetadataItem>
             </div>
-            
+
             // Action Buttons
             <div class="flex gap-2">
-                <button 
+                <button
                     class="btn-secondary flex items-center gap-2 text-sm"
                     on:click=copy_link
                 >
@@ -184,8 +184,8 @@ pub fn MessageDetailHeader(
                     }}
                     {move || if copied.get() { "Copied!" } else { "Copy Link" }}
                 </button>
-                
-                <a 
+
+                <a
                     href={project_link_button}
                     class="btn-secondary flex items-center gap-2 text-sm"
                 >

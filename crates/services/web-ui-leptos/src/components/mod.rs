@@ -11,4 +11,3 @@ pub use compose_message::{ComposeMessage, ComposeProps, ReplyTo};
 pub use layout::Layout;
 pub use message_detail_header::MessageDetailHeader;
 pub use select::{Select, SelectOption};
-
