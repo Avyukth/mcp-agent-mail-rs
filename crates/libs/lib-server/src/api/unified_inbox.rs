@@ -27,6 +27,7 @@ pub struct UnifiedInboxParams {
 pub struct UnifiedInboxMessage {
     pub id: i64,
     pub project_id: i64,
+    pub project_slug: String,
     pub sender_id: i64,
     pub sender_name: String,
     pub subject: String,
@@ -48,13 +49,14 @@ pub async fn unified_inbox_json(
     let importance = ImportanceFilter::from_str_opt(params.importance.as_deref());
     let limit = params.limit.unwrap_or(50).clamp(1, 200);
 
-    let messages = MessageBmc::list_unified_inbox(&ctx, mm, importance, limit).await?;
+    let items = MessageBmc::list_unified_inbox(&ctx, mm, importance, limit).await?;
 
-    let response: Vec<UnifiedInboxMessage> = messages
+    let response: Vec<UnifiedInboxMessage> = items
         .into_iter()
         .map(|m| UnifiedInboxMessage {
             id: m.id,
             project_id: m.project_id,
+            project_slug: m.project_slug,
             sender_id: m.sender_id,
             sender_name: m.sender_name,
             subject: m.subject,

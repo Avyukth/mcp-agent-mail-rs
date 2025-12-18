@@ -367,6 +367,7 @@ pub async fn send_message(
 pub struct UnifiedInboxMessage {
     pub id: i64,
     pub project_id: i64,
+    pub project_slug: String,
     pub sender_id: i64,
     pub sender_name: String,
     pub subject: String,

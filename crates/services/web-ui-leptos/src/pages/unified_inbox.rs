@@ -87,9 +87,9 @@ pub fn UnifiedInbox() -> impl IntoView {
                     }
                 }
 
-                // Project filter
+                // Project filter (uses project_slug for display-friendly matching)
                 if let Some(ref project) = filter.project {
-                    if msg.project_id.to_string() != *project {
+                    if msg.project_slug != *project {
                         return false;
                     }
                 }
@@ -126,12 +126,12 @@ pub fn UnifiedInbox() -> impl IntoView {
         senders
     });
 
-    // Extract unique project IDs for filter dropdown
+    // Extract unique project slugs for filter dropdown
     let projects = Signal::derive(move || {
         let mut projects: Vec<String> = all_messages
             .get()
             .iter()
-            .map(|m| m.project_id.to_string())
+            .map(|m| m.project_slug.clone())
             .collect();
         projects.sort();
         projects.dedup();
@@ -153,19 +153,19 @@ pub fn UnifiedInbox() -> impl IntoView {
                 timestamp: format_date(&msg.created_ts),
                 unread: false, // TODO: Track read state
                 importance: msg.importance.clone(),
-                project_slug: msg.project_id.to_string(), // Use project_id as identifier
+                project_slug: msg.project_slug.clone(),
             })
             .collect::<Vec<_>>()
     });
 
-    // Get project ID for selected message (used for InlineMessageDetail)
+    // Get project slug for selected message (used for InlineMessageDetail)
     let selected_project = Signal::derive(move || {
         if let Some(id) = selected_id.get() {
             messages
                 .get()
                 .iter()
                 .find(|m| m.id == id)
-                .map(|m| m.project_id.to_string())
+                .map(|m| m.project_slug.clone())
                 .unwrap_or_default()
         } else {
             String::new()

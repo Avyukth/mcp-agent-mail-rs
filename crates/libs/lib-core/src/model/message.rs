@@ -91,6 +91,20 @@ pub struct Message {
     pub sender_name: String,     // Added sender_name for inbox display
 }
 
+/// Unified inbox item with project slug for display
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UnifiedInboxItem {
+    pub id: i64,
+    pub project_id: i64,
+    pub project_slug: String,
+    pub sender_id: i64,
+    pub sender_name: String,
+    pub thread_id: Option<String>,
+    pub subject: String,
+    pub importance: String,
+    pub created_ts: NaiveDateTime,
+}
+
 #[derive(Deserialize, Serialize)]
 pub struct MessageForCreate {
     pub project_id: i64,
@@ -910,24 +924,25 @@ impl MessageBmc {
     /// * `limit` - Maximum number of messages to return
     ///
     /// # Returns
-    /// Vector of messages ordered by created_ts DESC (newest first)
+    /// Vector of unified inbox items ordered by created_ts DESC (newest first)
     pub async fn list_unified_inbox(
         _ctx: &Ctx,
         mm: &ModelManager,
         importance: ImportanceFilter,
         limit: i32,
-    ) -> Result<Vec<Message>> {
+    ) -> Result<Vec<UnifiedInboxItem>> {
         let db = mm.db();
 
-        // Build query based on importance filter
+        // Build query based on importance filter - joins with projects for slug
         let (query, params): (String, Vec<libsql::Value>) = match importance {
             ImportanceFilter::High => {
                 let q = r#"
                     SELECT
-                        m.id, m.project_id, m.sender_id, ag.name as sender_name, m.thread_id, m.subject, m.body_md,
-                        m.importance, m.ack_required, m.created_ts, m.attachments
+                        m.id, m.project_id, p.slug as project_slug, m.sender_id, ag.name as sender_name,
+                        m.thread_id, m.subject, m.importance, m.created_ts
                     FROM messages AS m
                     JOIN agents AS ag ON m.sender_id = ag.id
+                    JOIN projects AS p ON m.project_id = p.id
                     WHERE m.importance = 'high'
                     ORDER BY m.created_ts DESC
                     LIMIT ?
@@ -937,10 +952,11 @@ impl MessageBmc {
             ImportanceFilter::Normal => {
                 let q = r#"
                     SELECT
-                        m.id, m.project_id, m.sender_id, ag.name as sender_name, m.thread_id, m.subject, m.body_md,
-                        m.importance, m.ack_required, m.created_ts, m.attachments
+                        m.id, m.project_id, p.slug as project_slug, m.sender_id, ag.name as sender_name,
+                        m.thread_id, m.subject, m.importance, m.created_ts
                     FROM messages AS m
                     JOIN agents AS ag ON m.sender_id = ag.id
+                    JOIN projects AS p ON m.project_id = p.id
                     WHERE m.importance = 'normal'
                     ORDER BY m.created_ts DESC
                     LIMIT ?
@@ -950,10 +966,11 @@ impl MessageBmc {
             ImportanceFilter::All => {
                 let q = r#"
                     SELECT
-                        m.id, m.project_id, m.sender_id, ag.name as sender_name, m.thread_id, m.subject, m.body_md,
-                        m.importance, m.ack_required, m.created_ts, m.attachments
+                        m.id, m.project_id, p.slug as project_slug, m.sender_id, ag.name as sender_name,
+                        m.thread_id, m.subject, m.importance, m.created_ts
                     FROM messages AS m
                     JOIN agents AS ag ON m.sender_id = ag.id
+                    JOIN projects AS p ON m.project_id = p.id
                     ORDER BY m.created_ts DESC
                     LIMIT ?
                 "#.to_string();
@@ -965,40 +982,34 @@ impl MessageBmc {
         let mut rows = stmt
             .query(libsql::params::Params::Positional(params))
             .await?;
-        let mut messages = Vec::new();
+        let mut items = Vec::new();
 
         while let Some(row) = rows.next().await? {
             let id: i64 = row.get(0)?;
             let project_id: i64 = row.get(1)?;
-            let sender_id: i64 = row.get(2)?;
-            let sender_name: String = row.get(3)?;
-            let thread_id: Option<String> = row.get(4)?;
-            let subject: String = row.get(5)?;
-            let body_md: String = row.get(6)?;
+            let project_slug: String = row.get(2)?;
+            let sender_id: i64 = row.get(3)?;
+            let sender_name: String = row.get(4)?;
+            let thread_id: Option<String> = row.get(5)?;
+            let subject: String = row.get(6)?;
             let importance: String = row.get(7)?;
-            let ack_required: bool = row.get(8)?;
-            let created_ts_str: String = row.get(9)?;
+            let created_ts_str: String = row.get(8)?;
             let created_ts = NaiveDateTime::parse_from_str(&created_ts_str, "%Y-%m-%d %H:%M:%S")
                 .unwrap_or_default();
 
-            let attachments_str: String = row.get(10)?;
-            let attachments: Vec<Value> = serde_json::from_str(&attachments_str)?;
-
-            messages.push(Message {
+            items.push(UnifiedInboxItem {
                 id,
                 project_id,
+                project_slug,
                 sender_id,
                 sender_name,
                 thread_id,
                 subject,
-                body_md,
                 importance,
-                ack_required,
                 created_ts,
-                attachments,
             });
         }
-        Ok(messages)
+        Ok(items)
     }
 }
 
