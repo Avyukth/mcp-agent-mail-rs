@@ -19,7 +19,7 @@ impl SelectOption {
     }
 }
 
-/// Shadcn-style Select component.
+/// Shadcn-style Select component with full keyboard navigation.
 #[component]
 pub fn Select(
     /// Unique ID for the select.
@@ -38,7 +38,14 @@ pub fn Select(
     icon: Option<&'static str>,
 ) -> impl IntoView {
     let is_open = RwSignal::new(false);
+    let focused_index = RwSignal::new(-1i32);
     let options_for_display = options.clone();
+    let options_for_nav = options.clone();
+    let option_count = options.len() as i32;
+
+    // Generate unique IDs
+    let listbox_id = format!("{}-listbox", id);
+    let listbox_id_clone = listbox_id.clone();
 
     // Get current label
     let get_label = {
@@ -72,11 +79,75 @@ pub fn Select(
     let select_option = move |val: String| {
         value.set(val);
         is_open.set(false);
+        focused_index.set(-1);
     };
 
     // Close on click outside
     let close_dropdown = move |_| {
         is_open.set(false);
+        focused_index.set(-1);
+    };
+
+    // Keyboard navigation handler
+    let handle_keydown = {
+        let options = options_for_nav.clone();
+        move |ev: web_sys::KeyboardEvent| {
+            let key = ev.key();
+            match key.as_str() {
+                "Escape" => {
+                    is_open.set(false);
+                    focused_index.set(-1);
+                }
+                "ArrowDown" => {
+                    ev.prevent_default();
+                    if !is_open.get() {
+                        is_open.set(true);
+                    }
+                    focused_index.update(|i| {
+                        *i = (*i + 1).min(option_count - 1);
+                    });
+                }
+                "ArrowUp" => {
+                    ev.prevent_default();
+                    focused_index.update(|i| {
+                        *i = (*i - 1).max(0);
+                    });
+                }
+                "Home" => {
+                    ev.prevent_default();
+                    focused_index.set(0);
+                }
+                "End" => {
+                    ev.prevent_default();
+                    focused_index.set(option_count - 1);
+                }
+                "Enter" | " " => {
+                    ev.prevent_default();
+                    if is_open.get() {
+                        let idx = focused_index.get();
+                        if idx >= 0 && (idx as usize) < options.len() {
+                            value.set(options[idx as usize].value.clone());
+                            is_open.set(false);
+                            focused_index.set(-1);
+                        }
+                    } else {
+                        is_open.set(true);
+                    }
+                }
+                _ => {
+                    // Type-ahead: find first option starting with typed character
+                    if key.len() == 1 && is_open.get() {
+                        let char_lower = key.to_lowercase();
+                        for (i, opt) in options.iter().enumerate() {
+                            if opt.label.to_lowercase().starts_with(&char_lower) {
+                                focused_index.set(i as i32);
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+        }
     };
 
     view! {
@@ -88,10 +159,22 @@ pub fn Select(
                 role="combobox"
                 aria-expanded=move || is_open.get()
                 aria-haspopup="listbox"
+                aria-controls=listbox_id_clone.clone()
+                aria-activedescendant={
+                    let id_for_aria = id.clone();
+                    move || {
+                        if focused_index.get() >= 0 {
+                            format!("{}-option-{}", id_for_aria, focused_index.get())
+                        } else {
+                            String::new()
+                        }
+                    }
+                }
                 disabled=disabled
                 on:click=toggle
+                on:keydown=handle_keydown
                 class=move || {
-                    let base = "flex h-10 w-full items-center justify-between gap-2 whitespace-nowrap rounded-lg border bg-white dark:bg-charcoal-800 px-3 py-2 text-sm shadow-sm ring-offset-white transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2";
+                    let base = "flex h-10 w-full items-center justify-between gap-2 whitespace-nowrap rounded-lg border bg-white dark:bg-charcoal-800 px-3 py-2 text-sm shadow-sm ring-offset-white transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2";
                     let state = if disabled {
                         "cursor-not-allowed opacity-50 border-cream-200 dark:border-charcoal-700"
                     } else if is_open.get() {
@@ -132,6 +215,9 @@ pub fn Select(
                 if is_open.get() {
                     let opts = options_for_display.clone();
                     let current_value = value.get();
+                    let current_focus = focused_index.get();
+                    let listbox_id = listbox_id.clone();
+                    let id_for_opts = id.clone();
                     Some(view! {
                         // Backdrop for click-outside
                         <div
@@ -140,18 +226,25 @@ pub fn Select(
                         ></div>
 
                         // Options Panel
-                        <div class="absolute z-50 mt-1 w-full min-w-[8rem] overflow-hidden rounded-lg border border-cream-200 dark:border-charcoal-700 bg-white dark:bg-charcoal-800 shadow-lg animate-slide-up">
-                            <div class="max-h-60 overflow-auto py-1" role="listbox">
-                                {opts.into_iter().map(|opt| {
+                        <div
+                            id=listbox_id
+                            role="listbox"
+                            class="absolute z-50 mt-1 w-full min-w-[8rem] overflow-hidden rounded-lg border border-cream-200 dark:border-charcoal-700 bg-white dark:bg-charcoal-800 shadow-lg animate-slide-up"
+                        >
+                            <div class="max-h-60 overflow-auto py-1">
+                                {opts.into_iter().enumerate().map(|(i, opt)| {
                                     let val = opt.value.clone();
                                     let label = opt.label.clone();
                                     let is_selected = val == current_value;
+                                    let is_focused = i as i32 == current_focus;
                                     let select = select_option;
                                     let val_clone = val.clone();
+                                    let option_id = format!("{}-option-{}", id_for_opts, i);
 
                                     view! {
                                         <button
                                             type="button"
+                                            id=option_id
                                             role="option"
                                             aria-selected=is_selected
                                             on:click=move |_| select(val_clone.clone())
@@ -159,6 +252,8 @@ pub fn Select(
                                                 let base = "relative flex w-full cursor-pointer items-center px-3 py-2 text-sm outline-none transition-colors";
                                                 if is_selected {
                                                     format!("{} bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300", base)
+                                                } else if is_focused {
+                                                    format!("{} bg-cream-100 dark:bg-charcoal-700 text-charcoal-800 dark:text-cream-100", base)
                                                 } else {
                                                     format!("{} text-charcoal-700 dark:text-charcoal-300 hover:bg-cream-100 dark:hover:bg-charcoal-700", base)
                                                 }
@@ -183,5 +278,31 @@ pub fn Select(
                 }
             }}
         </div>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_select_option_new() {
+        let opt = SelectOption::new("val", "Label");
+        assert_eq!(opt.value, "val");
+        assert_eq!(opt.label, "Label");
+    }
+
+    #[test]
+    fn test_listbox_id_format() {
+        let id = "my-select";
+        let listbox_id = format!("{}-listbox", id);
+        assert_eq!(listbox_id, "my-select-listbox");
+    }
+
+    #[test]
+    fn test_option_id_format() {
+        let id = "my-select";
+        let option_id = format!("{}-option-{}", id, 0);
+        assert_eq!(option_id, "my-select-option-0");
     }
 }

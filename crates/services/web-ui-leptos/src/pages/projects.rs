@@ -181,13 +181,13 @@ pub fn Projects() -> impl IntoView {
                                 <p class="text-charcoal-500 dark:text-charcoal-400 mb-6">
                                     "Create your first project to start sending messages between agents."
                                 </p>
-                                <button
-                                    on:click=move |_| show_new_form.set(true)
-                                    class="btn-primary inline-flex items-center gap-2"
+                                <Button
+                                    variant=ButtonVariant::Default
+                                    on_click=Callback::new(move |_| show_new_form.set(true))
                                 >
                                     <i data-lucide="folder-plus" class="icon-sm"></i>
                                     "Create Project"
-                                </button>
+                                </Button>
                             </div>
                         }.into_any()
                     } else {

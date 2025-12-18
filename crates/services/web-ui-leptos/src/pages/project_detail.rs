@@ -2,7 +2,7 @@
 //! Digital Correspondence design with Lucide icons.
 
 use crate::api::client::{self, Agent};
-use crate::components::{Breadcrumb, BreadcrumbItem};
+use crate::components::{Breadcrumb, BreadcrumbItem, Button, ButtonVariant, Input};
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 
@@ -134,13 +134,13 @@ pub fn ProjectDetail() -> impl IntoView {
                         <i data-lucide="shield" class="icon-sm"></i>
                         "File Reservations"
                     </a>
-                    <button
-                        on:click=move |_| show_new_form.update(|v| *v = !*v)
-                        class="btn-primary flex items-center gap-2"
+                    <Button
+                        variant=ButtonVariant::Default
+                        on_click=Callback::new(move |_| show_new_form.update(|v| *v = !*v))
                     >
                         <i data-lucide="user-plus" class="icon-sm"></i>
                         <span>"Register Agent"</span>
-                    </button>
+                    </Button>
                 </div>
             </div>
 
@@ -159,60 +159,48 @@ pub fn ProjectDetail() -> impl IntoView {
                                         <label for="agentName" class="block text-sm font-medium text-charcoal-700 dark:text-charcoal-300 mb-2">
                                             "Agent Name *"
                                         </label>
-                                        <input
-                                            id="agentName"
-                                            type="text"
-                                            prop:value=move || new_name.get()
-                                            on:input=move |ev| new_name.set(event_target_value(&ev))
-                                            placeholder="BlueStone"
-                                            class="input"
+                                        <Input
+                                            id="agentName".to_string()
+                                            value=new_name
+                                            placeholder="BlueStone".to_string()
                                         />
                                     </div>
                                     <div>
                                         <label for="agentProgram" class="block text-sm font-medium text-charcoal-700 dark:text-charcoal-300 mb-2">
                                             "Program"
                                         </label>
-                                        <input
-                                            id="agentProgram"
-                                            type="text"
-                                            prop:value=move || new_program.get()
-                                            on:input=move |ev| new_program.set(event_target_value(&ev))
-                                            placeholder="antigravity"
-                                            class="input"
+                                        <Input
+                                            id="agentProgram".to_string()
+                                            value=new_program
+                                            placeholder="antigravity".to_string()
                                         />
                                     </div>
                                     <div>
                                         <label for="agentModel" class="block text-sm font-medium text-charcoal-700 dark:text-charcoal-300 mb-2">
                                             "Model"
                                         </label>
-                                        <input
-                                            id="agentModel"
-                                            type="text"
-                                            prop:value=move || new_model.get()
-                                            on:input=move |ev| new_model.set(event_target_value(&ev))
-                                            placeholder="gemini-2.0-pro"
-                                            class="input"
+                                        <Input
+                                            id="agentModel".to_string()
+                                            value=new_model
+                                            placeholder="gemini-2.0-pro".to_string()
                                         />
                                     </div>
                                     <div>
                                         <label for="agentTask" class="block text-sm font-medium text-charcoal-700 dark:text-charcoal-300 mb-2">
                                             "Task Description"
                                         </label>
-                                        <input
-                                            id="agentTask"
-                                            type="text"
-                                            prop:value=move || new_task.get()
-                                            on:input=move |ev| new_task.set(event_target_value(&ev))
-                                            placeholder="Research and implement features"
-                                            class="input"
+                                        <Input
+                                            id="agentTask".to_string()
+                                            value=new_task
+                                            placeholder="Research and implement features".to_string()
                                         />
                                     </div>
                                 </div>
                                 <div class="flex gap-3">
-                                    <button
-                                        type="submit"
-                                        disabled=move || creating.get() || new_name.get().trim().is_empty()
-                                        class="btn-primary flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                    <Button
+                                        variant=ButtonVariant::Default
+                                        button_type="submit"
+                                        disabled=creating.get() || new_name.get().trim().is_empty()
                                     >
                                         {move || if creating.get() {
                                             view! { <i data-lucide="loader-2" class="icon-sm animate-spin"></i> }
@@ -220,20 +208,19 @@ pub fn ProjectDetail() -> impl IntoView {
                                             view! { <i data-lucide="plus" class="icon-sm"></i> }
                                         }}
                                         {move || if creating.get() { "Registering..." } else { "Register Agent" }}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        on:click=move |_| {
+                                    </Button>
+                                    <Button
+                                        variant=ButtonVariant::Secondary
+                                        on_click=Callback::new(move |_| {
                                             show_new_form.set(false);
                                             new_name.set(String::new());
                                             new_program.set(String::new());
                                             new_model.set(String::new());
                                             new_task.set(String::new());
-                                        }
-                                        class="btn-secondary"
+                                        })
                                     >
                                         "Cancel"
-                                    </button>
+                                    </Button>
                                 </div>
                             </form>
                         </div>
@@ -278,13 +265,13 @@ pub fn ProjectDetail() -> impl IntoView {
                                 <p class="text-charcoal-500 dark:text-charcoal-400 mb-6">
                                     "Register your first agent to start sending and receiving messages."
                                 </p>
-                                <button
-                                    on:click=move |_| show_new_form.set(true)
-                                    class="btn-primary inline-flex items-center gap-2"
+                                <Button
+                                    variant=ButtonVariant::Default
+                                    on_click=Callback::new(move |_| show_new_form.set(true))
                                 >
                                     <i data-lucide="user-plus" class="icon-sm"></i>
                                     "Register Agent"
-                                </button>
+                                </Button>
                             </div>
                         }.into_any()
                     } else {
