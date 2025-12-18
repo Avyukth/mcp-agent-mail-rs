@@ -56,12 +56,8 @@ pub fn MessageDetail() -> impl IntoView {
         });
     });
 
-    // Back to inbox URL (static since params don't change)
-    let back_url = if !project_slug.is_empty() && !agent_name.is_empty() {
-        format!("/inbox?project={}&agent={}", project_slug, agent_name)
-    } else {
-        "/inbox".to_string()
-    };
+    // Back to unified inbox URL
+    let back_url = "/mail/unified".to_string();
 
     view! {
         <div class="space-y-6">
