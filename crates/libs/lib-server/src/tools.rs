@@ -28,6 +28,8 @@ pub async fn health_check(_state: State<AppState>) -> crate::error::Result<Respo
 // --- ensure_project ---
 #[derive(Deserialize)]
 pub struct EnsureProjectPayload {
+    /// Human-readable project name. Also accepts `project_slug` for Python/e2e compatibility.
+    #[serde(alias = "project_slug")]
     pub human_key: String,
 }
 
@@ -89,6 +91,8 @@ pub async fn ensure_project(
 #[derive(Deserialize)]
 pub struct RegisterAgentPayload {
     pub project_slug: String,
+    /// Agent name. Also accepts `agent_name` for Python/e2e compatibility.
+    #[serde(alias = "agent_name")]
     pub name: String,
     pub program: String,
     pub model: String,
@@ -100,6 +104,8 @@ pub struct RegisterAgentPayload {
 pub struct RegisterAgentResponse {
     pub id: i64,
     pub name: String,
+    /// Project ID for e2e test compatibility
+    pub project_id: i64,
     pub program: String,
     pub model: String,
     pub task_description: String,
@@ -134,6 +140,7 @@ pub async fn register_agent(
     Ok(Json(RegisterAgentResponse {
         id: agent.id,
         name: agent.name,
+        project_id: project.id,
         program: agent.program,
         model: agent.model,
         task_description: agent.task_description,

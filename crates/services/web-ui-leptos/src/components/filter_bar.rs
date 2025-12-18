@@ -30,6 +30,47 @@ impl FilterState {
         }
     }
 
+    /// Create FilterState from URL query parameters
+    pub fn from_query_params(params: &std::collections::HashMap<String, String>) -> Self {
+        Self {
+            query: params.get("q").cloned().unwrap_or_default(),
+            project: params.get("project").filter(|s| !s.is_empty()).cloned(),
+            sender: params.get("sender").filter(|s| !s.is_empty()).cloned(),
+            importance: params.get("importance").filter(|s| !s.is_empty()).cloned(),
+            threaded: params.get("threaded").map_or(false, |v| v == "true"),
+            view_mode: params
+                .get("view")
+                .cloned()
+                .unwrap_or_else(|| "list".to_string()),
+        }
+    }
+
+    /// Convert FilterState to URL query string (without leading ?)
+    pub fn to_query_string(&self) -> String {
+        let mut params = Vec::new();
+
+        if !self.query.is_empty() {
+            params.push(format!("q={}", urlencoding::encode(&self.query)));
+        }
+        if let Some(ref p) = self.project {
+            params.push(format!("project={}", urlencoding::encode(p)));
+        }
+        if let Some(ref s) = self.sender {
+            params.push(format!("sender={}", urlencoding::encode(s)));
+        }
+        if let Some(ref i) = self.importance {
+            params.push(format!("importance={}", urlencoding::encode(i)));
+        }
+        if self.threaded {
+            params.push("threaded=true".to_string());
+        }
+        if self.view_mode != "list" {
+            params.push(format!("view={}", &self.view_mode));
+        }
+
+        params.join("&")
+    }
+
     /// Check if any filter is active
     pub fn has_filters(&self) -> bool {
         !self.query.is_empty()
@@ -395,5 +436,61 @@ mod tests {
         assert!(IMPORTANCE_OPTIONS.iter().any(|(v, _)| *v == "high"));
         assert!(IMPORTANCE_OPTIONS.iter().any(|(v, _)| *v == "normal"));
         assert!(IMPORTANCE_OPTIONS.iter().any(|(v, _)| *v == "low"));
+    }
+
+    #[test]
+    fn test_from_query_params() {
+        use std::collections::HashMap;
+
+        let mut params = HashMap::new();
+        params.insert("q".to_string(), "search term".to_string());
+        params.insert("project".to_string(), "my-project".to_string());
+        params.insert("importance".to_string(), "high".to_string());
+        params.insert("view".to_string(), "grid".to_string());
+
+        let state = FilterState::from_query_params(&params);
+
+        assert_eq!(state.query, "search term");
+        assert_eq!(state.project, Some("my-project".to_string()));
+        assert_eq!(state.importance, Some("high".to_string()));
+        assert_eq!(state.view_mode, "grid");
+    }
+
+    #[test]
+    fn test_from_query_params_empty() {
+        use std::collections::HashMap;
+        let params = HashMap::new();
+        let state = FilterState::from_query_params(&params);
+
+        assert_eq!(state.query, "");
+        assert_eq!(state.project, None);
+        assert_eq!(state.view_mode, "list");
+    }
+
+    #[test]
+    fn test_to_query_string() {
+        let mut state = FilterState::new();
+        state.query = "test".to_string();
+        state.project = Some("proj".to_string());
+        state.importance = Some("high".to_string());
+
+        let qs = state.to_query_string();
+        assert!(qs.contains("q=test"));
+        assert!(qs.contains("project=proj"));
+        assert!(qs.contains("importance=high"));
+    }
+
+    #[test]
+    fn test_to_query_string_empty() {
+        let state = FilterState::new();
+        assert_eq!(state.to_query_string(), "");
+    }
+
+    #[test]
+    fn test_query_string_url_encodes() {
+        let mut state = FilterState::new();
+        state.query = "hello world".to_string();
+        let qs = state.to_query_string();
+        assert!(qs.contains("q=hello%20world"));
     }
 }
