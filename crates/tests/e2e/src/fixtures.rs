@@ -7,7 +7,13 @@ use uuid::Uuid;
 pub struct TestFixtures;
 
 impl TestFixtures {
-    /// Generate a unique project slug for testing
+    /// Generate a unique human-readable project name for testing
+    /// Returns a display name like "Test Project abc123"
+    pub fn unique_project_name() -> String {
+        format!("Test Project {}", &Uuid::new_v4().to_string()[..8])
+    }
+
+    /// Generate a unique project slug for testing (used after project creation)
     pub fn unique_project_slug() -> String {
         format!("test-project-{}", &Uuid::new_v4().to_string()[..8])
     }
@@ -18,17 +24,19 @@ impl TestFixtures {
     }
 
     /// Create project payload
-    pub fn project_payload(slug: &str) -> serde_json::Value {
+    /// Note: API uses `human_key` (display name), not `project_slug`
+    pub fn project_payload(human_key: &str) -> serde_json::Value {
         serde_json::json!({
-            "project_slug": slug
+            "human_key": human_key
         })
     }
 
     /// Create agent registration payload
-    pub fn agent_payload(project_slug: &str, agent_name: &str) -> serde_json::Value {
+    /// Note: API uses `name` field, not `agent_name`
+    pub fn agent_payload(project_slug: &str, name: &str) -> serde_json::Value {
         serde_json::json!({
             "project_slug": project_slug,
-            "agent_name": agent_name,
+            "name": name,
             "program": "test-runner",
             "model": "test-model"
         })
@@ -57,6 +65,7 @@ impl TestFixtures {
 pub struct ProjectResponse {
     pub id: i64,
     pub slug: String,
+    pub human_key: String,
 }
 
 /// Response from register_agent endpoint
@@ -65,6 +74,11 @@ pub struct AgentResponse {
     pub id: i64,
     pub name: String,
     pub project_id: i64,
+    pub program: String,
+    pub model: String,
+    pub task_description: String,
+    pub inception_ts: String,
+    pub last_active_ts: String,
 }
 
 /// Response from send_message endpoint

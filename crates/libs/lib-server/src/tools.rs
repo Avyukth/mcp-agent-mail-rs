@@ -28,8 +28,7 @@ pub async fn health_check(_state: State<AppState>) -> crate::error::Result<Respo
 // --- ensure_project ---
 #[derive(Deserialize)]
 pub struct EnsureProjectPayload {
-    /// Human-readable project name. Also accepts `project_slug` for Python/e2e compatibility.
-    #[serde(alias = "project_slug")]
+    /// Human-readable project name (e.g., "My Project")
     pub human_key: String,
 }
 
@@ -91,8 +90,7 @@ pub async fn ensure_project(
 #[derive(Deserialize)]
 pub struct RegisterAgentPayload {
     pub project_slug: String,
-    /// Agent name. Also accepts `agent_name` for Python/e2e compatibility.
-    #[serde(alias = "agent_name")]
+    /// Agent name
     pub name: String,
     pub program: String,
     pub model: String,

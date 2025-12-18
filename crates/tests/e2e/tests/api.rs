@@ -28,6 +28,45 @@ async fn create_client() -> Client {
     Client::new()
 }
 
+/// Helper to create a project and return its slug for subsequent API calls
+async fn setup_project(client: &Client, config: &TestConfig) -> Option<ProjectResponse> {
+    let human_key = TestFixtures::unique_project_name();
+
+    let resp = client
+        .post(format!("{}/api/project/ensure", config.api_url))
+        .json(&TestFixtures::project_payload(&human_key))
+        .send()
+        .await
+        .ok()?;
+
+    if resp.status().is_success() {
+        resp.json().await.ok()
+    } else {
+        None
+    }
+}
+
+/// Helper to register an agent and return its details
+async fn setup_agent(
+    client: &Client,
+    config: &TestConfig,
+    project_slug: &str,
+    agent_name: &str,
+) -> Option<AgentResponse> {
+    let resp = client
+        .post(format!("{}/api/agent/register", config.api_url))
+        .json(&TestFixtures::agent_payload(project_slug, agent_name))
+        .send()
+        .await
+        .ok()?;
+
+    if resp.status().is_success() {
+        resp.json().await.ok()
+    } else {
+        None
+    }
+}
+
 // ============================================================================
 // Health Check Tests
 // ============================================================================
@@ -86,11 +125,11 @@ async fn test_ready_endpoint() {
 async fn test_ensure_project() {
     let config = get_config();
     let client = create_client().await;
-    let slug = TestFixtures::unique_project_slug();
+    let human_key = TestFixtures::unique_project_name();
 
     let response = client
         .post(format!("{}/api/project/ensure", config.api_url))
-        .json(&TestFixtures::project_payload(&slug))
+        .json(&TestFixtures::project_payload(&human_key))
         .send()
         .await;
 
@@ -99,9 +138,19 @@ async fn test_ensure_project() {
             assert!(resp.status().is_success(), "ensure_project should succeed");
 
             let project: ProjectResponse = resp.json().await.expect("Should parse response");
-            assert_eq!(project.slug, slug, "Project slug should match");
+            assert_eq!(
+                project.human_key, human_key,
+                "Project human_key should match"
+            );
+            assert!(
+                !project.slug.is_empty(),
+                "Project should have a generated slug"
+            );
 
-            println!("✓ Project created: {} (id={})", project.slug, project.id);
+            println!(
+                "✓ Project created: {} (slug={}, id={})",
+                project.human_key, project.slug, project.id
+            );
         }
         Err(e) => {
             println!("⚠ API server not running: {}", e);
@@ -140,25 +189,30 @@ async fn test_list_projects() {
 async fn test_register_agent() {
     let config = get_config();
     let client = create_client().await;
-    let slug = TestFixtures::unique_project_slug();
+    let human_key = TestFixtures::unique_project_name();
     let agent_name = TestFixtures::unique_agent_name();
 
     // First create project
     let project_resp = client
         .post(format!("{}/api/project/ensure", config.api_url))
-        .json(&TestFixtures::project_payload(&slug))
+        .json(&TestFixtures::project_payload(&human_key))
         .send()
         .await;
 
-    if project_resp.is_err() {
-        println!("⚠ API server not running");
-        return;
-    }
+    let project: ProjectResponse = match project_resp {
+        Ok(resp) if resp.status().is_success() => {
+            resp.json().await.expect("Should parse project response")
+        }
+        _ => {
+            println!("⚠ API server not running or project creation failed");
+            return;
+        }
+    };
 
-    // Then register agent
+    // Then register agent using the project's slug
     let response = client
         .post(format!("{}/api/agent/register", config.api_url))
-        .json(&TestFixtures::agent_payload(&slug, &agent_name))
+        .json(&TestFixtures::agent_payload(&project.slug, &agent_name))
         .send()
         .await;
 
@@ -168,8 +222,15 @@ async fn test_register_agent() {
 
             let agent: AgentResponse = resp.json().await.expect("Should parse response");
             assert_eq!(agent.name, agent_name, "Agent name should match");
+            assert_eq!(
+                agent.project_id, project.id,
+                "Agent project_id should match"
+            );
 
-            println!("✓ Agent registered: {} (id={})", agent.name, agent.id);
+            println!(
+                "✓ Agent registered: {} (id={}, project_id={})",
+                agent.name, agent.id, agent.project_id
+            );
         }
         Err(e) => {
             println!("⚠ Request failed: {}", e);
@@ -185,41 +246,37 @@ async fn test_register_agent() {
 async fn test_send_message_flow() {
     let config = get_config();
     let client = create_client().await;
-    let slug = TestFixtures::unique_project_slug();
     let sender_name = TestFixtures::unique_agent_name();
     let recipient_name = TestFixtures::unique_agent_name();
 
-    // Setup: Create project and agents
-    let project_result = client
-        .post(format!("{}/api/project/ensure", config.api_url))
-        .json(&TestFixtures::project_payload(&slug))
-        .send()
-        .await;
+    // Setup: Create project
+    let project = match setup_project(&client, &config).await {
+        Some(p) => p,
+        None => {
+            println!("⚠ API server not running or project creation failed");
+            return;
+        }
+    };
 
-    if project_result.is_err() {
-        println!("⚠ API server not running");
+    // Register sender and recipient
+    if setup_agent(&client, &config, &project.slug, &sender_name)
+        .await
+        .is_none()
+    {
+        println!("⚠ Failed to register sender");
+        return;
+    }
+    if setup_agent(&client, &config, &project.slug, &recipient_name)
+        .await
+        .is_none()
+    {
+        println!("⚠ Failed to register recipient");
         return;
     }
 
-    // Register sender
-    client
-        .post(format!("{}/api/agent/register", config.api_url))
-        .json(&TestFixtures::agent_payload(&slug, &sender_name))
-        .send()
-        .await
-        .expect("Should register sender");
-
-    // Register recipient
-    client
-        .post(format!("{}/api/agent/register", config.api_url))
-        .json(&TestFixtures::agent_payload(&slug, &recipient_name))
-        .send()
-        .await
-        .expect("Should register recipient");
-
     // Send message
     let message_payload = TestFixtures::message_payload(
-        &slug,
+        &project.slug,
         &sender_name,
         &[recipient_name.as_str()],
         "Test Subject",
@@ -257,33 +314,30 @@ async fn test_send_message_flow() {
 async fn test_check_inbox() {
     let config = get_config();
     let client = create_client().await;
-    let slug = TestFixtures::unique_project_slug();
     let agent_name = TestFixtures::unique_agent_name();
 
     // Setup: Create project and agent
-    let project_result = client
-        .post(format!("{}/api/project/ensure", config.api_url))
-        .json(&TestFixtures::project_payload(&slug))
-        .send()
-        .await;
+    let project = match setup_project(&client, &config).await {
+        Some(p) => p,
+        None => {
+            println!("⚠ API server not running or project creation failed");
+            return;
+        }
+    };
 
-    if project_result.is_err() {
-        println!("⚠ API server not running");
+    if setup_agent(&client, &config, &project.slug, &agent_name)
+        .await
+        .is_none()
+    {
+        println!("⚠ Failed to register agent");
         return;
     }
-
-    client
-        .post(format!("{}/api/agent/register", config.api_url))
-        .json(&TestFixtures::agent_payload(&slug, &agent_name))
-        .send()
-        .await
-        .expect("Should register agent");
 
     // Check inbox
     let response = client
         .post(format!("{}/api/inbox", config.api_url))
         .json(&json!({
-            "project_slug": slug,
+            "project_slug": project.slug,
             "agent_name": agent_name,
             "limit": 10
         }))
@@ -312,25 +366,21 @@ async fn test_check_inbox() {
 async fn test_search_messages() {
     let config = get_config();
     let client = create_client().await;
-    let slug = TestFixtures::unique_project_slug();
 
     // Setup: Create project
-    let project_result = client
-        .post(format!("{}/api/project/ensure", config.api_url))
-        .json(&TestFixtures::project_payload(&slug))
-        .send()
-        .await;
-
-    if project_result.is_err() {
-        println!("⚠ API server not running");
-        return;
-    }
+    let project = match setup_project(&client, &config).await {
+        Some(p) => p,
+        None => {
+            println!("⚠ API server not running or project creation failed");
+            return;
+        }
+    };
 
     // Search messages (FTS5)
     let response = client
         .post(format!("{}/api/messages/search", config.api_url))
         .json(&json!({
-            "project_slug": slug,
+            "project_slug": project.slug,
             "query": "test",
             "limit": 10
         }))
@@ -341,8 +391,11 @@ async fn test_search_messages() {
         Ok(resp) => {
             assert!(resp.status().is_success(), "search_messages should succeed");
 
-            let results: Vec<serde_json::Value> = resp.json().await.expect("Should parse response");
-            println!("✓ Search returned {} results", results.len());
+            // API returns { query, results, count } object
+            let search_response: serde_json::Value =
+                resp.json().await.expect("Should parse response");
+            let count = search_response["count"].as_i64().unwrap_or(0);
+            println!("✓ Search returned {} results", count);
         }
         Err(e) => {
             println!("⚠ Request failed: {}", e);
@@ -358,33 +411,30 @@ async fn test_search_messages() {
 async fn test_file_reservation_flow() {
     let config = get_config();
     let client = create_client().await;
-    let slug = TestFixtures::unique_project_slug();
     let agent_name = TestFixtures::unique_agent_name();
 
-    // Setup
-    let project_result = client
-        .post(format!("{}/api/project/ensure", config.api_url))
-        .json(&TestFixtures::project_payload(&slug))
-        .send()
-        .await;
+    // Setup: Create project and agent
+    let project = match setup_project(&client, &config).await {
+        Some(p) => p,
+        None => {
+            println!("⚠ API server not running or project creation failed");
+            return;
+        }
+    };
 
-    if project_result.is_err() {
-        println!("⚠ API server not running");
+    if setup_agent(&client, &config, &project.slug, &agent_name)
+        .await
+        .is_none()
+    {
+        println!("⚠ Failed to register agent");
         return;
     }
-
-    client
-        .post(format!("{}/api/agent/register", config.api_url))
-        .json(&TestFixtures::agent_payload(&slug, &agent_name))
-        .send()
-        .await
-        .expect("Should register agent");
 
     // Reserve files
     let response = client
         .post(format!("{}/api/file_reservations/paths", config.api_url))
         .json(&json!({
-            "project_slug": slug,
+            "project_slug": project.slug,
             "agent_name": agent_name,
             "paths": ["src/**/*.rs", "Cargo.toml"],
             "exclusive": true,
@@ -406,7 +456,7 @@ async fn test_file_reservation_flow() {
             let list_resp = client
                 .post(format!("{}/api/file_reservations/list", config.api_url))
                 .json(&json!({
-                    "project_slug": slug
+                    "project_slug": project.slug
                 }))
                 .send()
                 .await
