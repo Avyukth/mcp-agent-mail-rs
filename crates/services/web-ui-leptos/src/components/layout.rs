@@ -55,9 +55,9 @@ pub fn Layout() -> impl IntoView {
             // Gradient mesh background overlay
             <div class="fixed inset-0 bg-gradient-mesh pointer-events-none" aria-hidden="true"></div>
 
-            // Navigation header with glassmorphism
-            <nav class="sticky top-0 z-50 glass border-b border-cream-300/50 dark:border-charcoal-700/50" role="navigation" aria-label="Main navigation">
-                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            // Header with navigation - glassmorphism
+            <header class="sticky top-0 z-50 glass border-b border-cream-300/50 dark:border-charcoal-700/50">
+                <nav class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" role="navigation" aria-label="Main navigation">
                     <div class="flex justify-between h-16 items-center">
                         // Logo / Brand
                         <div class="flex items-center space-x-8">
@@ -102,8 +102,8 @@ pub fn Layout() -> impl IntoView {
                             </Button>
                         </div>
                     </div>
-                </div>
-            </nav>
+                </nav>
+            </header>
 
             // Mobile navigation drawer (future enhancement)
 
