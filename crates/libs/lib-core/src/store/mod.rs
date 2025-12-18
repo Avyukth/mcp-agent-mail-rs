@@ -108,6 +108,9 @@ pub type Db = Connection;
 /// Git storage operations for audit logging.
 pub mod git_store;
 
+/// LRU cache for repository handles (PORT-2.1, SC-5 DoS protection).
+pub mod repo_cache;
+
 /// Creates a new database connection pool with migrations applied.
 ///
 /// This function:
