@@ -3,6 +3,7 @@
 pub mod avatar;
 pub mod breadcrumb;
 pub mod button;
+pub mod card;
 pub mod compose_message;
 pub mod filter_bar;
 pub mod info_banner;
@@ -17,6 +18,7 @@ pub mod split_view;
 pub use avatar::AgentAvatar;
 pub use breadcrumb::{Breadcrumb, BreadcrumbItem};
 pub use button::{Button, ButtonSize, ButtonVariant};
+pub use card::{Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle};
 pub use compose_message::{ComposeMessage, ComposeProps, ReplyTo};
 pub use filter_bar::{FilterBar, FilterState};
 pub use info_banner::{BannerVariant, InfoBanner};
