@@ -3,6 +3,7 @@
 //! Provides search, filter dropdowns, view controls, and message count.
 //! Responsive design with mobile bottom sheet support.
 
+use super::{Button, ButtonVariant, Input, Select, SelectOption};
 use leptos::prelude::*;
 
 /// Filter state for the inbox
@@ -133,42 +134,72 @@ pub fn FilterBar(
     // Mobile filters sheet visibility
     let show_filters_sheet = RwSignal::new(false);
 
-    // Clone for closures
-    let projects_for_select = projects.clone();
-    let senders_for_select = senders.clone();
+    // Local signals for Select components (sync with filter_state)
+    let project_value = RwSignal::new(String::new());
+    let sender_value = RwSignal::new(String::new());
+    let importance_value = RwSignal::new(String::new());
+    let search_value = RwSignal::new(String::new());
 
-    // Search input handler with debounce
+    // Sync from filter_state on mount
+    Effect::new(move |_| {
+        let state = filter_state.get();
+        project_value.set(state.project.clone().unwrap_or_default());
+        sender_value.set(state.sender.clone().unwrap_or_default());
+        importance_value.set(state.importance.clone().unwrap_or_default());
+        search_value.set(state.query.clone());
+    });
+
+    // Sync project changes to filter_state
+    Effect::new(move |prev: Option<String>| {
+        let val = project_value.get();
+        if prev.is_some() {
+            filter_state.update(|s| {
+                s.project = if val.is_empty() {
+                    None
+                } else {
+                    Some(val.clone())
+                };
+            });
+        }
+        val
+    });
+
+    // Sync sender changes to filter_state
+    Effect::new(move |prev: Option<String>| {
+        let val = sender_value.get();
+        if prev.is_some() {
+            filter_state.update(|s| {
+                s.sender = if val.is_empty() {
+                    None
+                } else {
+                    Some(val.clone())
+                };
+            });
+        }
+        val
+    });
+
+    // Sync importance changes to filter_state
+    Effect::new(move |prev: Option<String>| {
+        let val = importance_value.get();
+        if prev.is_some() {
+            filter_state.update(|s| {
+                s.importance = if val.is_empty() {
+                    None
+                } else {
+                    Some(val.clone())
+                };
+            });
+        }
+        val
+    });
+
+    // Search input handler
     let on_search_input = move |ev: web_sys::Event| {
         let target = event_target::<web_sys::HtmlInputElement>(&ev);
         let value = target.value();
+        search_value.set(value.clone());
         filter_state.update(|s| s.query = value);
-    };
-
-    // Project filter handler
-    let on_project_change = move |ev: web_sys::Event| {
-        let target = event_target::<web_sys::HtmlSelectElement>(&ev);
-        let value = target.value();
-        filter_state.update(|s| {
-            s.project = if value.is_empty() { None } else { Some(value) };
-        });
-    };
-
-    // Sender filter handler
-    let on_sender_change = move |ev: web_sys::Event| {
-        let target = event_target::<web_sys::HtmlSelectElement>(&ev);
-        let value = target.value();
-        filter_state.update(|s| {
-            s.sender = if value.is_empty() { None } else { Some(value) };
-        });
-    };
-
-    // Importance filter handler
-    let on_importance_change = move |ev: web_sys::Event| {
-        let target = event_target::<web_sys::HtmlSelectElement>(&ev);
-        let value = target.value();
-        filter_state.update(|s| {
-            s.importance = if value.is_empty() { None } else { Some(value) };
-        });
     };
 
     // View mode toggle
@@ -181,71 +212,97 @@ pub fn FilterBar(
     };
 
     // Clear all filters
-    let clear_filters = move |_| {
+    let clear_filters = Callback::new(move |_| {
         filter_state.update(|s| s.clear());
-    };
+        project_value.set(String::new());
+        sender_value.set(String::new());
+        importance_value.set(String::new());
+        search_value.set(String::new());
+    });
+
+    // Build options for Select components
+    let project_options: Vec<SelectOption> = std::iter::once(SelectOption::new("", "All Projects"))
+        .chain(
+            projects
+                .iter()
+                .map(|p| SelectOption::new(p.clone(), p.clone())),
+        )
+        .collect();
+
+    let sender_options: Vec<SelectOption> = std::iter::once(SelectOption::new("", "All Senders"))
+        .chain(
+            senders
+                .iter()
+                .map(|s| SelectOption::new(s.clone(), s.clone())),
+        )
+        .collect();
+
+    let importance_options: Vec<SelectOption> = IMPORTANCE_OPTIONS
+        .iter()
+        .map(|(v, l)| SelectOption::new(*v, *l))
+        .collect();
 
     view! {
         <div class="flex flex-col gap-3">
             // Desktop: Single row layout
             <div class="hidden md:flex items-center gap-3 p-3 bg-cream-50 dark:bg-charcoal-800 rounded-xl border border-cream-200 dark:border-charcoal-700">
-                // Search Input
+                // Search Input with icon
                 <div class="relative flex-1">
-                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 icon-sm text-charcoal-400"></i>
-                    <input
-                        type="text"
-                        placeholder="Search messages... (⌘K)"
-                        class="w-full pl-10 pr-4 py-2 bg-white dark:bg-charcoal-900 border border-cream-200 dark:border-charcoal-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50"
-                        prop:value={move || filter_state.get().query}
-                        on:input=on_search_input
+                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 icon-sm text-charcoal-400 z-10"></i>
+                    <Input
+                        id="filterSearch".to_string()
+                        value=search_value
+                        placeholder="Search messages... (⌘K)".to_string()
+                        class="pl-10".to_string()
+                        on_input=Callback::new(move |v: String| {
+                            search_value.set(v.clone());
+                            filter_state.update(|s| s.query = v);
+                        })
                     />
                 </div>
 
-                // Filter Dropdowns
-                <select
-                    class="px-3 py-2 bg-white dark:bg-charcoal-900 border border-cream-200 dark:border-charcoal-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50"
-                    on:change=on_project_change
-                >
-                    <option value="">"All Projects"</option>
-                    {projects_for_select.iter().map(|p| {
-                        let p_value = p.clone();
-                        let p_text = p.clone();
-                        view! { <option value={p_value}>{p_text}</option> }
-                    }).collect::<Vec<_>>()}
-                </select>
+                // Filter Dropdowns using Select component
+                <div class="w-44">
+                    <Select
+                        id="projectFilter".to_string()
+                        options=project_options.clone()
+                        value=project_value
+                        placeholder="All Projects".to_string()
+                        icon="folder"
+                    />
+                </div>
 
-                <select
-                    class="px-3 py-2 bg-white dark:bg-charcoal-900 border border-cream-200 dark:border-charcoal-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50"
-                    on:change=on_sender_change
-                >
-                    <option value="">"All Senders"</option>
-                    {senders_for_select.iter().map(|s| {
-                        let s_value = s.clone();
-                        let s_text = s.clone();
-                        view! { <option value={s_value}>{s_text}</option> }
-                    }).collect::<Vec<_>>()}
-                </select>
+                <div class="w-40">
+                    <Select
+                        id="senderFilter".to_string()
+                        options=sender_options.clone()
+                        value=sender_value
+                        placeholder="All Senders".to_string()
+                        icon="user"
+                    />
+                </div>
 
-                <select
-                    class="px-3 py-2 bg-white dark:bg-charcoal-900 border border-cream-200 dark:border-charcoal-600 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/50"
-                    on:change=on_importance_change
-                >
-                    {IMPORTANCE_OPTIONS.iter().map(|(value, label)| {
-                        view! { <option value={*value}>{*label}</option> }
-                    }).collect::<Vec<_>>()}
-                </select>
+                <div class="w-36">
+                    <Select
+                        id="importanceFilter".to_string()
+                        options=importance_options.clone()
+                        value=importance_value
+                        placeholder="Importance".to_string()
+                        icon="alert-circle"
+                    />
+                </div>
 
                 // Clear Filters Button (shown when filters active)
                 {move || {
                     if filter_state.get().has_filters() {
                         Some(view! {
-                            <button
-                                class="px-3 py-2 text-sm text-amber-600 hover:text-amber-700 dark:text-amber-400 flex items-center gap-1"
-                                on:click=clear_filters
+                            <Button
+                                variant=ButtonVariant::Ghost
+                                on_click=clear_filters
                             >
                                 <i data-lucide="x" class="icon-xs"></i>
-                                "Clear"
-                            </button>
+                                <span>"Clear"</span>
+                            </Button>
                         })
                     } else {
                         None
@@ -254,34 +311,22 @@ pub fn FilterBar(
 
                 // View Mode Toggle
                 <div class="flex items-center gap-1 border-l border-cream-200 dark:border-charcoal-600 pl-3">
-                    <button
-                        class={move || format!(
-                            "p-2 rounded {}",
-                            if filter_state.get().view_mode == "list" {
-                                "bg-amber-100 dark:bg-amber-900/30 text-amber-600"
-                            } else {
-                                "text-charcoal-400 hover:text-charcoal-600"
-                            }
-                        )}
-                        on:click=set_list_view
+                    <Button
+                        variant={if filter_state.get().view_mode == "list" { ButtonVariant::Secondary } else { ButtonVariant::Ghost }}
+                        size=super::ButtonSize::Icon
+                        on_click=Callback::new(set_list_view)
                         title="List view"
                     >
                         <i data-lucide="list" class="icon-sm"></i>
-                    </button>
-                    <button
-                        class={move || format!(
-                            "p-2 rounded {}",
-                            if filter_state.get().view_mode == "grid" {
-                                "bg-amber-100 dark:bg-amber-900/30 text-amber-600"
-                            } else {
-                                "text-charcoal-400 hover:text-charcoal-600"
-                            }
-                        )}
-                        on:click=set_grid_view
+                    </Button>
+                    <Button
+                        variant={if filter_state.get().view_mode == "grid" { ButtonVariant::Secondary } else { ButtonVariant::Ghost }}
+                        size=super::ButtonSize::Icon
+                        on_click=Callback::new(set_grid_view)
                         title="Grid view"
                     >
                         <i data-lucide="grid" class="icon-sm"></i>
-                    </button>
+                    </Button>
                 </div>
 
                 // Message Count Badge
@@ -292,26 +337,29 @@ pub fn FilterBar(
 
             // Mobile: Compact layout
             <div class="md:hidden space-y-2">
-                // Search (full width)
+                // Search (full width) with icon
                 <div class="relative">
-                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 icon-sm text-charcoal-400"></i>
-                    <input
-                        type="text"
-                        placeholder="Search..."
-                        class="w-full pl-10 pr-4 py-2 bg-white dark:bg-charcoal-900 border border-cream-200 dark:border-charcoal-600 rounded-lg text-sm"
-                        prop:value={move || filter_state.get().query}
-                        on:input=on_search_input
+                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 icon-sm text-charcoal-400 z-10"></i>
+                    <Input
+                        id="filterSearchMobile".to_string()
+                        value=search_value
+                        placeholder="Search...".to_string()
+                        class="pl-10".to_string()
+                        on_input=Callback::new(move |v: String| {
+                            search_value.set(v.clone());
+                            filter_state.update(|s| s.query = v);
+                        })
                     />
                 </div>
 
                 // Filters button + count
                 <div class="flex items-center justify-between">
-                    <button
-                        class="flex items-center gap-2 px-3 py-2 bg-cream-100 dark:bg-charcoal-800 rounded-lg text-sm"
-                        on:click=move |_| show_filters_sheet.set(true)
+                    <Button
+                        variant=ButtonVariant::Secondary
+                        on_click=Callback::new(move |_| show_filters_sheet.set(true))
                     >
                         <i data-lucide="sliders" class="icon-sm"></i>
-                        "Filters"
+                        <span>"Filters"</span>
                         {move || {
                             if filter_state.get().has_filters() {
                                 Some(view! {
@@ -323,7 +371,7 @@ pub fn FilterBar(
                                 None
                             }
                         }}
-                    </button>
+                    </Button>
 
                     <span class="text-sm text-charcoal-500">
                         {move || format!("{} messages", message_count.get())}
@@ -331,7 +379,7 @@ pub fn FilterBar(
                 </div>
             </div>
 
-            // Mobile Bottom Sheet (simplified - full implementation would use portal)
+            // Mobile Bottom Sheet
             {move || {
                 if show_filters_sheet.get() {
                     Some(view! {
@@ -344,33 +392,47 @@ pub fn FilterBar(
                                 on:click=|e| e.stop_propagation()
                             >
                                 <div class="flex items-center justify-between">
-                                    <h3 class="font-semibold">"Filters"</h3>
-                                    <button
-                                        class="p-2"
-                                        on:click=move |_| show_filters_sheet.set(false)
+                                    <h3 class="font-semibold text-charcoal-800 dark:text-cream-100">"Filters"</h3>
+                                    <Button
+                                        variant=ButtonVariant::Ghost
+                                        size=super::ButtonSize::Icon
+                                        on_click=Callback::new(move |_| show_filters_sheet.set(false))
                                     >
                                         <i data-lucide="x" class="icon-sm"></i>
-                                    </button>
+                                    </Button>
                                 </div>
 
                                 <div class="space-y-3">
-                                    <select class="w-full px-3 py-2 border rounded-lg">
-                                        <option>"All Projects"</option>
-                                    </select>
-                                    <select class="w-full px-3 py-2 border rounded-lg">
-                                        <option>"All Senders"</option>
-                                    </select>
-                                    <select class="w-full px-3 py-2 border rounded-lg">
-                                        <option>"All Importance"</option>
-                                    </select>
+                                    <Select
+                                        id="projectFilterMobile".to_string()
+                                        options=project_options.clone()
+                                        value=project_value
+                                        placeholder="All Projects".to_string()
+                                        icon="folder"
+                                    />
+                                    <Select
+                                        id="senderFilterMobile".to_string()
+                                        options=sender_options.clone()
+                                        value=sender_value
+                                        placeholder="All Senders".to_string()
+                                        icon="user"
+                                    />
+                                    <Select
+                                        id="importanceFilterMobile".to_string()
+                                        options=importance_options.clone()
+                                        value=importance_value
+                                        placeholder="Importance".to_string()
+                                        icon="alert-circle"
+                                    />
                                 </div>
 
-                                <button
-                                    class="w-full py-3 bg-amber-500 text-white rounded-lg font-medium"
-                                    on:click=move |_| show_filters_sheet.set(false)
+                                <Button
+                                    variant=ButtonVariant::Default
+                                    class="w-full".to_string()
+                                    on_click=Callback::new(move |_| show_filters_sheet.set(false))
                                 >
-                                    "Apply Filters"
-                                </button>
+                                    <span>"Apply Filters"</span>
+                                </Button>
                             </div>
                         </div>
                     })

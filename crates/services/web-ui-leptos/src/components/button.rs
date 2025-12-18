@@ -114,6 +114,9 @@ pub fn Button(
     /// Button type attribute (button, submit, reset)
     #[prop(default = "button".to_string(), into)]
     button_type: String,
+    /// Tooltip title for accessibility
+    #[prop(optional, into)]
+    title: Option<String>,
     /// Click handler
     #[prop(optional)]
     on_click: Option<Callback<()>>,
@@ -134,6 +137,7 @@ pub fn Button(
             type={button_type}
             class={final_class}
             disabled={disabled}
+            title={title}
             on:click=move |_| {
                 if let Some(cb) = on_click.as_ref() {
                     cb.run(());

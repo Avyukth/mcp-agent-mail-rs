@@ -2,7 +2,8 @@
 
 use crate::api::client;
 use crate::components::{
-    AgentAvatar, AvatarSize, BannerVariant, Breadcrumb, BreadcrumbItem, InfoBanner,
+    AgentAvatar, Alert, AlertDescription, AlertTitle, AlertVariant, AvatarSize, Breadcrumb,
+    BreadcrumbItem,
 };
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
@@ -91,21 +92,23 @@ pub fn FileReservations() -> impl IntoView {
             </div>
 
             // Info Banner
-            <InfoBanner variant=BannerVariant::Info>
-                <p>
-                    <strong>"Advisory system: "</strong>
-                    "Reservations are "
-                    <em>"signals"</em>
-                    ", not hard locks. Agents can still edit files, but they'll see warnings if conflicts exist."
-                </p>
-                <p class="mt-2">
-                    "Install a "
-                    <a href={format!("/projects/{}", project_slug_for_display)} class="text-sky-600 dark:text-sky-400 underline hover:no-underline">
-                        "pre-commit hook"
-                    </a>
-                    " to enforce reservations at commit time."
-                </p>
-            </InfoBanner>
+            <Alert variant=AlertVariant::Default>
+                <AlertTitle>"Advisory system"</AlertTitle>
+                <AlertDescription>
+                    <p>
+                        "Reservations are "
+                        <em>"signals"</em>
+                        ", not hard locks. Agents can still edit files, but they'll see warnings if conflicts exist."
+                    </p>
+                    <p class="mt-2">
+                        "Install a "
+                        <a href={format!("/projects/{}", project_slug_for_display)} class="text-sky-600 dark:text-sky-400 underline hover:no-underline">
+                            "pre-commit hook"
+                        </a>
+                        " to enforce reservations at commit time."
+                    </p>
+                </AlertDescription>
+            </Alert>
 
             // Loading/Error/Content
             {move || {

@@ -1,6 +1,6 @@
 //! ComposeMessage modal component.
 
-use super::{Select, SelectOption};
+use super::{Button, ButtonVariant, Input, Select, SelectOption};
 use crate::api::client::{self, Agent};
 use leptos::prelude::*;
 
@@ -136,28 +136,29 @@ pub fn ComposeMessage(
     view! {
         <div class="flex flex-col h-full max-h-[90vh]">
             // Header
-            <div class="p-4 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
-                <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+            <div class="p-4 border-b border-cream-200 dark:border-charcoal-700 flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-charcoal-900 dark:text-cream-100">
                     {if is_reply { "Reply" } else { "New Message" }}
                 </h2>
-                <button
-                    on:click=move |_| on_close.run(())
-                    class="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                <Button
+                    variant=ButtonVariant::Ghost
+                    size=super::ButtonSize::Icon
+                    on_click=Callback::new(move |_| on_close.run(()))
                 >
-                    <span class="text-xl">"×"</span>
-                </button>
+                    <i data-lucide="x" class="icon-sm"></i>
+                </Button>
             </div>
 
             // Form
             <div class="flex-1 overflow-y-auto p-4 space-y-4">
                 // From (readonly)
                 <div>
-                    <span class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <span class="block text-sm font-medium text-charcoal-700 dark:text-charcoal-300 mb-1">
                         "From"
                     </span>
-                    <div class="px-4 py-2 bg-gray-100 dark:bg-gray-700 rounded-lg text-gray-700 dark:text-gray-300">
+                    <div class="px-4 py-2 bg-charcoal-100 dark:bg-charcoal-700 rounded-lg text-charcoal-700 dark:text-charcoal-300">
                         {sender_name.clone()}
-                        <span class="text-gray-500 dark:text-gray-400 text-sm ml-2">
+                        <span class="text-charcoal-500 dark:text-charcoal-400 text-sm ml-2">
                             "(" {project_slug.clone()} ")"
                         </span>
                     </div>
@@ -216,16 +217,13 @@ pub fn ComposeMessage(
 
                 // Subject
                 <div>
-                    <label for="subject" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label for="subject" class="block text-sm font-medium text-charcoal-700 dark:text-charcoal-300 mb-1">
                         "Subject *"
                     </label>
-                    <input
-                        id="subject"
-                        type="text"
-                        prop:value=move || subject.get()
-                        on:input=move |ev| subject.set(event_target_value(&ev))
-                        placeholder="Enter subject..."
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                    <Input
+                        id="subject".to_string()
+                        value=subject
+                        placeholder="Enter subject...".to_string()
                     />
                 </div>
 
@@ -233,17 +231,14 @@ pub fn ComposeMessage(
                 {if !is_reply {
                     Some(view! {
                         <div>
-                            <label for="threadId" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                            <label for="threadId" class="block text-sm font-medium text-charcoal-700 dark:text-charcoal-300 mb-1">
                                 "Thread ID "
-                                <span class="text-gray-400 font-normal">"(optional)"</span>
+                                <span class="text-charcoal-400 font-normal">"(optional)"</span>
                             </label>
-                            <input
-                                id="threadId"
-                                type="text"
-                                prop:value=move || thread_id.get()
-                                on:input=move |ev| thread_id.set(event_target_value(&ev))
-                                placeholder="Leave empty for new thread"
-                                class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                            <Input
+                                id="threadId".to_string()
+                                value=thread_id
+                                placeholder="Leave empty for new thread".to_string()
                             />
                         </div>
                     })
@@ -253,9 +248,9 @@ pub fn ComposeMessage(
 
                 // Body
                 <div>
-                    <label for="body" class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label for="body" class="block text-sm font-medium text-charcoal-700 dark:text-charcoal-300 mb-1">
                         "Message * "
-                        <span class="text-gray-400 font-normal">"(Markdown supported)"</span>
+                        <span class="text-charcoal-400 font-normal">"(Markdown supported)"</span>
                     </label>
                     <textarea
                         id="body"
@@ -263,7 +258,8 @@ pub fn ComposeMessage(
                         on:input=move |ev| body.set(event_target_value(&ev))
                         rows="8"
                         placeholder="Write your message..."
-                        class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none font-mono text-sm"
+                        class="input resize-none font-mono text-sm"
+                        style="height: auto; min-height: 12rem;"
                     ></textarea>
                 </div>
 
@@ -314,30 +310,32 @@ pub fn ComposeMessage(
             </div>
 
             // Footer
-            <div class="p-4 border-t border-gray-200 dark:border-gray-700 flex justify-end gap-3">
-                <button
-                    type="button"
-                    on:click=move |_| on_close.run(())
-                    class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+            <div class="p-4 border-t border-cream-200 dark:border-charcoal-700 flex justify-end gap-3">
+                <Button
+                    variant=ButtonVariant::Secondary
+                    on_click=Callback::new(move |_| on_close.run(()))
                 >
-                    "Cancel"
-                </button>
-                <button
-                    on:click=handle_submit
-                    disabled=move || sending.get() || recipients.get().is_empty()
-                    class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+                    <span>"Cancel"</span>
+                </Button>
+                <Button
+                    variant=ButtonVariant::Default
+                    on_click=Callback::new(move |_| handle_submit(()))
+                    disabled=sending.get() || recipients.get().is_empty()
                 >
                     {move || {
                         if sending.get() {
                             view! {
-                                <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                <i data-lucide="loader-2" class="icon-sm animate-spin"></i>
                                 <span>"Sending..."</span>
                             }.into_any()
                         } else {
-                            view! { <span>"Send Message"</span> }.into_any()
+                            view! {
+                                <i data-lucide="send" class="icon-sm"></i>
+                                <span>"Send Message"</span>
+                            }.into_any()
                         }
                     }}
-                </button>
+                </Button>
             </div>
         </div>
     }
