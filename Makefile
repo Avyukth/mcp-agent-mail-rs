@@ -177,10 +177,10 @@ db-info:
 # Git Hooks
 # ============================================================================
 
-## Install git hooks (cargo-husky auto-installs on cargo test)
+## Install git hooks (via prek)
 install-hooks:
-	@echo "Installing git hooks via cargo-husky..."
-	@cargo test --quiet 2>/dev/null || true
+	@echo "Installing git hooks via prek..."
+	@prek install
 	@echo "Hooks installed at .git/hooks/"
 	@ls -la .git/hooks/pre-commit
 

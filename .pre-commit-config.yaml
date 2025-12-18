@@ -1,0 +1,26 @@
+repos:
+  - repo: local
+    hooks:
+      - id: fmt
+        name: fmt
+        entry: cargo fmt -- --check
+        language: system
+        types: [rust]
+        pass_filenames: false
+      - id: clippy
+        name: clippy
+        entry: "sh -c 'cargo clippy --workspace --quiet || echo \"WARNING Clippy issues found\"'"
+        language: system
+        types: [rust]
+        pass_filenames: false
+      - id: audit
+        name: audit
+        entry: "sh -c 'cargo audit --quiet || echo \"WARNING Audit issues found\"'"
+        language: system
+        types: [rust]
+        pass_filenames: false
+      - id: bd-sync
+        name: bd sync
+        entry: "sh -c 'bd sync --flush-only || echo \"WARNING bd sync failed\"'"
+        language: system
+        pass_filenames: false
