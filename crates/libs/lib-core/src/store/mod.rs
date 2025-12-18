@@ -114,6 +114,9 @@ pub mod repo_cache;
 /// Stale lock cleanup for archive operations (PORT-2.2, AU-9 audit protection).
 pub mod archive_lock;
 
+/// File handle safety patterns documentation (PORT-2.3).
+pub mod file_safety;
+
 /// Creates a new database connection pool with migrations applied.
 ///
 /// This function:
