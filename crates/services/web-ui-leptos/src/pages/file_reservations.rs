@@ -10,6 +10,7 @@ use leptos_router::hooks::use_params_map;
 
 /// File reservation data
 #[derive(Debug, Clone)]
+#[allow(dead_code)] // Fields used for future UI display features
 pub struct FileReservation {
     pub id: i64,
     pub agent_name: String,

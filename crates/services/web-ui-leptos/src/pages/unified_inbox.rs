@@ -60,7 +60,7 @@ pub fn UnifiedInbox() -> impl IntoView {
                         || msg
                             .thread_id
                             .as_ref()
-                            .map_or(false, |t| t.to_lowercase().contains(&q));
+                            .is_some_and(|t| t.to_lowercase().contains(&q));
                     if !matches {
                         return false;
                     }

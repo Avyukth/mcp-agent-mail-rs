@@ -301,6 +301,7 @@ pub fn MessageDetail() -> impl IntoView {
     }
 }
 
+#[allow(dead_code)] // Utility function for future date formatting needs
 fn format_date(date_str: &str) -> String {
     if date_str.is_empty() {
         return "—".to_string();

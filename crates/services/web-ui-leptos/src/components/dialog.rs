@@ -43,7 +43,8 @@ pub fn DialogTrigger(
     #[prop(optional, into)] _as_child: Option<bool>, // simplified, future use
     children: Children,
 ) -> impl IntoView {
-    let ctx = use_context::<DialogContext>().expect("DialogTrigger must be inside Dialog");
+    let ctx = use_context::<DialogContext>()
+        .unwrap_or_else(|| panic!("DialogTrigger must be used inside a Dialog component"));
 
     view! {
         <div on:click=move |_| set_open(ctx, true)>
@@ -58,7 +59,8 @@ pub fn DialogContent(
     /// Children must be ChildrenFn (callable multiple times) for reactive conditional rendering
     children: ChildrenFn,
 ) -> impl IntoView {
-    let ctx = use_context::<DialogContext>().expect("DialogContent must be inside Dialog");
+    let ctx = use_context::<DialogContext>()
+        .unwrap_or_else(|| panic!("DialogContent must be used inside a Dialog component"));
     let content_ref = NodeRef::<Div>::new();
     let class = class.unwrap_or_default();
 

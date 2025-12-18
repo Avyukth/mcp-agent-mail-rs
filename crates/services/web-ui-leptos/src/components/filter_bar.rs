@@ -38,7 +38,7 @@ impl FilterState {
             project: params.get("project").filter(|s| !s.is_empty()).cloned(),
             sender: params.get("sender").filter(|s| !s.is_empty()).cloned(),
             importance: params.get("importance").filter(|s| !s.is_empty()).cloned(),
-            threaded: params.get("threaded").map_or(false, |v| v == "true"),
+            threaded: params.get("threaded").is_some_and(|v| v == "true"),
             view_mode: params
                 .get("view")
                 .cloned()
