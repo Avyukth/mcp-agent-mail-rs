@@ -64,7 +64,10 @@ pub fn Input(
 
     // Add error styling if invalid
     let final_class = if invalid {
-        format!("{} border-red-500 focus:ring-red-500 focus:border-red-500", final_class)
+        format!(
+            "{} border-red-500 focus:ring-red-500 focus:border-red-500",
+            final_class
+        )
     } else {
         final_class
     };
@@ -102,7 +105,10 @@ mod tests {
     #[test]
     fn test_input_invalid_class() {
         let base = "input h-10";
-        let with_invalid = format!("{} border-red-500 focus:ring-red-500 focus:border-red-500", base);
+        let with_invalid = format!(
+            "{} border-red-500 focus:ring-red-500 focus:border-red-500",
+            base
+        );
         assert!(with_invalid.contains("border-red-500"));
         assert!(with_invalid.contains("focus:ring-red-500"));
     }

@@ -2,6 +2,7 @@
 
 pub mod avatar;
 pub mod breadcrumb;
+pub mod button;
 pub mod compose_message;
 pub mod filter_bar;
 pub mod info_banner;
@@ -15,6 +16,7 @@ pub mod split_view;
 
 pub use avatar::AgentAvatar;
 pub use breadcrumb::{Breadcrumb, BreadcrumbItem};
+pub use button::{Button, ButtonSize, ButtonVariant};
 pub use compose_message::{ComposeMessage, ComposeProps, ReplyTo};
 pub use filter_bar::{FilterBar, FilterState};
 pub use info_banner::{BannerVariant, InfoBanner};
@@ -22,6 +24,6 @@ pub use inline_message_detail::InlineMessageDetail;
 pub use input::Input;
 pub use layout::Layout;
 pub use message_detail_header::MessageDetailHeader;
-pub use project_card::{determine_project_status, ProjectCard, ProjectStatus};
+pub use project_card::{ProjectCard, ProjectStatus, determine_project_status};
 pub use select::{Select, SelectOption};
 pub use split_view::{EmptyDetailPanel, MessageListItem, SplitViewLayout};
