@@ -638,7 +638,7 @@ pub fn get_tool_schemas() -> Vec<ToolSchema> {
         },
         ToolSchema {
             name: "summarize_thread".into(),
-            description: "Get a summary of a conversation thread.".into(),
+            description: "Summarize one or more conversation threads. Accepts single thread_id (string) or multiple (array). Partial failures returned in errors array.".into(),
             parameters: vec![
                 ParameterSchema {
                     name: "project_slug".into(),
@@ -648,9 +648,9 @@ pub fn get_tool_schemas() -> Vec<ToolSchema> {
                 },
                 ParameterSchema {
                     name: "thread_id".into(),
-                    param_type: "string".into(),
+                    param_type: "string|array".into(),
                     required: true,
-                    description: "Thread ID".into(),
+                    description: "Thread ID (string) or array of thread IDs".into(),
                 },
             ],
         },
@@ -808,24 +808,6 @@ pub fn get_tool_schemas() -> Vec<ToolSchema> {
                     param_type: "integer".into(),
                     required: false,
                     description: "TTL in seconds".into(),
-                },
-            ],
-        },
-        ToolSchema {
-            name: "summarize_threads".into(),
-            description: "Get summaries of multiple conversation threads.".into(),
-            parameters: vec![
-                ParameterSchema {
-                    name: "project_slug".into(),
-                    param_type: "string".into(),
-                    required: true,
-                    description: "Project slug".into(),
-                },
-                ParameterSchema {
-                    name: "limit".into(),
-                    param_type: "integer".into(),
-                    required: true,
-                    description: "Maximum threads".into(),
                 },
             ],
         },
@@ -1699,12 +1681,47 @@ pub struct QuickReviewWorkflowParams {
     pub description: String,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
+#[serde(untagged)]
+pub enum ThreadIdInput {
+    Single(String),
+    Multiple(Vec<String>),
+}
+
+impl From<ThreadIdInput> for Vec<String> {
+    fn from(input: ThreadIdInput) -> Self {
+        match input {
+            ThreadIdInput::Single(s) => vec![s],
+            ThreadIdInput::Multiple(v) => v,
+        }
+    }
+}
+
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct SummarizeThreadParams {
-    /// Project slug
     pub project_slug: String,
-    /// Thread ID to summarize
+    pub thread_id: ThreadIdInput,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ThreadSummaryItem {
     pub thread_id: String,
+    pub subject: String,
+    pub message_count: usize,
+    pub participants: Vec<String>,
+    pub last_snippet: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct ThreadSummaryError {
+    pub thread_id: String,
+    pub error: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+pub struct SummarizeResult {
+    pub summaries: Vec<ThreadSummaryItem>,
+    pub errors: Vec<ThreadSummaryError>,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -1774,14 +1791,6 @@ pub struct FileReservationPathsParams {
     pub reason: Option<String>,
     /// TTL in seconds (default 3600)
     pub ttl_seconds: Option<i64>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct SummarizeThreadsParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Maximum number of threads
-    pub limit: i64,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -3387,8 +3396,9 @@ impl AgentMailService {
         Ok(CallToolResult::success(vec![Content::text(msg)]))
     }
 
-    /// Summarize thread
-    #[tool(description = "Get a summary of a conversation thread.")]
+    #[tool(
+        description = "Summarize one or more conversation threads. Accepts single thread_id (string) or multiple (array). Partial failures are returned in errors array."
+    )]
     async fn summarize_thread(
         &self,
         params: Parameters<SummarizeThreadParams>,
@@ -3403,33 +3413,55 @@ impl AgentMailService {
             .await
             .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
 
-        let messages = MessageBmc::list_by_thread(&ctx, &self.mm, project.id, &p.thread_id)
-            .await
+        let thread_ids: Vec<String> = p.thread_id.into();
+        let mut summaries = Vec::new();
+        let mut errors = Vec::new();
+
+        for thread_id in thread_ids {
+            match MessageBmc::list_by_thread(&ctx, &self.mm, project.id, &thread_id).await {
+                Ok(messages) if !messages.is_empty() => {
+                    let mut participants: Vec<String> =
+                        messages.iter().map(|m| m.sender_name.clone()).collect();
+                    participants.sort();
+                    participants.dedup();
+
+                    let subject = messages
+                        .first()
+                        .map(|m| m.subject.clone())
+                        .unwrap_or_default();
+                    let last_snippet = messages
+                        .last()
+                        .map(|m| m.body_md.chars().take(100).collect::<String>())
+                        .unwrap_or_default();
+
+                    summaries.push(ThreadSummaryItem {
+                        thread_id,
+                        subject,
+                        message_count: messages.len(),
+                        participants,
+                        last_snippet,
+                    });
+                }
+                Ok(_) => {
+                    errors.push(ThreadSummaryError {
+                        thread_id: thread_id.clone(),
+                        error: "Thread not found or empty".to_string(),
+                    });
+                }
+                Err(e) => {
+                    errors.push(ThreadSummaryError {
+                        thread_id: thread_id.clone(),
+                        error: e.to_string(),
+                    });
+                }
+            }
+        }
+
+        let result = SummarizeResult { summaries, errors };
+        let json = serde_json::to_string_pretty(&result)
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let mut participants: Vec<String> =
-            messages.iter().map(|m| m.sender_name.clone()).collect();
-        participants.sort();
-        participants.dedup();
-
-        let subject = messages
-            .first()
-            .map(|m| m.subject.clone())
-            .unwrap_or_default();
-        let last_snippet = messages
-            .last()
-            .map(|m| m.body_md.chars().take(100).collect::<String>())
-            .unwrap_or_default();
-
-        let output = format!(
-            "Thread: {}\nSubject: {}\nMessages: {}\nParticipants: {}\nLatest: {}...",
-            p.thread_id,
-            subject,
-            messages.len(),
-            participants.join(", "),
-            last_snippet
-        );
-        Ok(CallToolResult::success(vec![Content::text(output)]))
+        Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
     /// Ensure product exists
@@ -3960,38 +3992,6 @@ impl AgentMailService {
         Ok(CallToolResult::success(vec![Content::text(output)]))
     }
 
-    /// Summarize multiple threads
-    #[tool(description = "Get summaries of multiple conversation threads.")]
-    async fn summarize_threads(
-        &self,
-        params: Parameters<SummarizeThreadsParams>,
-    ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::message::MessageBmc;
-        use lib_core::model::project::ProjectBmc;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
-
-        let threads = MessageBmc::list_threads(&ctx, &self.mm, project.id, p.limit)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let mut output = format!("Thread Summaries ({} threads):\n\n", threads.len());
-        for t in &threads {
-            output.push_str(&format!(
-                "Thread: {}\n  Subject: {}\n  Messages: {}\n  Last activity: {}\n\n",
-                t.thread_id, t.subject, t.message_count, t.last_message_ts
-            ));
-        }
-
-        Ok(CallToolResult::success(vec![Content::text(output)]))
-    }
-
-    /// Install pre-commit guard
     #[tool(description = "Install pre-commit guard for file reservation conflict detection.")]
     async fn install_precommit_guard(
         &self,
