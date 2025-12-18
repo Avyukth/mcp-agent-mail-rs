@@ -245,6 +245,7 @@ pub fn FilterBar(
                         id="filterSearch".to_string()
                         value=search_value
                         placeholder="Search messages... (⌘K)".to_string()
+                        aria_label="Search messages".to_string()
                         class="pl-10".to_string()
                         on_input=Callback::new(move |v: String| {
                             search_value.set(v.clone());
@@ -336,6 +337,7 @@ pub fn FilterBar(
                         id="filterSearchMobile".to_string()
                         value=search_value
                         placeholder="Search...".to_string()
+                        aria_label="Search messages".to_string()
                         class="pl-10".to_string()
                         on_input=Callback::new(move |v: String| {
                             search_value.set(v.clone());
@@ -546,5 +548,228 @@ mod tests {
         state.query = "hello world".to_string();
         let qs = state.to_query_string();
         assert!(qs.contains("q=hello%20world"));
+    }
+
+    // === Extended FilterState Tests ===
+
+    #[test]
+    fn test_filter_state_equality() {
+        let state1 = FilterState::new();
+        let state2 = FilterState::new();
+        assert_eq!(state1, state2);
+
+        let mut state3 = FilterState::new();
+        state3.query = "test".to_string();
+        assert_ne!(state1, state3);
+    }
+
+    #[test]
+    fn test_filter_state_clone() {
+        let mut state = FilterState::new();
+        state.query = "search".to_string();
+        state.project = Some("proj".to_string());
+        state.importance = Some("high".to_string());
+
+        let cloned = state.clone();
+        assert_eq!(state, cloned);
+    }
+
+    #[test]
+    fn test_filter_state_debug_trait() {
+        let state = FilterState::new();
+        let debug_str = format!("{:?}", state);
+        assert!(debug_str.contains("FilterState"));
+        assert!(debug_str.contains("query"));
+    }
+
+    #[test]
+    fn test_has_filters_sender() {
+        let mut state = FilterState::new();
+        assert!(!state.has_filters());
+
+        state.sender = Some("agent-1".to_string());
+        assert!(state.has_filters());
+    }
+
+    #[test]
+    fn test_clear_preserves_view_mode() {
+        let mut state = FilterState::new();
+        state.view_mode = "grid".to_string();
+        state.query = "test".to_string();
+        state.clear();
+
+        // clear() should NOT reset view_mode
+        assert_eq!(state.view_mode, "grid");
+    }
+
+    #[test]
+    fn test_clear_preserves_threaded() {
+        let mut state = FilterState::new();
+        state.threaded = true;
+        state.query = "test".to_string();
+        state.clear();
+
+        // clear() should NOT reset threaded
+        assert!(state.threaded);
+    }
+
+    // === Query String Roundtrip Tests ===
+
+    #[test]
+    fn test_query_string_roundtrip_full() {
+        use std::collections::HashMap;
+
+        let mut original = FilterState::new();
+        original.query = "search term".to_string();
+        original.project = Some("my-project".to_string());
+        original.sender = Some("agent-1".to_string());
+        original.importance = Some("high".to_string());
+        original.threaded = true;
+        original.view_mode = "grid".to_string();
+
+        let qs = original.to_query_string();
+
+        // Parse back
+        let mut params = HashMap::new();
+        for pair in qs.split('&') {
+            if let Some((k, v)) = pair.split_once('=') {
+                params.insert(k.to_string(), urlencoding::decode(v).unwrap().to_string());
+            }
+        }
+
+        let restored = FilterState::from_query_params(&params);
+        assert_eq!(original.query, restored.query);
+        assert_eq!(original.project, restored.project);
+        assert_eq!(original.sender, restored.sender);
+        assert_eq!(original.importance, restored.importance);
+        assert_eq!(original.view_mode, restored.view_mode);
+        assert_eq!(original.threaded, restored.threaded);
+    }
+
+    #[test]
+    fn test_query_string_special_chars() {
+        let mut state = FilterState::new();
+        state.query = "test&query=value".to_string();
+        let qs = state.to_query_string();
+        assert!(qs.contains("q=test%26query%3Dvalue"));
+    }
+
+    #[test]
+    fn test_query_string_unicode() {
+        let mut state = FilterState::new();
+        state.query = "日本語テスト".to_string();
+        let qs = state.to_query_string();
+        // Should be URL-encoded
+        assert!(qs.contains("q="));
+        assert!(!qs.contains("日本語")); // Unicode should be encoded
+    }
+
+    #[test]
+    fn test_from_query_params_empty_string_vs_none() {
+        use std::collections::HashMap;
+
+        let mut params = HashMap::new();
+        params.insert("project".to_string(), "".to_string());
+
+        let state = FilterState::from_query_params(&params);
+        // Empty string should become None
+        assert_eq!(state.project, None);
+    }
+
+    #[test]
+    fn test_from_query_params_threaded_variations() {
+        use std::collections::HashMap;
+
+        // "true" should set threaded
+        let mut params = HashMap::new();
+        params.insert("threaded".to_string(), "true".to_string());
+        let state = FilterState::from_query_params(&params);
+        assert!(state.threaded);
+
+        // "false" should not set threaded
+        let mut params2 = HashMap::new();
+        params2.insert("threaded".to_string(), "false".to_string());
+        let state2 = FilterState::from_query_params(&params2);
+        assert!(!state2.threaded);
+
+        // Any other value should not set threaded
+        let mut params3 = HashMap::new();
+        params3.insert("threaded".to_string(), "1".to_string());
+        let state3 = FilterState::from_query_params(&params3);
+        assert!(!state3.threaded);
+    }
+
+    // === Importance Options Tests ===
+
+    #[test]
+    fn test_importance_options_count() {
+        // Should have exactly 4 options: All, High, Normal, Low
+        assert_eq!(IMPORTANCE_OPTIONS.len(), 4);
+    }
+
+    #[test]
+    fn test_importance_options_first_is_empty() {
+        // First option should be "All" with empty value
+        let (value, label) = IMPORTANCE_OPTIONS[0];
+        assert!(value.is_empty());
+        assert_eq!(label, "All");
+    }
+
+    #[test]
+    fn test_importance_options_values_are_lowercase() {
+        for (value, _) in IMPORTANCE_OPTIONS.iter().skip(1) {
+            assert!(
+                value.chars().all(|c| c.is_lowercase()),
+                "Value '{}' should be lowercase",
+                value
+            );
+        }
+    }
+
+    // === Edge Case Tests ===
+
+    #[test]
+    fn test_filter_state_multiple_filters_active() {
+        let mut state = FilterState::new();
+        state.query = "search".to_string();
+        state.project = Some("proj".to_string());
+        state.sender = Some("agent".to_string());
+        state.importance = Some("high".to_string());
+
+        assert!(state.has_filters());
+
+        // Clear just one filter - still has filters
+        state.query.clear();
+        assert!(state.has_filters());
+
+        // Clear all
+        state.clear();
+        assert!(!state.has_filters());
+    }
+
+    #[test]
+    fn test_to_query_string_excludes_defaults() {
+        let state = FilterState::new();
+        let qs = state.to_query_string();
+
+        // Default values should not appear in query string
+        assert!(!qs.contains("view=list"));
+        assert!(!qs.contains("threaded=false"));
+    }
+
+    #[test]
+    fn test_to_query_string_includes_grid_view() {
+        let mut state = FilterState::new();
+        state.view_mode = "grid".to_string();
+        let qs = state.to_query_string();
+        assert!(qs.contains("view=grid"));
+    }
+
+    #[test]
+    fn test_to_query_string_includes_threaded() {
+        let mut state = FilterState::new();
+        state.threaded = true;
+        let qs = state.to_query_string();
+        assert!(qs.contains("threaded=true"));
     }
 }
