@@ -1,7 +1,7 @@
 //! File Reservations page - view and manage file reservations in a project.
 
 use crate::api::client;
-use crate::components::{AgentAvatar, Breadcrumb, BreadcrumbItem, BannerVariant, InfoBanner};
+use crate::components::{AgentAvatar, BannerVariant, Breadcrumb, BreadcrumbItem, InfoBanner};
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 

@@ -20,10 +20,18 @@ impl BannerVariant {
     /// Get CSS classes for the variant
     pub fn classes(&self) -> &'static str {
         match self {
-            BannerVariant::Info => "bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-300",
-            BannerVariant::Success => "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300",
-            BannerVariant::Warning => "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300",
-            BannerVariant::Error => "bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300",
+            BannerVariant::Info => {
+                "bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-800 text-sky-700 dark:text-sky-300"
+            }
+            BannerVariant::Success => {
+                "bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300"
+            }
+            BannerVariant::Warning => {
+                "bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300"
+            }
+            BannerVariant::Error => {
+                "bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800 text-rose-700 dark:text-rose-300"
+            }
         }
     }
 
