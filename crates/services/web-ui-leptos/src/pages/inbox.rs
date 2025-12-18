@@ -2,7 +2,7 @@
 //! Digital Correspondence design - envelope-style message cards.
 
 use crate::api::client::{self, Agent, InboxMessage, Project};
-use crate::components::{AgentAvatar, Button, ButtonVariant, Select, SelectOption};
+use crate::components::{AgentAvatar, AvatarSize, Button, ButtonVariant, Select, SelectOption};
 use leptos::prelude::*;
 use leptos_router::hooks::use_query_map;
 
@@ -417,7 +417,7 @@ pub fn Inbox() -> impl IntoView {
                                                 >
                                                     // Sender Avatar
                                                     <div class="flex-shrink-0 group-hover:scale-105 transition-transform">
-                                                        <AgentAvatar name=sender_for_avatar size="md" />
+                                                        <AgentAvatar name=sender_for_avatar size=AvatarSize::Default />
                                                     </div>
 
                                                     // Content

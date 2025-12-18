@@ -46,41 +46,69 @@ fn get_initials(name: &str) -> String {
     }
 }
 
+/// Avatar size variants
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub enum AvatarSize {
+    /// Small: 32×32px
+    Sm,
+    /// Default: 40×40px
+    #[default]
+    Default,
+    /// Large: 48×48px
+    Lg,
+    /// Extra large: 64×64px
+    Xl,
+}
+
+impl AvatarSize {
+    /// Get CSS classes for this size
+    pub fn classes(&self) -> &'static str {
+        match self {
+            AvatarSize::Sm => "w-8 h-8 text-xs",
+            AvatarSize::Default => "w-10 h-10 text-sm",
+            AvatarSize::Lg => "w-12 h-12 text-base",
+            AvatarSize::Xl => "w-16 h-16 text-lg",
+        }
+    }
+}
+
 /// Agent Avatar component with color generation from name hash.
 ///
 /// # Props
 /// - `name`: Agent name (used for initials and color hash)
-/// - `size`: Size variant - "sm" (32px), "md" (40px), "lg" (48px)
+/// - `size`: Size variant (Sm, Default, Lg, Xl)
+/// - `class`: Additional CSS classes
 ///
 /// # Example
 /// ```rust,ignore
-/// view! { <AgentAvatar name="worker-1" size="md" /> }
+/// view! { <AgentAvatar name="worker-1" size=AvatarSize::Lg /> }
 /// ```
 #[component]
 pub fn AgentAvatar(
     /// The agent's name
     #[prop(into)]
     name: String,
-    /// Size: "sm", "md", or "lg"
-    #[prop(default = "md")]
-    size: &'static str,
+    /// Size variant
+    #[prop(default = AvatarSize::Default)]
+    size: AvatarSize,
+    /// Additional CSS classes
+    #[prop(optional, into)]
+    class: Option<String>,
 ) -> impl IntoView {
     let initials = get_initials(&name);
     let bg_color = hash_to_color(&name);
 
-    let size_class = match size {
-        "sm" => "w-8 h-8 text-xs",
-        "lg" => "w-12 h-12 text-base",
-        _ => "w-10 h-10 text-sm",
-    };
+    let final_class = format!(
+        "{} rounded-full flex items-center justify-center font-medium text-white shadow-sm hover:shadow-md transition-shadow {}",
+        size.classes(),
+        class.unwrap_or_default()
+    );
 
     view! {
         <div
-            class={format!(
-                "{} rounded-full flex items-center justify-center font-medium text-white shadow-sm hover:shadow-md transition-shadow",
-                size_class
-            )}
+            class={final_class}
             style={format!("background-color: {}", bg_color)}
+            role="img"
             aria-label={format!("Avatar for {}", name)}
             title={name.clone()}
         >
@@ -261,43 +289,25 @@ mod tests {
 
     #[test]
     fn test_size_class_variants() {
-        // Verify size class strings contain expected Tailwind classes
-        let sm_class = match "sm" {
-            "sm" => "w-8 h-8 text-xs",
-            "lg" => "w-12 h-12 text-base",
-            _ => "w-10 h-10 text-sm",
-        };
+        // Verify AvatarSize enum returns expected classes
+        let sm_class = AvatarSize::Sm.classes();
         assert!(sm_class.contains("w-8"));
         assert!(sm_class.contains("h-8"));
         assert!(sm_class.contains("text-xs"));
 
-        let lg_class = match "lg" {
-            "sm" => "w-8 h-8 text-xs",
-            "lg" => "w-12 h-12 text-base",
-            _ => "w-10 h-10 text-sm",
-        };
+        let lg_class = AvatarSize::Lg.classes();
         assert!(lg_class.contains("w-12"));
         assert!(lg_class.contains("h-12"));
         assert!(lg_class.contains("text-base"));
 
-        let md_class = match "md" {
-            "sm" => "w-8 h-8 text-xs",
-            "lg" => "w-12 h-12 text-base",
-            _ => "w-10 h-10 text-sm",
-        };
+        let md_class = AvatarSize::Default.classes();
         assert!(md_class.contains("w-10"));
         assert!(md_class.contains("h-10"));
         assert!(md_class.contains("text-sm"));
 
-        // Unknown sizes should default to md
-        let unknown_class = match "xl" {
-            "sm" => "w-8 h-8 text-xs",
-            "lg" => "w-12 h-12 text-base",
-            _ => "w-10 h-10 text-sm",
-        };
-        assert_eq!(
-            unknown_class, md_class,
-            "Unknown sizes should default to md"
-        );
+        let xl_class = AvatarSize::Xl.classes();
+        assert!(xl_class.contains("w-16"));
+        assert!(xl_class.contains("h-16"));
+        assert!(xl_class.contains("text-lg"));
     }
 }

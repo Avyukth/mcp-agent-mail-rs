@@ -1,7 +1,9 @@
 //! File Reservations page - view and manage file reservations in a project.
 
 use crate::api::client;
-use crate::components::{AgentAvatar, BannerVariant, Breadcrumb, BreadcrumbItem, InfoBanner};
+use crate::components::{
+    AgentAvatar, AvatarSize, BannerVariant, Breadcrumb, BreadcrumbItem, InfoBanner,
+};
 use leptos::prelude::*;
 use leptos_router::hooks::use_params_map;
 
@@ -179,7 +181,7 @@ pub fn FileReservations() -> impl IntoView {
                                                                 </td>
                                                                 <td class="px-4 py-3">
                                                                     <div class="flex items-center gap-2">
-                                                                        <AgentAvatar name={agent.clone()} size="sm" />
+                                                                        <AgentAvatar name={agent.clone()} size=AvatarSize::Sm />
                                                                         <span class="text-sm font-medium text-charcoal-700 dark:text-cream-200">
                                                                             {agent}
                                                                         </span>

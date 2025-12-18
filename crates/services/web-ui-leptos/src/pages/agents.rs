@@ -2,7 +2,7 @@
 //! Digital Correspondence design with Lucide icons.
 
 use crate::api::client::{self, Agent, Project};
-use crate::components::{AgentAvatar, Select, SelectOption};
+use crate::components::{AgentAvatar, AvatarSize, Select, SelectOption};
 use leptos::prelude::*;
 
 /// Agent with project slug for display.
@@ -243,7 +243,7 @@ pub fn Agents() -> impl IntoView {
                                                 <div class="flex items-start justify-between mb-4">
                                                     <div class="flex items-center gap-3">
                                                         <div class="group-hover:scale-105 transition-transform">
-                                                            <AgentAvatar name=name_for_avatar size="lg" />
+                                                            <AgentAvatar name=name_for_avatar size=AvatarSize::Lg />
                                                         </div>
                                                         <div>
                                                             <h3 class="font-display font-semibold text-charcoal-800 dark:text-cream-100">{name.clone()}</h3>

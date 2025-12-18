@@ -16,7 +16,7 @@ pub mod project_card;
 pub mod select;
 pub mod split_view;
 
-pub use avatar::AgentAvatar;
+pub use avatar::{AgentAvatar, AvatarSize};
 pub use badge::{Badge, BadgeVariant};
 pub use breadcrumb::{Breadcrumb, BreadcrumbItem};
 pub use button::{Button, ButtonSize, ButtonVariant};

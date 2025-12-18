@@ -3,7 +3,7 @@
 //! Displays message subject, sender/recipient info with avatars,
 //! project and timestamp, plus action buttons.
 
-use crate::components::AgentAvatar;
+use crate::components::{AgentAvatar, AvatarSize};
 use leptos::prelude::*;
 
 /// Format a timestamp for display
@@ -143,13 +143,13 @@ pub fn MessageDetailHeader(
             // Metadata Grid
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                 <MetadataItem label="From" icon="user">
-                    <AgentAvatar name={sender.clone()} size="sm" />
+                    <AgentAvatar name={sender.clone()} size=AvatarSize::Sm />
                     <span class="font-medium">{sender}</span>
                 </MetadataItem>
 
                 <MetadataItem label="To" icon="users">
                     {if !first_recipient.is_empty() {
-                        Some(view! { <AgentAvatar name={first_recipient.clone()} size="sm" /> })
+                        Some(view! { <AgentAvatar name={first_recipient.clone()} size=AvatarSize::Sm /> })
                     } else {
                         None
                     }}
