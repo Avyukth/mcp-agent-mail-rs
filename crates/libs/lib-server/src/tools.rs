@@ -53,7 +53,7 @@ pub async fn ensure_project(
         {
             Ok(p) => p,
             Err(e) => {
-                if let lib_core::Error::ProjectNotFound(_) = e {
+                if let lib_core::Error::ProjectNotFound { .. } = e {
                     // If not found, create it. Generate a slug here based on human_key.
                     let slug = lib_core::utils::slugify(&payload.human_key);
                     let _id = lib_core::model::project::ProjectBmc::create(

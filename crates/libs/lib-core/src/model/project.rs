@@ -40,6 +40,7 @@
 use crate::Result;
 use crate::model::ModelManager;
 use crate::store::git_store;
+use crate::utils::mistake_detection::suggest_similar;
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -199,7 +200,22 @@ impl ProjectBmc {
                 created_at,
             })
         } else {
-            Err(crate::Error::ProjectNotFound(format!("Slug: {}", slug)))
+            // Fetch all project slugs for suggestions
+            let stmt = db.prepare("SELECT slug FROM projects").await?;
+            let mut rows = stmt.query(()).await?;
+            let mut all_slugs: Vec<String> = Vec::new();
+            while let Some(row) = rows.next().await? {
+                all_slugs.push(row.get(0)?);
+            }
+
+            let slug_refs: Vec<&str> = all_slugs.iter().map(|s| s.as_str()).collect();
+            let similar = suggest_similar(slug, &slug_refs, 3);
+            let suggestions: Vec<String> = similar.into_iter().map(|s| s.to_string()).collect();
+
+            Err(crate::Error::project_not_found_with_suggestions(
+                format!("Slug: {}", slug),
+                suggestions,
+            ))
         }
     }
 
@@ -238,10 +254,22 @@ impl ProjectBmc {
                 created_at,
             })
         } else {
-            Err(crate::Error::ProjectNotFound(format!(
-                "Human Key: {}",
-                human_key
-            )))
+            // Fetch all human_keys for suggestions
+            let stmt = db.prepare("SELECT human_key FROM projects").await?;
+            let mut rows = stmt.query(()).await?;
+            let mut all_keys: Vec<String> = Vec::new();
+            while let Some(row) = rows.next().await? {
+                all_keys.push(row.get(0)?);
+            }
+
+            let key_refs: Vec<&str> = all_keys.iter().map(|s| s.as_str()).collect();
+            let similar = suggest_similar(human_key, &key_refs, 3);
+            let suggestions: Vec<String> = similar.into_iter().map(|s| s.to_string()).collect();
+
+            Err(crate::Error::project_not_found_with_suggestions(
+                format!("Human Key: {}", human_key),
+                suggestions,
+            ))
         }
     }
 
@@ -281,10 +309,26 @@ impl ProjectBmc {
             return Ok(project);
         }
 
-        Err(crate::Error::ProjectNotFound(format!(
-            "Identifier: {}",
-            identifier
-        )))
+        // Fetch both slugs and human_keys for suggestions
+        let db = mm.db();
+        let stmt = db.prepare("SELECT slug, human_key FROM projects").await?;
+        let mut rows = stmt.query(()).await?;
+        let mut all_identifiers: Vec<String> = Vec::new();
+        while let Some(row) = rows.next().await? {
+            let slug: String = row.get(0)?;
+            let human_key: String = row.get(1)?;
+            all_identifiers.push(slug);
+            all_identifiers.push(human_key);
+        }
+
+        let id_refs: Vec<&str> = all_identifiers.iter().map(|s| s.as_str()).collect();
+        let similar = suggest_similar(identifier, &id_refs, 3);
+        let suggestions: Vec<String> = similar.into_iter().map(|s| s.to_string()).collect();
+
+        Err(crate::Error::project_not_found_with_suggestions(
+            format!("Identifier: {}", identifier),
+            suggestions,
+        ))
     }
 
     /// Ensures the Git archive directory structure exists for a project.
@@ -386,7 +430,7 @@ impl ProjectBmc {
                 created_at,
             })
         } else {
-            Err(crate::Error::ProjectNotFound(format!("ID: {}", id)))
+            Err(crate::Error::project_not_found(format!("ID: {}", id)))
         }
     }
 

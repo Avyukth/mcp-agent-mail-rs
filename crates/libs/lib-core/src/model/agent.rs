@@ -41,6 +41,7 @@ use crate::Result;
 use crate::ctx::Ctx;
 use crate::model::ModelManager;
 use crate::store::git_store;
+use crate::utils::mistake_detection::suggest_similar;
 use chrono::NaiveDateTime;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -183,7 +184,7 @@ impl AgentBmc {
         let project_slug: String = if let Some(row) = rows.next().await? {
             row.get(0)?
         } else {
-            return Err(crate::Error::ProjectNotFound(format!(
+            return Err(crate::Error::project_not_found(format!(
                 "ID: {}",
                 agent_c.project_id
             )));
@@ -264,7 +265,7 @@ impl AgentBmc {
                 contact_policy: row.get(9)?,
             })
         } else {
-            Err(crate::Error::AgentNotFound(format!("ID: {}", id)))
+            Err(crate::Error::agent_not_found(format!("ID: {}", id)))
         }
     }
 
@@ -322,10 +323,25 @@ impl AgentBmc {
                 contact_policy: row.get(9)?,
             })
         } else {
-            Err(crate::Error::AgentNotFound(format!(
-                "Name: {} in Project ID: {}",
-                name, project_id
-            )))
+            // Fetch all agent names in this project for suggestions
+            let stmt = db
+                .prepare("SELECT name FROM agents WHERE project_id = ?")
+                .await?;
+            let mut rows = stmt.query([project_id]).await?;
+            let mut all_names: Vec<String> = Vec::new();
+            while let Some(row) = rows.next().await? {
+                all_names.push(row.get(0)?);
+            }
+
+            // Find similar names using Levenshtein distance
+            let name_refs: Vec<&str> = all_names.iter().map(|s| s.as_str()).collect();
+            let similar = suggest_similar(name, &name_refs, 3);
+            let suggestions: Vec<String> = similar.into_iter().map(|s| s.to_string()).collect();
+
+            Err(crate::Error::agent_not_found_with_suggestions(
+                format!("Name: {} in Project ID: {}", name, project_id),
+                suggestions,
+            ))
         }
     }
 

@@ -17,13 +17,13 @@
 //!         return Err(Error::InvalidInput("slug cannot be empty".to_string()));
 //!     }
 //!     // ... lookup logic
-//!     Err(Error::ProjectNotFound(slug.to_string()))
+//!     Err(Error::project_not_found(slug))
 //! }
 //!
 //! match find_project("") {
 //!     Ok(_) => println!("Found"),
 //!     Err(Error::InvalidInput(msg)) => println!("Invalid: {}", msg),
-//!     Err(Error::ProjectNotFound(slug)) => println!("Not found: {}", slug),
+//!     Err(Error::ProjectNotFound { identifier, .. }) => println!("Not found: {}", identifier),
 //!     Err(e) => println!("Other error: {}", e),
 //! }
 //! ```
@@ -121,15 +121,21 @@ pub enum Error {
     // -- Model-specific not-found errors
     /// Project not found by slug.
     ///
-    /// The contained string is the project slug that was not found.
-    #[error("Project not found: {0}")]
-    ProjectNotFound(String),
+    /// Includes optional suggestions for similar project names.
+    #[error("Project not found: {identifier}")]
+    ProjectNotFound {
+        identifier: String,
+        suggestions: Vec<String>,
+    },
 
     /// Agent not found by name.
     ///
-    /// The contained string is the agent name that was not found.
-    #[error("Agent not found: {0}")]
-    AgentNotFound(String),
+    /// Includes optional suggestions for similar agent names.
+    #[error("Agent not found: {name}")]
+    AgentNotFound {
+        name: String,
+        suggestions: Vec<String>,
+    },
 
     /// Message not found by ID.
     ///
@@ -187,6 +193,55 @@ pub enum Error {
     /// ```
     #[error("Validation error: {0}")]
     Validation(#[from] crate::utils::validation::ValidationError),
+}
+
+impl Error {
+    /// Creates a ProjectNotFound error without suggestions.
+    pub fn project_not_found(identifier: impl Into<String>) -> Self {
+        Error::ProjectNotFound {
+            identifier: identifier.into(),
+            suggestions: vec![],
+        }
+    }
+
+    /// Creates a ProjectNotFound error with suggestions.
+    pub fn project_not_found_with_suggestions(
+        identifier: impl Into<String>,
+        suggestions: Vec<String>,
+    ) -> Self {
+        Error::ProjectNotFound {
+            identifier: identifier.into(),
+            suggestions,
+        }
+    }
+
+    /// Creates an AgentNotFound error without suggestions.
+    pub fn agent_not_found(name: impl Into<String>) -> Self {
+        Error::AgentNotFound {
+            name: name.into(),
+            suggestions: vec![],
+        }
+    }
+
+    /// Creates an AgentNotFound error with suggestions.
+    pub fn agent_not_found_with_suggestions(
+        name: impl Into<String>,
+        suggestions: Vec<String>,
+    ) -> Self {
+        Error::AgentNotFound {
+            name: name.into(),
+            suggestions,
+        }
+    }
+
+    /// Returns suggestions if this is a NotFound error with suggestions.
+    pub fn suggestions(&self) -> &[String] {
+        match self {
+            Error::ProjectNotFound { suggestions, .. } => suggestions,
+            Error::AgentNotFound { suggestions, .. } => suggestions,
+            _ => &[],
+        }
+    }
 }
 
 /// A specialized [`Result`] type for lib-core operations.

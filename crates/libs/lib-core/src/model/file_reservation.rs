@@ -115,7 +115,7 @@ impl FileReservationBmc {
         let project_slug: String = if let Some(row) = rows.next().await? {
             row.get(0)?
         } else {
-            return Err(crate::Error::ProjectNotFound(format!(
+            return Err(crate::Error::project_not_found(format!(
                 "{}",
                 fr_c.project_id
             )));
@@ -126,7 +126,7 @@ impl FileReservationBmc {
         let agent_name: String = if let Some(row) = rows.next().await? {
             row.get(0)?
         } else {
-            return Err(crate::Error::AgentNotFound(format!("{}", fr_c.agent_id)));
+            return Err(crate::Error::agent_not_found(format!("{}", fr_c.agent_id)));
         };
 
         // Git Operations - serialized to prevent lock contention

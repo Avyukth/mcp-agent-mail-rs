@@ -63,6 +63,9 @@ pub struct ErrorResponse {
     /// Optional details for debugging (only in non-production or for safe errors).
     #[serde(skip_serializing_if = "Option::is_none")]
     pub details: Option<String>,
+    /// Optional suggestions for similar entities (for NotFound errors).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub suggestions: Vec<String>,
 }
 
 impl ErrorResponse {
@@ -71,12 +74,18 @@ impl ErrorResponse {
             code: code.as_str(),
             error: message.into(),
             details: None,
+            suggestions: vec![],
         }
     }
 
     #[allow(dead_code)]
     pub fn with_details(mut self, details: impl Into<String>) -> Self {
         self.details = Some(details.into());
+        self
+    }
+
+    pub fn with_suggestions(mut self, suggestions: Vec<String>) -> Self {
+        self.suggestions = suggestions;
         self
     }
 }
@@ -179,8 +188,10 @@ fn extract_conflict_message(msg: &str) -> String {
 /// Never expose internal SQL errors, file paths, or stack traces.
 fn sanitize_error_message(error: &lib_core::Error) -> String {
     match error {
-        lib_core::Error::ProjectNotFound(id) => format!("Project not found: {}", id),
-        lib_core::Error::AgentNotFound(name) => format!("Agent not found: {}", name),
+        lib_core::Error::ProjectNotFound { identifier, .. } => {
+            format!("Project not found: {}", identifier)
+        }
+        lib_core::Error::AgentNotFound { name, .. } => format!("Agent not found: {}", name),
         lib_core::Error::MessageNotFound(id) => format!("Message not found: {}", id),
         lib_core::Error::FileReservationNotFound(id) => {
             format!("File reservation not found: {}", id)
@@ -212,8 +223,8 @@ fn sanitize_error_message(error: &lib_core::Error) -> String {
 /// Maps lib_core::Error to appropriate HTTP status code.
 fn map_core_error_to_status(error: &lib_core::Error) -> StatusCode {
     match error {
-        lib_core::Error::ProjectNotFound(_)
-        | lib_core::Error::AgentNotFound(_)
+        lib_core::Error::ProjectNotFound { .. }
+        | lib_core::Error::AgentNotFound { .. }
         | lib_core::Error::MessageNotFound(_)
         | lib_core::Error::FileReservationNotFound(_)
         | lib_core::Error::ProductNotFound(_)
@@ -244,8 +255,8 @@ fn map_core_error_to_status(error: &lib_core::Error) -> StatusCode {
 /// Maps lib_core::Error to appropriate ErrorCode.
 fn map_core_error_to_code(error: &lib_core::Error) -> ErrorCode {
     match error {
-        lib_core::Error::ProjectNotFound(_)
-        | lib_core::Error::AgentNotFound(_)
+        lib_core::Error::ProjectNotFound { .. }
+        | lib_core::Error::AgentNotFound { .. }
         | lib_core::Error::MessageNotFound(_)
         | lib_core::Error::FileReservationNotFound(_)
         | lib_core::Error::ProductNotFound(_)
@@ -283,7 +294,11 @@ impl IntoResponse for ServerError {
                 let status = map_core_error_to_status(e);
                 let code = map_core_error_to_code(e);
                 let message = sanitize_error_message(e);
-                (status, ErrorResponse::new(code, message))
+                let suggestions = e.suggestions().to_vec();
+                (
+                    status,
+                    ErrorResponse::new(code, message).with_suggestions(suggestions),
+                )
             }
 
             ServerError::NotFound(ref msg) => (
@@ -365,5 +380,18 @@ mod tests {
         let json = serde_json::to_string(&resp).unwrap();
         assert!(json.contains("NOT_FOUND"));
         assert!(json.contains("Agent not found"));
+        // Empty suggestions should not be serialized
+        assert!(!json.contains("suggestions"));
+    }
+
+    #[test]
+    fn test_error_response_with_suggestions() {
+        let resp = ErrorResponse::new(ErrorCode::NotFound, "Agent not found")
+            .with_suggestions(vec!["claude_1".to_string(), "claude_2".to_string()]);
+        let json = serde_json::to_string(&resp).unwrap();
+        assert!(json.contains("NOT_FOUND"));
+        assert!(json.contains("suggestions"));
+        assert!(json.contains("claude_1"));
+        assert!(json.contains("claude_2"));
     }
 }

@@ -273,7 +273,7 @@ impl MessageBmc {
         let project_slug: String = if let Some(row) = rows.next().await? {
             row.get(0)?
         } else {
-            return Err(crate::Error::ProjectNotFound(format!(
+            return Err(crate::Error::project_not_found(format!(
                 "ID: {}",
                 msg_c.project_id
             )));
@@ -301,7 +301,7 @@ impl MessageBmc {
 
         let sender_name = agent_map
             .remove(&msg_c.sender_id)
-            .ok_or_else(|| crate::Error::AgentNotFound(format!("ID: {}", msg_c.sender_id)))?;
+            .ok_or_else(|| crate::Error::agent_not_found(format!("ID: {}", msg_c.sender_id)))?;
 
         let mut recipient_names = Vec::new();
         for recipient_id in &msg_c.recipient_ids {
