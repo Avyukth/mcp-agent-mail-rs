@@ -136,6 +136,21 @@ pub async fn run(config: ServerConfig) -> std::result::Result<(), ServerError> {
         .layer(SetResponseHeaderLayer::overriding(
             HeaderName::from_static("x-content-type-options"),
             HeaderValue::from_static("nosniff"),
+        ))
+        // 6. HSTS - Enforce HTTPS (max-age=1 year, include subdomains)
+        .layer(SetResponseHeaderLayer::overriding(
+            HeaderName::from_static("strict-transport-security"),
+            HeaderValue::from_static("max-age=31536000; includeSubDomains"),
+        ))
+        // 7. Referrer-Policy - Limit referrer information leakage
+        .layer(SetResponseHeaderLayer::overriding(
+            HeaderName::from_static("referrer-policy"),
+            HeaderValue::from_static("strict-origin-when-cross-origin"),
+        ))
+        // 8. Permissions-Policy - Disable unnecessary browser features
+        .layer(SetResponseHeaderLayer::overriding(
+            HeaderName::from_static("permissions-policy"),
+            HeaderValue::from_static("camera=(), microphone=(), geolocation=()"),
         ));
 
     // Conditionally add embedded web UI routes
