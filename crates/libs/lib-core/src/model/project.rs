@@ -533,4 +533,49 @@ impl ProjectBmc {
 
         Ok(oid.to_string())
     }
+
+    /// Adopts (merges) artifacts from one project to another.
+    ///
+    /// Moves all agents and messages from `from_project_id` to `to_project_id`.
+    /// Note: This may fail if there are naming conflicts (e.g. agent name exists in dest).
+    pub async fn adopt(
+        ctx: &crate::Ctx,
+        mm: &ModelManager,
+        from_project_id: i64,
+        to_project_id: i64,
+    ) -> Result<()> {
+        let db = mm.db();
+
+        // 1. Move Agents
+        // We use execute directly
+        // Note: Using prepare_cached or prepare
+        let stmt = db
+            .prepare("UPDATE agents SET project_id = ? WHERE project_id = ?")
+            .await?;
+        stmt.execute([to_project_id, from_project_id]).await?;
+
+        // 2. Move Messages
+        let stmt = db
+            .prepare("UPDATE messages SET project_id = ? WHERE project_id = ?")
+            .await?;
+        stmt.execute([to_project_id, from_project_id]).await?;
+
+        // 3. Move other entities (Optional but recommended for full adopt)
+        // File Reservations
+        let stmt = db
+            .prepare("UPDATE file_reservations SET project_id = ? WHERE project_id = ?")
+            .await?;
+        stmt.execute([to_project_id, from_project_id]).await?;
+
+        // Build Slots
+        let stmt = db
+            .prepare("UPDATE build_slots SET project_id = ? WHERE project_id = ?")
+            .await?;
+        stmt.execute([to_project_id, from_project_id]).await?;
+
+        // 4. Sync destination to archive
+        Self::sync_to_archive(ctx, mm, to_project_id, "Adopted artifacts").await?;
+
+        Ok(())
+    }
 }

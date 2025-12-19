@@ -1,6 +1,7 @@
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use lib_core::{Ctx, ModelManager};
+use std::io::Write;
 use tracing_subscriber::EnvFilter;
 
 #[derive(Parser, Debug)]
@@ -34,6 +35,43 @@ enum Commands {
         to: Vec<String>,
         subject: String,
         body: String,
+    },
+    /// Project management commands
+    Projects {
+        #[command(subcommand)]
+        command: ProjectsCommands,
+    },
+}
+
+#[derive(Subcommand, Debug)]
+enum ProjectsCommands {
+    /// Write .agent-mail-project-id marker
+    MarkIdentity {
+        /// Project slug to write
+        project: String,
+        /// Commit the file to git
+        #[arg(long)]
+        commit: bool,
+    },
+    /// Scaffold discovery.yaml
+    DiscoveryInit {
+        /// Product name
+        #[arg(long)]
+        product: Option<String>,
+    },
+    /// Status of project
+    Status {
+        /// Project identifier (slug/key)
+        project: String,
+    },
+    /// Adopt/Merge legacy project artifacts
+    Adopt {
+        /// Source project identifier
+        from: String,
+        /// Destination project identifier
+        to: String,
+        #[arg(long)]
+        dry_run: bool,
     },
 }
 
@@ -108,6 +146,64 @@ async fn handle_send_message(
     Ok(())
 }
 
+async fn handle_projects_command(
+    cmd: ProjectsCommands,
+    ctx: &Ctx,
+    mm: &ModelManager,
+) -> Result<()> {
+    match cmd {
+        ProjectsCommands::MarkIdentity { project, commit } => {
+            let mut file = std::fs::File::create(".agent-mail-project-id")?;
+            file.write_all(project.as_bytes())?;
+            println!("Wrote .agent-mail-project-id: {}", project);
+            if commit {
+                std::process::Command::new("git")
+                    .args(["add", ".agent-mail-project-id"])
+                    .output()?;
+                std::process::Command::new("git")
+                    .args(["commit", "-m", "chore: set project identity"])
+                    .output()?;
+                println!("Committed to git.");
+            }
+        }
+        ProjectsCommands::DiscoveryInit { product } => {
+            let content = format!(
+                "product: {}\nprojects: []\n",
+                product.as_deref().unwrap_or("default")
+            );
+            let mut file = std::fs::File::create("discovery.yaml")?;
+            file.write_all(content.as_bytes())?;
+            println!("Initialized discovery.yaml");
+        }
+        ProjectsCommands::Status { project } => {
+            let p =
+                lib_core::model::project::ProjectBmc::get_by_identifier(ctx, mm, &project).await?;
+            println!("Project: {} ({})", p.human_key, p.slug);
+            println!("ID: {}", p.id);
+            println!("Created: {}", p.created_at);
+            println!("Link: mcp-agent-mail://project/{}", p.slug);
+        }
+        ProjectsCommands::Adopt { from, to, dry_run } => {
+            let src =
+                lib_core::model::project::ProjectBmc::get_by_identifier(ctx, mm, &from).await?;
+            let dest =
+                lib_core::model::project::ProjectBmc::get_by_identifier(ctx, mm, &to).await?;
+
+            println!(
+                "Adopting from '{}' ({}) -> '{}' ({})",
+                src.human_key, src.id, dest.human_key, dest.id
+            );
+            if dry_run {
+                println!("Dry run: No changes made.");
+            } else {
+                lib_core::model::project::ProjectBmc::adopt(ctx, mm, src.id, dest.id).await?;
+                println!("Adoption complete.");
+            }
+        }
+    }
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     tracing_subscriber::fmt()
@@ -150,6 +246,10 @@ async fn main() -> Result<()> {
         } => {
             let mm = ModelManager::new().await?;
             handle_send_message(&ctx, &mm, &project_slug, &from, to, subject, body).await?;
+        }
+        Commands::Projects { command } => {
+            let mm = ModelManager::new().await?;
+            handle_projects_command(command, &ctx, &mm).await?;
         }
     }
 

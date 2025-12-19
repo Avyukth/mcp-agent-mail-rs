@@ -6,6 +6,7 @@
 mod common;
 
 use crate::common::TestContext;
+use lib_core::model::agent::{AgentBmc, AgentForCreate};
 use lib_core::model::project::ProjectBmc;
 use lib_core::utils::slugify;
 
@@ -104,5 +105,76 @@ async fn test_project_not_found() {
     assert!(
         result.is_err(),
         "Should return error for nonexistent project"
+    );
+}
+
+/// Test adopting (consolidating) projects
+#[tokio::test]
+async fn test_adopt_project() {
+    let tc = TestContext::new()
+        .await
+        .expect("Failed to create test context");
+
+    // 1. Create Source Project
+    let src_key = "/src/project";
+    let src_slug = slugify(src_key);
+    let src_id = ProjectBmc::create(&tc.ctx, &tc.mm, &src_slug, src_key)
+        .await
+        .unwrap();
+
+    // 2. Add an Agent to Source
+    let agent_c = AgentForCreate {
+        project_id: src_id,
+        name: "test-agent".into(),
+        program: "test".into(),
+        model: "test".into(),
+        task_description: "test".into(),
+    };
+    let agent_id = AgentBmc::create(&tc.ctx, &tc.mm, agent_c).await.unwrap();
+
+    // 3. Add a Message to Source
+    let msg_c = lib_core::model::message::MessageForCreate {
+        project_id: src_id,
+        sender_id: agent_id,
+        recipient_ids: vec![agent_id],
+        cc_ids: None,
+        bcc_ids: None,
+        subject: "Test adopt".into(),
+        body_md: "Content".into(),
+        thread_id: None,
+        importance: None,
+        ack_required: false,
+    };
+    let msg_id = lib_core::model::message::MessageBmc::create(&tc.ctx, &tc.mm, msg_c)
+        .await
+        .unwrap();
+
+    // 4. Create Dest Project
+    let dest_key = "/dest/project";
+    let dest_slug = slugify(dest_key);
+    let dest_id = ProjectBmc::create(&tc.ctx, &tc.mm, &dest_slug, dest_key)
+        .await
+        .unwrap();
+
+    // 5. Perform Adopt (src -> dest)
+    ProjectBmc::adopt(&tc.ctx, &tc.mm, src_id, dest_id)
+        .await
+        .expect("Adopt failed");
+
+    // 6. Verify Artifacts Moved
+    // Check Agent
+    let agent = AgentBmc::get(&tc.ctx, &tc.mm, agent_id).await.unwrap();
+    assert_eq!(
+        agent.project_id, dest_id,
+        "Agent should be moved to dest project"
+    );
+
+    // Check Message
+    let msg = lib_core::model::message::MessageBmc::get(&tc.ctx, &tc.mm, msg_id)
+        .await
+        .unwrap();
+    assert_eq!(
+        msg.project_id, dest_id,
+        "Message should be moved to dest project"
     );
 }
