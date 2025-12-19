@@ -7,6 +7,7 @@ pub mod breadcrumb;
 pub mod button;
 pub mod card;
 pub mod compose_message;
+pub mod cva;
 pub mod dialog;
 pub mod filter_bar;
 pub mod inline_message_detail;

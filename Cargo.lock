@@ -6571,6 +6571,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "tailwind_fuse"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7ca71fb01735fbc6fa13e9390d7a3037dde97053c0b65c0c72c0159cd009d26b"
+dependencies = [
+ "nom 7.1.3",
+]
+
+[[package]]
 name = "target-lexicon"
 version = "0.13.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7946,6 +7955,7 @@ dependencies = [
  "leptos_router",
  "serde",
  "serde_json",
+ "tailwind_fuse",
  "urlencoding",
  "wasm-bindgen",
  "web-sys",
