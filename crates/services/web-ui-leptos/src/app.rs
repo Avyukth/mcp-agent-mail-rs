@@ -26,6 +26,7 @@ pub fn App() -> impl IntoView {
                     <Route path=path!("mail/unified") view=UnifiedInbox />
                     <Route path=path!("mail/unified-inbox") view=UnifiedInbox />
                     <Route path=path!("thread/:id") view=ThreadView />
+                    <Route path=path!("search") view=Search />
                 </ParentRoute>
             </Routes>
         </Router>
@@ -64,11 +65,14 @@ mod tests {
             "mail",
             "mail/unified",
             "mail/unified-inbox",
+            "thread/:id",
+            "search",
         ];
 
         assert!(routes.contains(&"mail"));
         assert!(routes.contains(&"mail/unified"));
         assert!(routes.contains(&"mail/unified-inbox"));
         assert!(routes.contains(&"attachments"));
+        assert!(routes.contains(&"search"));
     }
 }
