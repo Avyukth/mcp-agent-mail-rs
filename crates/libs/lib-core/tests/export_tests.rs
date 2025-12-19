@@ -341,3 +341,287 @@ async fn test_commit_archive_nonexistent_project() {
         "commit_archive should fail for nonexistent project"
     );
 }
+
+#[tokio::test]
+async fn test_export_signing_keypair_generation() {
+    use lib_core::model::export::{
+        generate_signing_keypair, signing_key_to_base64, verifying_key_to_base64,
+    };
+
+    let (signing_key, verifying_key) = generate_signing_keypair();
+
+    let private_b64 = signing_key_to_base64(&signing_key);
+    let public_b64 = verifying_key_to_base64(&verifying_key);
+
+    assert!(!private_b64.is_empty());
+    assert!(!public_b64.is_empty());
+    assert_ne!(private_b64, public_b64);
+}
+
+#[tokio::test]
+async fn test_export_manifest_signing() {
+    use lib_core::model::export::{ExportManifest, ExportedMailbox, generate_signing_keypair};
+
+    let exported = ExportedMailbox {
+        project_slug: "test-project".to_string(),
+        project_name: "Test Project".to_string(),
+        message_count: 5,
+        exported_at: "2025-12-20T00:00:00Z".to_string(),
+        content: "test content".to_string(),
+        format: "json".to_string(),
+    };
+
+    let (signing_key, _) = generate_signing_keypair();
+    let mut manifest = ExportManifest::new(&exported);
+
+    assert!(manifest.signature.is_none());
+    assert!(manifest.public_key.is_none());
+
+    manifest.sign(&signing_key);
+
+    assert!(manifest.signature.is_some());
+    assert!(manifest.public_key.is_some());
+}
+
+#[tokio::test]
+async fn test_export_manifest_verification() {
+    use lib_core::model::export::{ExportManifest, ExportedMailbox, generate_signing_keypair};
+
+    let exported = ExportedMailbox {
+        project_slug: "test-project".to_string(),
+        project_name: "Test Project".to_string(),
+        message_count: 5,
+        exported_at: "2025-12-20T00:00:00Z".to_string(),
+        content: "test content".to_string(),
+        format: "json".to_string(),
+    };
+
+    let (signing_key, _) = generate_signing_keypair();
+    let mut manifest = ExportManifest::new(&exported);
+    manifest.sign(&signing_key);
+
+    let verified = manifest.verify().expect("Verification should succeed");
+    assert!(verified, "Signed manifest should verify");
+}
+
+#[tokio::test]
+async fn test_export_manifest_tamper_detection() {
+    use lib_core::model::export::{ExportManifest, ExportedMailbox, generate_signing_keypair};
+
+    let exported = ExportedMailbox {
+        project_slug: "test-project".to_string(),
+        project_name: "Test Project".to_string(),
+        message_count: 5,
+        exported_at: "2025-12-20T00:00:00Z".to_string(),
+        content: "test content".to_string(),
+        format: "json".to_string(),
+    };
+
+    let (signing_key, _) = generate_signing_keypair();
+    let mut manifest = ExportManifest::new(&exported);
+    manifest.sign(&signing_key);
+
+    manifest.message_count = 10;
+
+    let verified = manifest.verify().expect("Verification call should succeed");
+    assert!(!verified, "Tampered manifest should not verify");
+}
+
+#[tokio::test]
+async fn test_export_verify_with_external_key() {
+    use lib_core::model::export::{
+        ExportManifest, ExportedMailbox, generate_signing_keypair, verifying_key_to_base64,
+    };
+
+    let exported = ExportedMailbox {
+        project_slug: "test-project".to_string(),
+        project_name: "Test Project".to_string(),
+        message_count: 5,
+        exported_at: "2025-12-20T00:00:00Z".to_string(),
+        content: "test content".to_string(),
+        format: "json".to_string(),
+    };
+
+    let (signing_key, verifying_key) = generate_signing_keypair();
+    let public_b64 = verifying_key_to_base64(&verifying_key);
+
+    let mut manifest = ExportManifest::new(&exported);
+    manifest.sign(&signing_key);
+
+    let verified = manifest
+        .verify_with_key(&public_b64)
+        .expect("Verification should succeed");
+    assert!(verified, "Should verify with correct public key");
+}
+
+#[tokio::test]
+async fn test_export_verify_wrong_key_fails() {
+    use lib_core::model::export::{
+        ExportManifest, ExportedMailbox, generate_signing_keypair, verifying_key_to_base64,
+    };
+
+    let exported = ExportedMailbox {
+        project_slug: "test-project".to_string(),
+        project_name: "Test Project".to_string(),
+        message_count: 5,
+        exported_at: "2025-12-20T00:00:00Z".to_string(),
+        content: "test content".to_string(),
+        format: "json".to_string(),
+    };
+
+    let (signing_key, _) = generate_signing_keypair();
+    let (_, wrong_key) = generate_signing_keypair();
+    let wrong_public_b64 = verifying_key_to_base64(&wrong_key);
+
+    let mut manifest = ExportManifest::new(&exported);
+    manifest.sign(&signing_key);
+
+    let verified = manifest
+        .verify_with_key(&wrong_public_b64)
+        .expect("Verification call should succeed");
+    assert!(!verified, "Should fail with wrong public key");
+}
+
+#[tokio::test]
+async fn test_export_mailbox_signed() {
+    let tc = TestContext::new()
+        .await
+        .expect("Failed to create test context");
+
+    use lib_core::model::export::generate_signing_keypair;
+
+    let (_, slug) = setup_project_with_messages(&tc, "signed").await;
+    let (signing_key, _) = generate_signing_keypair();
+
+    let (exported, manifest) = ExportBmc::export_mailbox_signed(
+        &tc.ctx,
+        &tc.mm,
+        &slug,
+        ExportFormat::Json,
+        ScrubMode::None,
+        false,
+        Some(&signing_key),
+    )
+    .await
+    .expect("Failed to export signed mailbox");
+
+    assert!(manifest.signature.is_some());
+    assert!(manifest.public_key.is_some());
+
+    let verified =
+        ExportBmc::verify_export(&exported, &manifest).expect("Verification should succeed");
+    assert!(verified, "Signed export should verify");
+}
+
+#[tokio::test]
+async fn test_age_identity_generation() {
+    use lib_core::model::export::generate_age_identity;
+
+    let (identity, recipient) = generate_age_identity();
+
+    // Identity should start with "AGE-SECRET-KEY-"
+    assert!(
+        identity.starts_with("AGE-SECRET-KEY-"),
+        "Identity should start with AGE-SECRET-KEY-"
+    );
+
+    // Recipient should start with "age1"
+    assert!(
+        recipient.starts_with("age1"),
+        "Recipient should start with age1"
+    );
+
+    // Both should be valid strings
+    assert!(!identity.is_empty(), "Identity should not be empty");
+    assert!(!recipient.is_empty(), "Recipient should not be empty");
+}
+
+#[tokio::test]
+async fn test_age_encrypt_decrypt_with_passphrase() {
+    use lib_core::model::export::{decrypt_with_passphrase, encrypt_with_passphrase};
+
+    let test_data = b"Hello, world! This is a test message for age encryption.";
+    let passphrase = "test-passphrase-123";
+
+    // Encrypt
+    let encrypted =
+        encrypt_with_passphrase(test_data, passphrase).expect("Encryption should succeed");
+
+    // Should be armored (ASCII)
+    let encrypted_str = String::from_utf8(encrypted.clone()).expect("Should be valid UTF-8");
+    assert!(
+        encrypted_str.contains("-----BEGIN AGE ENCRYPTED FILE-----"),
+        "Should contain armor header"
+    );
+
+    // Decrypt
+    let decrypted =
+        decrypt_with_passphrase(&encrypted, passphrase).expect("Decryption should succeed");
+
+    // Should match original
+    assert_eq!(decrypted, test_data, "Decrypted data should match original");
+}
+
+#[tokio::test]
+async fn test_age_encrypt_decrypt_with_keypair() {
+    use lib_core::model::export::{decrypt_with_identity, encrypt_with_age, generate_age_identity};
+
+    let test_data = b"Hello, world! This is a test message for age key encryption.";
+    let (identity, recipient) = generate_age_identity();
+
+    // Encrypt
+    let encrypted = encrypt_with_age(test_data, &[recipient]).expect("Encryption should succeed");
+
+    // Should be armored (ASCII)
+    let encrypted_str = String::from_utf8(encrypted.clone()).expect("Should be valid UTF-8");
+    assert!(
+        encrypted_str.contains("-----BEGIN AGE ENCRYPTED FILE-----"),
+        "Should contain armor header"
+    );
+
+    // Decrypt
+    let decrypted =
+        decrypt_with_identity(&encrypted, &identity).expect("Decryption should succeed");
+
+    // Should match original
+    assert_eq!(decrypted, test_data, "Decrypted data should match original");
+}
+
+#[tokio::test]
+async fn test_age_wrong_passphrase_fails() {
+    use lib_core::model::export::{decrypt_with_passphrase, encrypt_with_passphrase};
+
+    let test_data = b"Secret message";
+    let passphrase = "correct-passphrase";
+    let wrong_passphrase = "wrong-passphrase";
+
+    // Encrypt
+    let encrypted =
+        encrypt_with_passphrase(test_data, passphrase).expect("Encryption should succeed");
+
+    // Try to decrypt with wrong passphrase - should fail
+    let result = decrypt_with_passphrase(&encrypted, wrong_passphrase);
+    assert!(
+        result.is_err(),
+        "Decryption with wrong passphrase should fail"
+    );
+}
+
+#[tokio::test]
+async fn test_age_wrong_identity_fails() {
+    use lib_core::model::export::{decrypt_with_identity, encrypt_with_age, generate_age_identity};
+
+    let test_data = b"Secret message";
+    let (identity, recipient) = generate_age_identity();
+    let (wrong_identity, _) = generate_age_identity();
+
+    // Encrypt
+    let encrypted = encrypt_with_age(test_data, &[recipient]).expect("Encryption should succeed");
+
+    // Try to decrypt with wrong identity - should fail
+    let result = decrypt_with_identity(&encrypted, &wrong_identity);
+    assert!(
+        result.is_err(),
+        "Decryption with wrong identity should fail"
+    );
+}

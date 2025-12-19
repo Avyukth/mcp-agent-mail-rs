@@ -364,3 +364,604 @@ fn html_escape(s: &str) -> String {
         .replace('>', "&gt;")
         .replace('"', "&quot;")
 }
+
+// --- Ed25519 Signing Support ---
+
+use ed25519_dalek::{Signature, Signer, SigningKey, Verifier, VerifyingKey};
+use rand::rngs::OsRng;
+
+/// Export manifest with optional signature for integrity verification
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ExportManifest {
+    /// Version of the manifest format
+    pub version: String,
+    /// Project slug
+    pub project_slug: String,
+    /// Export timestamp (ISO 8601)
+    pub exported_at: String,
+    /// Number of messages exported
+    pub message_count: usize,
+    /// SHA-256 hash of the content
+    pub content_hash: String,
+    /// Export format used
+    pub format: String,
+    /// Ed25519 signature (base64, optional)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub signature: Option<String>,
+    /// Public key used for signing (base64, optional)
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub public_key: Option<String>,
+}
+
+impl ExportManifest {
+    /// Create a new unsigned manifest
+    pub fn new(exported: &ExportedMailbox) -> Self {
+        // Compute SHA-256 hash of content
+        let content_hash = {
+            use sha1::Digest;
+            let mut hasher = sha1::Sha1::new();
+            hasher.update(exported.content.as_bytes());
+            hex::encode(hasher.finalize())
+        };
+
+        Self {
+            version: "1.0".to_string(),
+            project_slug: exported.project_slug.clone(),
+            exported_at: exported.exported_at.clone(),
+            message_count: exported.message_count,
+            content_hash,
+            format: exported.format.clone(),
+            signature: None,
+            public_key: None,
+        }
+    }
+
+    /// Get the bytes to be signed (everything except signature and public_key)
+    fn signing_payload(&self) -> Vec<u8> {
+        format!(
+            "{}:{}:{}:{}:{}:{}",
+            self.version,
+            self.project_slug,
+            self.exported_at,
+            self.message_count,
+            self.content_hash,
+            self.format
+        )
+        .into_bytes()
+    }
+
+    /// Sign the manifest with an Ed25519 signing key
+    pub fn sign(&mut self, signing_key: &SigningKey) {
+        let payload = self.signing_payload();
+        let signature = signing_key.sign(&payload);
+        self.signature = Some(base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD,
+            signature.to_bytes(),
+        ));
+        self.public_key = Some(base64::Engine::encode(
+            &base64::engine::general_purpose::STANDARD,
+            signing_key.verifying_key().to_bytes(),
+        ));
+    }
+
+    /// Verify the manifest signature
+    pub fn verify(&self) -> Result<bool> {
+        let signature_b64 = self
+            .signature
+            .as_ref()
+            .ok_or_else(|| crate::Error::InvalidInput("No signature present".to_string()))?;
+        let public_key_b64 = self
+            .public_key
+            .as_ref()
+            .ok_or_else(|| crate::Error::InvalidInput("No public key present".to_string()))?;
+
+        // Decode signature
+        let signature_bytes =
+            base64::Engine::decode(&base64::engine::general_purpose::STANDARD, signature_b64)
+                .map_err(|e| {
+                    crate::Error::InvalidInput(format!("Invalid signature base64: {}", e))
+                })?;
+
+        let signature = Signature::from_slice(&signature_bytes)
+            .map_err(|e| crate::Error::InvalidInput(format!("Invalid signature format: {}", e)))?;
+
+        // Decode public key
+        let public_key_bytes =
+            base64::Engine::decode(&base64::engine::general_purpose::STANDARD, public_key_b64)
+                .map_err(|e| {
+                    crate::Error::InvalidInput(format!("Invalid public key base64: {}", e))
+                })?;
+
+        let public_key_array: [u8; 32] = public_key_bytes
+            .try_into()
+            .map_err(|_| crate::Error::InvalidInput("Public key must be 32 bytes".to_string()))?;
+
+        let verifying_key = VerifyingKey::from_bytes(&public_key_array)
+            .map_err(|e| crate::Error::InvalidInput(format!("Invalid public key: {}", e)))?;
+
+        // Verify
+        let payload = self.signing_payload();
+        Ok(verifying_key.verify(&payload, &signature).is_ok())
+    }
+
+    /// Verify with a specific public key (for external verification)
+    pub fn verify_with_key(&self, public_key_b64: &str) -> Result<bool> {
+        let signature_b64 = self
+            .signature
+            .as_ref()
+            .ok_or_else(|| crate::Error::InvalidInput("No signature present".to_string()))?;
+
+        // Decode signature
+        let signature_bytes =
+            base64::Engine::decode(&base64::engine::general_purpose::STANDARD, signature_b64)
+                .map_err(|e| {
+                    crate::Error::InvalidInput(format!("Invalid signature base64: {}", e))
+                })?;
+
+        let signature = Signature::from_slice(&signature_bytes)
+            .map_err(|e| crate::Error::InvalidInput(format!("Invalid signature format: {}", e)))?;
+
+        // Decode provided public key
+        let public_key_bytes =
+            base64::Engine::decode(&base64::engine::general_purpose::STANDARD, public_key_b64)
+                .map_err(|e| {
+                    crate::Error::InvalidInput(format!("Invalid public key base64: {}", e))
+                })?;
+
+        let public_key_array: [u8; 32] = public_key_bytes
+            .try_into()
+            .map_err(|_| crate::Error::InvalidInput("Public key must be 32 bytes".to_string()))?;
+
+        let verifying_key = VerifyingKey::from_bytes(&public_key_array)
+            .map_err(|e| crate::Error::InvalidInput(format!("Invalid public key: {}", e)))?;
+
+        // Verify
+        let payload = self.signing_payload();
+        Ok(verifying_key.verify(&payload, &signature).is_ok())
+    }
+}
+
+/// Generate a new Ed25519 signing keypair
+pub fn generate_signing_keypair() -> (SigningKey, VerifyingKey) {
+    let signing_key = SigningKey::generate(&mut OsRng);
+    let verifying_key = signing_key.verifying_key();
+    (signing_key, verifying_key)
+}
+
+/// Export signing key to base64 (for storage/CLI output)
+pub fn signing_key_to_base64(key: &SigningKey) -> String {
+    base64::Engine::encode(&base64::engine::general_purpose::STANDARD, key.to_bytes())
+}
+
+/// Import signing key from base64
+pub fn signing_key_from_base64(b64: &str) -> Result<SigningKey> {
+    let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, b64)
+        .map_err(|e| crate::Error::InvalidInput(format!("Invalid signing key base64: {}", e)))?;
+
+    let key_array: [u8; 32] = bytes
+        .try_into()
+        .map_err(|_| crate::Error::InvalidInput("Signing key must be 32 bytes".to_string()))?;
+
+    Ok(SigningKey::from_bytes(&key_array))
+}
+
+/// Export verifying (public) key to base64
+pub fn verifying_key_to_base64(key: &VerifyingKey) -> String {
+    base64::Engine::encode(&base64::engine::general_purpose::STANDARD, key.to_bytes())
+}
+
+/// Import verifying key from base64
+pub fn verifying_key_from_base64(b64: &str) -> Result<VerifyingKey> {
+    let bytes = base64::Engine::decode(&base64::engine::general_purpose::STANDARD, b64)
+        .map_err(|e| crate::Error::InvalidInput(format!("Invalid public key base64: {}", e)))?;
+
+    let key_array: [u8; 32] = bytes
+        .try_into()
+        .map_err(|_| crate::Error::InvalidInput("Public key must be 32 bytes".to_string()))?;
+
+    VerifyingKey::from_bytes(&key_array)
+        .map_err(|e| crate::Error::InvalidInput(format!("Invalid public key: {}", e)))
+}
+
+impl ExportBmc {
+    /// Export a project's mailbox with optional signing
+    pub async fn export_mailbox_signed(
+        ctx: &Ctx,
+        mm: &ModelManager,
+        project_slug: &str,
+        format: ExportFormat,
+        scrub_mode: ScrubMode,
+        include_attachments: bool,
+        signing_key: Option<&SigningKey>,
+    ) -> Result<(ExportedMailbox, ExportManifest)> {
+        // Export the mailbox
+        let exported = Self::export_mailbox(
+            ctx,
+            mm,
+            project_slug,
+            format,
+            scrub_mode,
+            include_attachments,
+        )
+        .await?;
+
+        // Create manifest
+        let mut manifest = ExportManifest::new(&exported);
+
+        // Sign if key provided
+        if let Some(key) = signing_key {
+            manifest.sign(key);
+        }
+
+        Ok((exported, manifest))
+    }
+
+    /// Verify an export against its manifest
+    pub fn verify_export(exported: &ExportedMailbox, manifest: &ExportManifest) -> Result<bool> {
+        // First verify content hash matches
+        let content_hash = {
+            use sha1::Digest;
+            let mut hasher = sha1::Sha1::new();
+            hasher.update(exported.content.as_bytes());
+            hex::encode(hasher.finalize())
+        };
+
+        if content_hash != manifest.content_hash {
+            return Ok(false);
+        }
+
+        // Then verify signature if present
+        if manifest.signature.is_some() {
+            manifest.verify()
+        } else {
+            // No signature, but content hash matches
+            Ok(true)
+        }
+    }
+}
+
+// =============================================================================
+// Age Encryption Support
+// =============================================================================
+
+use std::io::{Read, Write};
+
+/// Generate a new age identity (private key) and recipient (public key)
+pub fn generate_age_identity() -> (String, String) {
+    let identity = age::x25519::Identity::generate();
+    let recipient = identity.to_public();
+    (identity.to_string(), recipient.to_string())
+}
+
+/// Encrypt data using age with one or more recipients
+///
+/// Recipients are age public keys (bech32-encoded strings starting with "age1...")
+pub fn encrypt_with_age(data: &[u8], recipients: &[String]) -> Result<Vec<u8>> {
+    if recipients.is_empty() {
+        return Err(crate::Error::InvalidInput(
+            "At least one recipient required for encryption".to_string(),
+        ));
+    }
+
+    // Parse recipients
+    let parsed_recipients: Vec<age::x25519::Recipient> = recipients
+        .iter()
+        .map(|r| {
+            r.parse::<age::x25519::Recipient>().map_err(|e| {
+                crate::Error::InvalidInput(format!("Invalid age recipient '{}': {}", r, e))
+            })
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    // Create encryptor
+    let encryptor = age::Encryptor::with_recipients(parsed_recipients.iter())
+        .map_err(|e| crate::Error::EncryptionError(format!("Failed to create encryptor: {}", e)))?;
+
+    // Encrypt to armored output
+    let mut encrypted = Vec::new();
+    let armor =
+        age::armor::ArmoredWriter::wrap_output(&mut encrypted, age::armor::Format::AsciiArmor)
+            .map_err(|e| {
+                crate::Error::EncryptionError(format!("Failed to create armored writer: {}", e))
+            })?;
+
+    let mut writer = encryptor
+        .wrap_output(armor)
+        .map_err(|e| crate::Error::EncryptionError(format!("Failed to wrap output: {}", e)))?;
+
+    writer
+        .write_all(data)
+        .map_err(|e| crate::Error::EncryptionError(format!("Failed to write data: {}", e)))?;
+
+    writer
+        .finish()
+        .and_then(|armor| armor.finish())
+        .map_err(|e| {
+            crate::Error::EncryptionError(format!("Failed to finish encryption: {}", e))
+        })?;
+
+    Ok(encrypted)
+}
+
+/// Encrypt data using age with a passphrase
+pub fn encrypt_with_passphrase(data: &[u8], passphrase: &str) -> Result<Vec<u8>> {
+    use age::secrecy::SecretString;
+
+    let encryptor =
+        age::Encryptor::with_user_passphrase(SecretString::from(passphrase.to_string()));
+
+    // Encrypt to armored output
+    let mut encrypted = Vec::new();
+    let armor =
+        age::armor::ArmoredWriter::wrap_output(&mut encrypted, age::armor::Format::AsciiArmor)
+            .map_err(|e| {
+                crate::Error::EncryptionError(format!("Failed to create armored writer: {}", e))
+            })?;
+
+    let mut writer = encryptor
+        .wrap_output(armor)
+        .map_err(|e| crate::Error::EncryptionError(format!("Failed to wrap output: {}", e)))?;
+
+    writer
+        .write_all(data)
+        .map_err(|e| crate::Error::EncryptionError(format!("Failed to write data: {}", e)))?;
+
+    writer
+        .finish()
+        .and_then(|armor| armor.finish())
+        .map_err(|e| {
+            crate::Error::EncryptionError(format!("Failed to finish encryption: {}", e))
+        })?;
+
+    Ok(encrypted)
+}
+
+/// Decrypt age-encrypted data using an identity (private key)
+pub fn decrypt_with_identity(encrypted: &[u8], identity_str: &str) -> Result<Vec<u8>> {
+    // Parse identity
+    let identity: age::x25519::Identity = identity_str
+        .parse()
+        .map_err(|e| crate::Error::InvalidInput(format!("Invalid age identity: {}", e)))?;
+
+    // Create decryptor
+    let armor = age::armor::ArmoredReader::new(encrypted);
+    let decryptor = age::Decryptor::new(armor)
+        .map_err(|e| crate::Error::DecryptionError(format!("Failed to create decryptor: {}", e)))?;
+
+    let mut decrypted = Vec::new();
+    let mut reader = decryptor
+        .decrypt(std::iter::once(&identity as &dyn age::Identity))
+        .map_err(|e| crate::Error::DecryptionError(format!("Decryption failed: {}", e)))?;
+
+    reader.read_to_end(&mut decrypted).map_err(|e| {
+        crate::Error::DecryptionError(format!("Failed to read decrypted data: {}", e))
+    })?;
+
+    Ok(decrypted)
+}
+
+/// Decrypt age-encrypted data using a passphrase
+pub fn decrypt_with_passphrase(encrypted: &[u8], passphrase: &str) -> Result<Vec<u8>> {
+    use age::secrecy::SecretString;
+
+    // Create decryptor
+    let armor = age::armor::ArmoredReader::new(encrypted);
+    let decryptor = age::Decryptor::new(armor)
+        .map_err(|e| crate::Error::DecryptionError(format!("Failed to create decryptor: {}", e)))?;
+
+    let mut decrypted = Vec::new();
+    let mut reader = decryptor
+        .decrypt(&SecretString::from(passphrase.to_string()))
+        .map_err(|e| crate::Error::DecryptionError(format!("Decryption failed: {}", e)))?;
+
+    reader.read_to_end(&mut decrypted).map_err(|e| {
+        crate::Error::DecryptionError(format!("Failed to read decrypted data: {}", e))
+    })?;
+
+    Ok(decrypted)
+}
+
+/// Encrypt an exported mailbox for secure sharing
+impl ExportBmc {
+    /// Export and encrypt a mailbox for one or more age recipients
+    pub async fn export_mailbox_encrypted(
+        ctx: &Ctx,
+        mm: &ModelManager,
+        project_slug: &str,
+        format: ExportFormat,
+        scrub_mode: ScrubMode,
+        include_attachments: bool,
+        recipients: &[String],
+        signing_key: Option<&SigningKey>,
+    ) -> Result<(Vec<u8>, ExportManifest)> {
+        // Export and optionally sign
+        let (exported, manifest) = Self::export_mailbox_signed(
+            ctx,
+            mm,
+            project_slug,
+            format,
+            scrub_mode,
+            include_attachments,
+            signing_key,
+        )
+        .await?;
+
+        // Serialize manifest, exported data, and project info together
+        let bundle = serde_json::json!({
+            "manifest": manifest,
+            "content": exported.content,
+            "format": exported.format.as_str(),
+            "project_slug": exported.project_slug,
+            "project_name": exported.project_name,
+        });
+        let bundle_bytes = serde_json::to_vec_pretty(&bundle).map_err(|e| {
+            crate::Error::InvalidInput(format!("Failed to serialize bundle: {}", e))
+        })?;
+
+        // Encrypt the bundle
+        let encrypted = encrypt_with_age(&bundle_bytes, recipients)?;
+
+        Ok((encrypted, manifest))
+    }
+
+    /// Export and encrypt a mailbox with a passphrase
+    pub async fn export_mailbox_passphrase(
+        ctx: &Ctx,
+        mm: &ModelManager,
+        project_slug: &str,
+        format: ExportFormat,
+        scrub_mode: ScrubMode,
+        include_attachments: bool,
+        passphrase: &str,
+        signing_key: Option<&SigningKey>,
+    ) -> Result<(Vec<u8>, ExportManifest)> {
+        // Export and optionally sign
+        let (exported, manifest) = Self::export_mailbox_signed(
+            ctx,
+            mm,
+            project_slug,
+            format,
+            scrub_mode,
+            include_attachments,
+            signing_key,
+        )
+        .await?;
+
+        // Serialize manifest, exported data, and project info together
+        let bundle = serde_json::json!({
+            "manifest": manifest,
+            "content": exported.content,
+            "format": exported.format.as_str(),
+            "project_slug": exported.project_slug,
+            "project_name": exported.project_name,
+        });
+        let bundle_bytes = serde_json::to_vec_pretty(&bundle).map_err(|e| {
+            crate::Error::InvalidInput(format!("Failed to serialize bundle: {}", e))
+        })?;
+
+        // Encrypt the bundle
+        let encrypted = encrypt_with_passphrase(&bundle_bytes, passphrase)?;
+
+        Ok((encrypted, manifest))
+    }
+
+    /// Decrypt and verify an encrypted export
+    pub fn decrypt_export_with_identity(
+        encrypted: &[u8],
+        identity: &str,
+    ) -> Result<(ExportedMailbox, ExportManifest)> {
+        let decrypted = decrypt_with_identity(encrypted, identity)?;
+
+        // Parse the bundle
+        let bundle: serde_json::Value = serde_json::from_slice(&decrypted)
+            .map_err(|e| crate::Error::InvalidInput(format!("Failed to parse bundle: {}", e)))?;
+
+        let manifest: ExportManifest = serde_json::from_value(bundle["manifest"].clone())
+            .map_err(|e| crate::Error::InvalidInput(format!("Failed to parse manifest: {}", e)))?;
+
+        let content = bundle["content"]
+            .as_str()
+            .ok_or_else(|| crate::Error::InvalidInput("Missing content in bundle".to_string()))?
+            .to_string();
+
+        let format_str = bundle["format"]
+            .as_str()
+            .ok_or_else(|| crate::Error::InvalidInput("Missing format in bundle".to_string()))?;
+
+        let format: ExportFormat = format_str
+            .parse()
+            .map_err(|e| crate::Error::InvalidInput(format!("Invalid format: {}", e)))?;
+
+        let project_slug = bundle["project_slug"]
+            .as_str()
+            .ok_or_else(|| {
+                crate::Error::InvalidInput("Missing project_slug in bundle".to_string())
+            })?
+            .to_string();
+
+        let project_name = bundle["project_name"]
+            .as_str()
+            .ok_or_else(|| {
+                crate::Error::InvalidInput("Missing project_name in bundle".to_string())
+            })?
+            .to_string();
+
+        let format_str = match format {
+            ExportFormat::Html => "html",
+            ExportFormat::Json => "json",
+            ExportFormat::Markdown => "markdown",
+            ExportFormat::Csv => "csv",
+        };
+
+        let exported = ExportedMailbox {
+            project_slug,
+            project_name,
+            content,
+            format: format_str.to_string(),
+            message_count: manifest.message_count,
+            exported_at: manifest.exported_at.clone(),
+        };
+
+        Ok((exported, manifest))
+    }
+
+    /// Decrypt and verify an encrypted export with passphrase
+    pub fn decrypt_export_with_passphrase(
+        encrypted: &[u8],
+        passphrase: &str,
+    ) -> Result<(ExportedMailbox, ExportManifest)> {
+        let decrypted = decrypt_with_passphrase(encrypted, passphrase)?;
+
+        // Parse the bundle
+        let bundle: serde_json::Value = serde_json::from_slice(&decrypted)
+            .map_err(|e| crate::Error::InvalidInput(format!("Failed to parse bundle: {}", e)))?;
+
+        let manifest: ExportManifest = serde_json::from_value(bundle["manifest"].clone())
+            .map_err(|e| crate::Error::InvalidInput(format!("Failed to parse manifest: {}", e)))?;
+
+        let content = bundle["content"]
+            .as_str()
+            .ok_or_else(|| crate::Error::InvalidInput("Missing content in bundle".to_string()))?
+            .to_string();
+
+        let format_str = bundle["format"]
+            .as_str()
+            .ok_or_else(|| crate::Error::InvalidInput("Missing format in bundle".to_string()))?;
+
+        let format: ExportFormat = format_str
+            .parse()
+            .map_err(|e| crate::Error::InvalidInput(format!("Invalid format: {}", e)))?;
+
+        let project_slug = bundle["project_slug"]
+            .as_str()
+            .ok_or_else(|| {
+                crate::Error::InvalidInput("Missing project_slug in bundle".to_string())
+            })?
+            .to_string();
+
+        let project_name = bundle["project_name"]
+            .as_str()
+            .ok_or_else(|| {
+                crate::Error::InvalidInput("Missing project_name in bundle".to_string())
+            })?
+            .to_string();
+
+        let format_str = match format {
+            ExportFormat::Html => "html",
+            ExportFormat::Json => "json",
+            ExportFormat::Markdown => "markdown",
+            ExportFormat::Csv => "csv",
+        };
+
+        let exported = ExportedMailbox {
+            project_slug,
+            project_name,
+            content,
+            format: format_str.to_string(),
+            message_count: manifest.message_count,
+            exported_at: manifest.exported_at.clone(),
+        };
+
+        Ok((exported, manifest))
+    }
+}

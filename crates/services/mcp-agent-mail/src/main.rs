@@ -51,6 +51,9 @@ enum Commands {
     /// Manage the background service
     Service(ServiceArgs),
 
+    /// Export sharing utilities (signing, verification)
+    Share(ShareArgs),
+
     /// Show version info
     Version,
 }
@@ -75,6 +78,50 @@ enum InstallCommands {
 struct ServiceArgs {
     #[command(subcommand)]
     command: ServiceCommands,
+}
+
+#[derive(Args)]
+struct ShareArgs {
+    #[command(subcommand)]
+    command: ShareCommands,
+}
+
+#[derive(Subcommand)]
+enum ShareCommands {
+    Keypair {
+        #[arg(short, long)]
+        output: Option<String>,
+    },
+    Verify {
+        #[arg(short, long)]
+        manifest: String,
+        #[arg(short, long)]
+        public_key: Option<String>,
+    },
+    Encrypt {
+        #[arg(short, long)]
+        project: String,
+        #[arg(short, long)]
+        recipients: Vec<String>,
+        #[arg(short, long)]
+        output: Option<String>,
+        #[arg(short = 'f', long)]
+        format: Option<String>,
+        #[arg(long)]
+        passphrase: Option<String>,
+        #[arg(long)]
+        sign_key: Option<String>,
+    },
+    Decrypt {
+        #[arg(short, long)]
+        input: String,
+        #[arg(short, long)]
+        identity: Option<String>,
+        #[arg(long)]
+        passphrase: Option<String>,
+        #[arg(short, long)]
+        output: Option<String>,
+    },
 }
 
 #[derive(Subcommand)]
@@ -557,21 +604,72 @@ async fn handle_service_status(port: u16) -> anyhow::Result<()> {
     Ok(())
 }
 
-/// Handle the 'service restart' command.
 async fn handle_service_restart(port: u16, config: AppConfig) -> anyhow::Result<()> {
     println!("Restarting server on port {}...", port);
 
-    // Stop existing server
     if let Some(pid) = find_pid_on_port(port) {
         println!("Stopping existing server (PID {})...", pid);
         kill_process(pid)?;
-        // Wait a moment for the port to be released
         tokio::time::sleep(std::time::Duration::from_millis(500)).await;
     }
 
-    // Start new server
     println!("Starting server on port {}...", port);
     handle_serve_http(Some(port), true, false, config).await?;
+
+    Ok(())
+}
+
+fn handle_share_keypair(output: Option<String>) -> anyhow::Result<()> {
+    use lib_core::model::export::{
+        generate_signing_keypair, signing_key_to_base64, verifying_key_to_base64,
+    };
+
+    let (signing_key, verifying_key) = generate_signing_keypair();
+    let private_b64 = signing_key_to_base64(&signing_key);
+    let public_b64 = verifying_key_to_base64(&verifying_key);
+
+    let keypair_json = serde_json::json!({
+        "private_key": private_b64,
+        "public_key": public_b64,
+        "algorithm": "Ed25519",
+        "generated_at": chrono::Utc::now().to_rfc3339()
+    });
+
+    let content = serde_json::to_string_pretty(&keypair_json)?;
+
+    if let Some(path) = output {
+        std::fs::write(&path, &content)?;
+        eprintln!("✓ Keypair written to {}", path);
+        eprintln!("  KEEP THE PRIVATE KEY SECRET!");
+    } else {
+        println!("{}", content);
+    }
+
+    Ok(())
+}
+
+fn handle_share_verify(manifest_path: &str, public_key: Option<&str>) -> anyhow::Result<()> {
+    use lib_core::model::export::ExportManifest;
+
+    let manifest_content = std::fs::read_to_string(manifest_path)?;
+    let manifest: ExportManifest = serde_json::from_str(&manifest_content)?;
+
+    let verified = if let Some(pk) = public_key {
+        manifest.verify_with_key(pk)?
+    } else {
+        manifest.verify()?
+    };
+
+    if verified {
+        println!("✓ Signature VALID");
+        println!("  Project: {}", manifest.project_slug);
+        println!("  Exported: {}", manifest.exported_at);
+        println!("  Messages: {}", manifest.message_count);
+        println!("  Content Hash: {}", manifest.content_hash);
+    } else {
+        eprintln!("✗ Signature INVALID or content modified");
+        std::process::exit(1);
+    }
 
     Ok(())
 }
@@ -607,6 +705,21 @@ async fn main() -> anyhow::Result<()> {
             ServiceCommands::Stop { port } => handle_service_stop(port)?,
             ServiceCommands::Status { port } => handle_service_status(port).await?,
             ServiceCommands::Restart { port } => handle_service_restart(port, config).await?,
+        },
+        Commands::Share(args) => match args.command {
+            ShareCommands::Keypair { output } => handle_share_keypair(output)?,
+            ShareCommands::Verify {
+                manifest,
+                public_key,
+            } => handle_share_verify(&manifest, public_key.as_deref())?,
+            ShareCommands::Encrypt { .. } => {
+                println!("Age encryption not yet implemented - use Python version");
+                Ok(())
+            }
+            ShareCommands::Decrypt { .. } => {
+                println!("Age decryption not yet implemented - use Python version");
+                Ok(())
+            }
         },
         Commands::Version => println!("mcp-agent-mail v{}", env!("CARGO_PKG_VERSION")),
     }

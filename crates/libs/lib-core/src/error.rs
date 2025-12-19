@@ -88,6 +88,14 @@ pub enum Error {
     #[error("IO Error: {0}")]
     Io(#[from] std::io::Error),
 
+    /// Age encryption error.
+    #[error("Encryption Error: {0}")]
+    EncryptionError(String),
+
+    /// Age decryption error.
+    #[error("Decryption Error: {0}")]
+    DecryptionError(String),
+
     // -- Internal errors for common failure modes
     /// Generic entity not found error.
     ///
