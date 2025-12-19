@@ -40,3 +40,6 @@ pub mod validation;
 
 /// Agent mistake detection helpers (PORT-1.3).
 pub mod mistake_detection;
+
+/// Image processing and validation helpers (PORT-7.3).
+pub mod image_processing;

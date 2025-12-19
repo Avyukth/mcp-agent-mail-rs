@@ -193,6 +193,12 @@ pub enum Error {
     /// ```
     #[error("Validation error: {0}")]
     Validation(#[from] crate::utils::validation::ValidationError),
+
+    /// Image processing error.
+    ///
+    /// Automatically converted from [`crate::utils::image_processing::ImageError`] via `From`.
+    #[error("Image Error: {0}")]
+    Image(#[from] crate::utils::image_processing::ImageError),
 }
 
 impl Error {
