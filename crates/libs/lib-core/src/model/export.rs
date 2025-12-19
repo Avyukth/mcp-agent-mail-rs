@@ -628,9 +628,13 @@ use std::io::{Read, Write};
 
 /// Generate a new age identity (private key) and recipient (public key)
 pub fn generate_age_identity() -> (String, String) {
+    use age::secrecy::ExposeSecret;
     let identity = age::x25519::Identity::generate();
     let recipient = identity.to_public();
-    (identity.to_string(), recipient.to_string())
+    (
+        identity.to_string().expose_secret().to_string(),
+        recipient.to_string(),
+    )
 }
 
 /// Encrypt data using age with one or more recipients
@@ -643,19 +647,25 @@ pub fn encrypt_with_age(data: &[u8], recipients: &[String]) -> Result<Vec<u8>> {
         ));
     }
 
-    // Parse recipients
-    let parsed_recipients: Vec<age::x25519::Recipient> = recipients
+    // Parse recipients and box them as trait objects
+    let parsed_recipients: Vec<Box<dyn age::Recipient + Send>> = recipients
         .iter()
         .map(|r| {
-            r.parse::<age::x25519::Recipient>().map_err(|e| {
-                crate::Error::InvalidInput(format!("Invalid age recipient '{}': {}", r, e))
-            })
+            r.parse::<age::x25519::Recipient>()
+                .map(|rec| Box::new(rec) as Box<dyn age::Recipient + Send>)
+                .map_err(|e| {
+                    crate::Error::InvalidInput(format!("Invalid age recipient '{}': {}", r, e))
+                })
         })
         .collect::<Result<Vec<_>>>()?;
 
     // Create encryptor
-    let encryptor = age::Encryptor::with_recipients(parsed_recipients.iter())
-        .map_err(|e| crate::Error::EncryptionError(format!("Failed to create encryptor: {}", e)))?;
+    let encryptor = age::Encryptor::with_recipients(
+        parsed_recipients
+            .iter()
+            .map(|r| r.as_ref() as &dyn age::Recipient),
+    )
+    .map_err(|e| crate::Error::EncryptionError(format!("Failed to create encryptor: {}", e)))?;
 
     // Encrypt to armored output
     let mut encrypted = Vec::new();
@@ -742,7 +752,11 @@ pub fn decrypt_with_identity(encrypted: &[u8], identity_str: &str) -> Result<Vec
 
 /// Decrypt age-encrypted data using a passphrase
 pub fn decrypt_with_passphrase(encrypted: &[u8], passphrase: &str) -> Result<Vec<u8>> {
+    use age::scrypt;
     use age::secrecy::SecretString;
+
+    // Create identity from passphrase
+    let identity = scrypt::Identity::new(SecretString::from(passphrase.to_string()));
 
     // Create decryptor
     let armor = age::armor::ArmoredReader::new(encrypted);
@@ -751,7 +765,7 @@ pub fn decrypt_with_passphrase(encrypted: &[u8], passphrase: &str) -> Result<Vec
 
     let mut decrypted = Vec::new();
     let mut reader = decryptor
-        .decrypt(&SecretString::from(passphrase.to_string()))
+        .decrypt(std::iter::once(&identity as &dyn age::Identity))
         .map_err(|e| crate::Error::DecryptionError(format!("Decryption failed: {}", e)))?;
 
     reader.read_to_end(&mut decrypted).map_err(|e| {
