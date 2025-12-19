@@ -6,6 +6,8 @@ use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use tracing::info;
 
+mod panic_hook;
+
 #[derive(Parser)]
 #[command(name = "mcp-agent-mail")]
 #[command(about = "Unified Server/CLI for Agent Mail")]
@@ -576,6 +578,10 @@ async fn handle_service_restart(port: u16, config: AppConfig) -> anyhow::Result<
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Install panic hook FIRST, before anything else
+    // This ensures panics are logged even during initialization
+    panic_hook::init_panic_hook();
+
     let cli = Cli::parse();
     setup_tracing(cli.log_format == "json")?;
     let config = load_config();
