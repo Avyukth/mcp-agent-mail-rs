@@ -36,6 +36,9 @@ hostname = "0.4.2"
 image = { version = "0.25.9", features = ["bmp", "jpeg", "png", "gif"] }
 base64.workspace = true
 
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.52", features = ["Win32_Foundation", "Win32_System_Threading"] }
+
 [dev-dependencies]
 tokio = { version = "1.48.0", features = ["rt-multi-thread", "macros"] }
 tempfile = "3.23.0"

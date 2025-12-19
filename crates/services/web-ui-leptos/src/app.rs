@@ -21,7 +21,9 @@ pub fn App() -> impl IntoView {
                     <Route path=path!("agents") view=Agents />
                     <Route path=path!("inbox") view=Inbox />
                     <Route path=path!("inbox/:id") view=MessageDetail />
+                    <Route path=path!("mail") view=UnifiedInbox />
                     <Route path=path!("mail/unified") view=UnifiedInbox />
+                    <Route path=path!("mail/unified-inbox") view=UnifiedInbox />
                 </ParentRoute>
             </Routes>
         </Router>
@@ -41,5 +43,28 @@ fn NotFound() -> impl IntoView {
                 </a>
             </div>
         </div>
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn unified_inbox_aliases_present() {
+        let routes = vec![
+            "",
+            "projects",
+            "projects/:slug",
+            "projects/:slug/file-reservations",
+            "agents",
+            "inbox",
+            "inbox/:id",
+            "mail",
+            "mail/unified",
+            "mail/unified-inbox",
+        ];
+
+        assert!(routes.contains(&"mail"));
+        assert!(routes.contains(&"mail/unified"));
+        assert!(routes.contains(&"mail/unified-inbox"));
     }
 }

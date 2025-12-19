@@ -79,7 +79,22 @@ fn is_process_alive(pid: u32) -> bool {
     }
 }
 
-#[cfg(not(unix))]
+#[cfg(windows)]
+fn is_process_alive(pid: u32) -> bool {
+    use windows_sys::Win32::Foundation::CloseHandle;
+    use windows_sys::Win32::System::Threading::{OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION};
+
+    unsafe {
+        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+        if handle == 0 {
+            return false;
+        }
+        let _ = CloseHandle(handle);
+        true
+    }
+}
+
+#[cfg(not(any(unix, windows)))]
 fn is_process_alive(_pid: u32) -> bool {
     // Conservative: assume alive if we can't check
     true
