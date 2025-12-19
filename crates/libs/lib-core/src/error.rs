@@ -188,7 +188,7 @@ pub enum Error {
     /// let result = validate_agent_name("invalid-name");
     /// if let Err(ve) = result {
     ///     let err: Error = ve.into();
-    ///     assert!(err.to_string().contains("agent name"));
+    ///     assert!(err.to_string().contains("Agent name"));
     /// }
     /// ```
     #[error("Validation error: {0}")]
