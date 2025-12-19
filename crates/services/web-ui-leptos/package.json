@@ -7,7 +7,10 @@
         "watch:css": "npx tailwindcss -i ./style/tailwind.css -o ./style/output.css --watch",
         "vr:baseline": "bun run scripts/visual-regression.ts baseline",
         "vr:compare": "bun run scripts/visual-regression.ts compare",
-        "vr": "bun run scripts/visual-regression.ts compare"
+        "vr": "bun run scripts/visual-regression.ts compare",
+        "a11y": "bun run scripts/accessibility-audit.ts",
+        "a11y:yaml": "bun run scripts/accessibility-audit.ts --yaml",
+        "a11y:json": "bun run scripts/accessibility-audit.ts --json"
     },
     "devDependencies": {
         "playwright": "^1.40.0",
