@@ -53,7 +53,9 @@ impl OrchestrationState {
 
     /// Check if transitioning to the given state is valid.
     pub fn can_transition_to(&self, next: &Self) -> bool {
-        use OrchestrationState::*;
+        use OrchestrationState::{
+            Acknowledged, Approved, Completed, Fixed, Rejected, Reviewing, Started,
+        };
 
         match (self, next) {
             // From Started: can move to Completed
@@ -184,7 +186,7 @@ impl CompletionReport {
         for file in &self.files_changed {
             md.push_str(&format!("- `{}`\n", file));
         }
-        md.push_str("\n");
+        md.push('\n');
 
         // Acceptance Criteria
         md.push_str("## Acceptance Criteria\n\n");
@@ -192,7 +194,7 @@ impl CompletionReport {
             let icon = if *passed { "✅" } else { "❌" };
             md.push_str(&format!("{} {}\n", icon, criterion));
         }
-        md.push_str("\n");
+        md.push('\n');
 
         // Quality Gates
         md.push_str("## Quality Gates\n\n");
@@ -228,6 +230,202 @@ impl CompletionReport {
     }
 }
 
+// -- ORCH-5: WorktreeManager --
+
+use std::path::{Path, PathBuf};
+
+/// Information about an active worktree
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct WorktreeInfo {
+    pub path: PathBuf,
+    pub branch: String,
+    pub task_id: Option<String>,
+    pub created_at: String,
+}
+
+/// Manages git worktrees for multi-agent isolation.
+///
+/// Creates isolated sandboxes for workers and reviewers to work
+/// without interfering with each other or the main branch.
+pub struct WorktreeManager {
+    base_path: PathBuf,
+}
+
+impl WorktreeManager {
+    /// Create a new WorktreeManager with the given base path.
+    /// All worktrees will be created under `base/.sandboxes/`.
+    pub fn new(base: &Path) -> Self {
+        Self {
+            base_path: base.join(".sandboxes"),
+        }
+    }
+
+    /// Get the path for a worker worktree
+    pub fn worker_path(&self, task_id: &str) -> PathBuf {
+        self.base_path.join(format!("worker-{}", task_id))
+    }
+
+    /// Get the path for a reviewer worktree
+    pub fn reviewer_path(&self, task_id: &str) -> PathBuf {
+        self.base_path.join(format!("reviewer-fix-{}", task_id))
+    }
+
+    /// List all active worktrees in the sandboxes directory
+    pub fn list_active_worktrees(&self) -> std::io::Result<Vec<WorktreeInfo>> {
+        let mut worktrees = Vec::new();
+
+        if !self.base_path.exists() {
+            return Ok(worktrees);
+        }
+
+        for entry in std::fs::read_dir(&self.base_path)? {
+            let entry = entry?;
+            let path = entry.path();
+            if path.is_dir() {
+                let name = path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("")
+                    .to_string();
+
+                let task_id = if name.starts_with("worker-") {
+                    Some(name.strip_prefix("worker-").unwrap_or("").to_string())
+                } else if name.starts_with("reviewer-fix-") {
+                    Some(name.strip_prefix("reviewer-fix-").unwrap_or("").to_string())
+                } else {
+                    None
+                };
+
+                worktrees.push(WorktreeInfo {
+                    path: path.clone(),
+                    branch: name.clone(),
+                    task_id,
+                    created_at: entry
+                        .metadata()
+                        .and_then(|m| m.created())
+                        .map(|t| format!("{:?}", t))
+                        .unwrap_or_else(|_| "unknown".to_string()),
+                });
+            }
+        }
+
+        Ok(worktrees)
+    }
+}
+
+// -- ORCH-6: QualityGateRunner --
+
+/// Result of a single quality gate check
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GateResult {
+    pub passed: bool,
+    pub exit_code: i32,
+    pub output: String,
+    pub duration_ms: u64,
+}
+
+impl Default for GateResult {
+    fn default() -> Self {
+        Self {
+            passed: false,
+            exit_code: -1,
+            output: String::new(),
+            duration_ms: 0,
+        }
+    }
+}
+
+/// Results from running all quality gates
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct FullQualityGateResults {
+    pub cargo_check: GateResult,
+    pub cargo_clippy: GateResult,
+    pub cargo_fmt: GateResult,
+    pub cargo_test: GateResult,
+    pub all_passed: bool,
+}
+
+/// Runs cargo quality gates for a project
+pub struct QualityGateRunner;
+
+impl QualityGateRunner {
+    /// Run a single cargo command and capture results
+    async fn run_gate(command: &str, args: &[&str]) -> GateResult {
+        use std::time::Instant;
+        use tokio::process::Command;
+
+        let start = Instant::now();
+        let result = Command::new(command).args(args).output().await;
+
+        let duration_ms = start.elapsed().as_millis() as u64;
+
+        match result {
+            Ok(output) => {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                let stderr = String::from_utf8_lossy(&output.stderr);
+                let combined = format!("{}{}", stdout, stderr);
+
+                GateResult {
+                    passed: output.status.success(),
+                    exit_code: output.status.code().unwrap_or(-1),
+                    output: combined.chars().take(2000).collect(), // Limit output size
+                    duration_ms,
+                }
+            }
+            Err(e) => GateResult {
+                passed: false,
+                exit_code: -1,
+                output: e.to_string(),
+                duration_ms,
+            },
+        }
+    }
+
+    /// Run all quality gates (check, clippy, fmt --check, test)
+    pub async fn run_all() -> FullQualityGateResults {
+        let cargo_check = Self::run_gate("cargo", &["check", "--all-targets"]).await;
+        let cargo_clippy = Self::run_gate(
+            "cargo",
+            &["clippy", "--all-targets", "--", "-D", "warnings"],
+        )
+        .await;
+        let cargo_fmt = Self::run_gate("cargo", &["fmt", "--check"]).await;
+        let cargo_test = Self::run_gate("cargo", &["test", "--workspace"]).await;
+
+        let all_passed =
+            cargo_check.passed && cargo_clippy.passed && cargo_fmt.passed && cargo_test.passed;
+
+        FullQualityGateResults {
+            cargo_check,
+            cargo_clippy,
+            cargo_fmt,
+            cargo_test,
+            all_passed,
+        }
+    }
+
+    /// Run only blocking gates (check, clippy, fmt) - skip tests for speed
+    pub async fn run_blocking_only() -> FullQualityGateResults {
+        let cargo_check = Self::run_gate("cargo", &["check", "--all-targets"]).await;
+        let cargo_clippy = Self::run_gate(
+            "cargo",
+            &["clippy", "--all-targets", "--", "-D", "warnings"],
+        )
+        .await;
+        let cargo_fmt = Self::run_gate("cargo", &["fmt", "--check"]).await;
+
+        let all_passed = cargo_check.passed && cargo_clippy.passed && cargo_fmt.passed;
+
+        FullQualityGateResults {
+            cargo_check,
+            cargo_clippy,
+            cargo_fmt,
+            cargo_test: GateResult::default(),
+            all_passed,
+        }
+    }
+}
+
 /// Parse the current orchestration state from a thread's message history.
 /// Returns the state from the most recent message with a recognized prefix,
 /// or `Started` if no state messages are found.
@@ -241,6 +439,176 @@ pub fn parse_thread_state(messages: &[Message]) -> OrchestrationState {
 
     // Default to Started if no state found
     OrchestrationState::Started
+}
+
+// -- ORCH-8: OrchestrationBmc for crash recovery --
+
+use crate::Result;
+use crate::ctx::Ctx;
+use crate::model::ModelManager;
+use std::time::Duration;
+
+/// Information about an abandoned task
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AbandonedTask {
+    pub thread_id: String,
+    pub task_title: String,
+    pub worker_name: String,
+    pub last_activity: String,
+    pub state: OrchestrationState,
+}
+
+/// Information about an abandoned review
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct AbandonedReview {
+    pub thread_id: String,
+    pub reviewer_name: String,
+    pub last_activity: String,
+}
+
+/// Information about merge conflicts
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConflictInfo {
+    pub worktree_path: PathBuf,
+    pub branch: String,
+    pub conflicting_files: Vec<String>,
+}
+
+/// BMC for orchestration crash recovery.
+///
+/// Tracks orchestration state and helps recover from agent crashes
+/// by detecting abandoned tasks and reviews.
+pub struct OrchestrationBmc;
+
+impl OrchestrationBmc {
+    /// Find tasks that were in-progress but the worker disappeared.
+    ///
+    /// A task is considered abandoned if:
+    /// - State is Started or Reviewing (in-progress states)
+    /// - No activity for longer than stale_threshold
+    pub async fn find_abandoned_tasks(
+        ctx: &Ctx,
+        mm: &ModelManager,
+        project_id: i64,
+        stale_threshold: Duration,
+    ) -> Result<Vec<AbandonedTask>> {
+        use crate::model::message::MessageBmc;
+
+        let mut abandoned = Vec::new();
+        let cutoff =
+            chrono::Utc::now() - chrono::Duration::from_std(stale_threshold).unwrap_or_default();
+
+        // Get all threads for the project
+        let threads = MessageBmc::list_threads(ctx, mm, project_id, 100).await?;
+
+        for thread in threads {
+            let messages =
+                MessageBmc::list_by_thread(ctx, mm, project_id, &thread.thread_id).await?;
+
+            if messages.is_empty() {
+                continue;
+            }
+
+            let state = parse_thread_state(&messages);
+
+            // Check if in an "in-progress" state
+            if matches!(
+                state,
+                OrchestrationState::Started | OrchestrationState::Reviewing
+            ) {
+                // Check if last activity is before cutoff
+                let last_msg = messages.last().unwrap();
+                let last_ts = last_msg.created_ts;
+
+                if last_ts < cutoff.naive_utc() {
+                    abandoned.push(AbandonedTask {
+                        thread_id: thread.thread_id.clone(),
+                        task_title: thread.subject,
+                        worker_name: last_msg.sender_name.clone(),
+                        last_activity: last_ts.to_string(),
+                        state,
+                    });
+                }
+            }
+        }
+
+        Ok(abandoned)
+    }
+
+    /// Find reviews that were claimed but the reviewer disappeared.
+    ///
+    /// A review is considered abandoned if:
+    /// - State is Reviewing
+    /// - No activity for longer than stale_threshold
+    pub async fn find_abandoned_reviews(
+        ctx: &Ctx,
+        mm: &ModelManager,
+        project_id: i64,
+        stale_threshold: Duration,
+    ) -> Result<Vec<AbandonedReview>> {
+        use crate::model::message::MessageBmc;
+
+        let mut abandoned = Vec::new();
+        let cutoff =
+            chrono::Utc::now() - chrono::Duration::from_std(stale_threshold).unwrap_or_default();
+
+        let threads = MessageBmc::list_threads(ctx, mm, project_id, 100).await?;
+
+        for thread in threads {
+            let messages =
+                MessageBmc::list_by_thread(ctx, mm, project_id, &thread.thread_id).await?;
+
+            if messages.is_empty() {
+                continue;
+            }
+
+            let state = parse_thread_state(&messages);
+
+            if matches!(state, OrchestrationState::Reviewing) {
+                let last_msg = messages.last().unwrap();
+                let last_ts = last_msg.created_ts;
+
+                if last_ts < cutoff.naive_utc() {
+                    // Find the reviewer name from REVIEWING message
+                    let reviewer = messages
+                        .iter()
+                        .rev()
+                        .find(|m| m.subject.to_uppercase().starts_with("[REVIEWING]"))
+                        .map(|m| m.sender_name.clone())
+                        .unwrap_or_else(|| "unknown".to_string());
+
+                    abandoned.push(AbandonedReview {
+                        thread_id: thread.thread_id.clone(),
+                        reviewer_name: reviewer,
+                        last_activity: last_ts.to_string(),
+                    });
+                }
+            }
+        }
+
+        Ok(abandoned)
+    }
+
+    /// Check for merge conflicts in active worktrees.
+    pub fn check_worktree_conflicts(base_path: &Path) -> std::io::Result<Vec<ConflictInfo>> {
+        let manager = WorktreeManager::new(base_path);
+        let worktrees = manager.list_active_worktrees()?;
+
+        let mut conflicts = Vec::new();
+        for wt in worktrees {
+            // Check for .git/MERGE_HEAD or conflict markers
+            let merge_head = wt.path.join(".git").join("MERGE_HEAD");
+            if merge_head.exists() {
+                conflicts.push(ConflictInfo {
+                    worktree_path: wt.path,
+                    branch: wt.branch,
+                    conflicting_files: vec![], // Would need to parse git status
+                });
+            }
+        }
+
+        Ok(conflicts)
+    }
 }
 
 #[cfg(test)]
@@ -316,7 +684,9 @@ mod tests {
 
     #[test]
     fn test_valid_transitions() {
-        use OrchestrationState::*;
+        use OrchestrationState::{
+            Acknowledged, Approved, Completed, Fixed, Rejected, Reviewing, Started,
+        };
 
         // Valid paths
         assert!(Started.can_transition_to(&Completed));
@@ -333,7 +703,7 @@ mod tests {
 
     #[test]
     fn test_invalid_transitions() {
-        use OrchestrationState::*;
+        use OrchestrationState::{Acknowledged, Approved, Fixed, Rejected, Started};
 
         // Invalid paths
         assert!(!Started.can_transition_to(&Approved));

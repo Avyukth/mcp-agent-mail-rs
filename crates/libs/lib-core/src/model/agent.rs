@@ -346,6 +346,59 @@ impl AgentBmc {
         }
     }
 
+    /// Check if a reviewer agent exists for a project.
+    ///
+    /// Used by workers to determine if they should send [COMPLETION] to a reviewer
+    /// or directly to a human (self-review mode).
+    ///
+    /// # Arguments
+    /// * `_ctx` - Request context
+    /// * `mm` - ModelManager providing database access
+    /// * `project_id` - Project database ID
+    ///
+    /// # Returns
+    /// `Some(Agent)` if an agent named "reviewer" exists, `None` otherwise
+    pub async fn check_reviewer_exists(
+        _ctx: &Ctx,
+        mm: &ModelManager,
+        project_id: i64,
+    ) -> Result<Option<Agent>> {
+        let db = mm.db();
+        let stmt = db.prepare(
+            r#"
+            SELECT id, project_id, name, program, model, task_description, inception_ts, last_active_ts, attachments_policy, contact_policy
+            FROM agents WHERE project_id = ? AND LOWER(name) = 'reviewer'
+            "#
+        ).await?;
+        let mut rows = stmt.query([project_id]).await?;
+
+        if let Some(row) = rows.next().await? {
+            let inception_ts_str: String = row.get(6)?;
+            let inception_ts =
+                NaiveDateTime::parse_from_str(&inception_ts_str, "%Y-%m-%d %H:%M:%S")
+                    .unwrap_or_default();
+            let last_active_ts_str: String = row.get(7)?;
+            let last_active_ts =
+                NaiveDateTime::parse_from_str(&last_active_ts_str, "%Y-%m-%d %H:%M:%S")
+                    .unwrap_or_default();
+
+            Ok(Some(Agent {
+                id: row.get(0)?,
+                project_id: row.get(1)?,
+                name: row.get(2)?,
+                program: row.get(3)?,
+                model: row.get(4)?,
+                task_description: row.get(5)?,
+                inception_ts,
+                last_active_ts,
+                attachments_policy: row.get(8)?,
+                contact_policy: row.get(9)?,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
     /// Lists all agents in a project, ordered by name.
     ///
     /// # Arguments

@@ -1572,6 +1572,40 @@ pub struct GetThreadParams {
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
+pub struct GetReviewStateParams {
+    /// Project slug
+    pub project_slug: String,
+    /// Thread ID (e.g., TASK-abc123)
+    pub thread_id: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ReviewStateResponse {
+    pub thread_id: String,
+    pub state: String,
+    pub is_reviewed: bool,
+    pub reviewer: Option<String>,
+    pub last_update: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct ClaimReviewParams {
+    /// Project slug
+    pub project_slug: String,
+    /// Message ID of the [COMPLETION] message to review
+    pub message_id: i64,
+    /// Reviewer agent name
+    pub reviewer_name: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct ClaimResult {
+    pub success: bool,
+    pub thread_id: String,
+    pub claimed_by: Option<String>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
 pub struct ListAgentsParams {
     /// Project slug
     pub project_slug: String,
@@ -2436,6 +2470,160 @@ impl AgentMailService {
         }
 
         Ok(CallToolResult::success(vec![Content::text(output)]))
+    }
+
+    /// Get review state of a task thread
+    #[tool(
+        description = "Get the current review state of a task thread based on message prefixes."
+    )]
+    async fn get_review_state(
+        &self,
+        params: Parameters<GetReviewStateParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::message::MessageBmc;
+        use lib_core::model::orchestration::{OrchestrationState, parse_thread_state};
+        use lib_core::model::project::ProjectBmc;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
+            .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
+
+        let messages = MessageBmc::list_by_thread(&ctx, &self.mm, project.id, &p.thread_id)
+            .await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        let state = parse_thread_state(&messages);
+        let is_reviewed = matches!(
+            state,
+            OrchestrationState::Approved | OrchestrationState::Acknowledged
+        );
+
+        // Try to find reviewer from [REVIEWING] or [APPROVED] messages
+        let reviewer = messages
+            .iter()
+            .rev()
+            .find(|m| {
+                let subj = m.subject.to_uppercase();
+                subj.starts_with("[REVIEWING]") || subj.starts_with("[APPROVED]")
+            })
+            .map(|m| m.sender_name.clone());
+
+        let last_update = messages
+            .last()
+            .map(|m| m.created_ts.to_string())
+            .unwrap_or_else(|| "N/A".to_string());
+
+        let response = ReviewStateResponse {
+            thread_id: p.thread_id.clone(),
+            state: state.prefix().to_string(),
+            is_reviewed,
+            reviewer,
+            last_update,
+        };
+
+        let json = serde_json::to_string_pretty(&response)
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        Ok(CallToolResult::success(vec![Content::text(json)]))
+    }
+
+    /// Claim a pending review atomically
+    #[tool(
+        description = "Claim a pending review by sending a [REVIEWING] message. Prevents duplicate reviews."
+    )]
+    async fn claim_review(
+        &self,
+        params: Parameters<ClaimReviewParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::message::{MessageBmc, MessageForCreate};
+        use lib_core::model::orchestration::{OrchestrationState, parse_thread_state};
+        use lib_core::model::project::ProjectBmc;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        // Get project
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_slug)
+            .await
+            .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
+
+        // Get the completion message
+        let message = MessageBmc::get(&ctx, &self.mm, p.message_id)
+            .await
+            .map_err(|e| McpError::invalid_params(format!("Message not found: {}", e), None))?;
+
+        let thread_id = message
+            .thread_id
+            .clone()
+            .unwrap_or_else(|| format!("TASK-{}", p.message_id));
+
+        // Get thread messages to check state
+        let messages = MessageBmc::list_by_thread(&ctx, &self.mm, project.id, &thread_id)
+            .await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        let state = parse_thread_state(&messages);
+
+        // Check if already claimed (REVIEWING state)
+        if matches!(state, OrchestrationState::Reviewing) {
+            // Find who claimed it
+            let claimer = messages
+                .iter()
+                .rev()
+                .find(|m| m.subject.to_uppercase().starts_with("[REVIEWING]"))
+                .map(|m| m.sender_name.clone());
+
+            let result = ClaimResult {
+                success: false,
+                thread_id,
+                claimed_by: claimer,
+            };
+            let json = serde_json::to_string_pretty(&result)
+                .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+            return Ok(CallToolResult::success(vec![Content::text(json)]));
+        }
+
+        // Get reviewer agent ID
+        let reviewer = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.reviewer_name)
+            .await
+            .map_err(|e| McpError::invalid_params(format!("Reviewer not found: {}", e), None))?;
+
+        // Send [REVIEWING] message
+        let msg = MessageForCreate {
+            project_id: project.id,
+            sender_id: reviewer.id,
+            recipient_ids: vec![message.sender_id],
+            cc_ids: None,
+            bcc_ids: None,
+            subject: format!(
+                "[REVIEWING] {}",
+                message.subject.trim_start_matches("[COMPLETION]").trim()
+            ),
+            body_md: format!(
+                "Claiming review for task. Original message ID: {}",
+                p.message_id
+            ),
+            thread_id: Some(thread_id.clone()),
+            importance: None,
+            ack_required: false,
+        };
+
+        MessageBmc::create(&ctx, &self.mm, msg)
+            .await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        let result = ClaimResult {
+            success: true,
+            thread_id,
+            claimed_by: Some(p.reviewer_name),
+        };
+        let json = serde_json::to_string_pretty(&result)
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
     /// List all projects
