@@ -36,7 +36,7 @@ pub struct UnifiedInboxMessage {
     pub thread_id: Option<String>,
 }
 
-/// GET /mail/api/unified-inbox
+/// GET /api/unified-inbox
 ///
 /// Returns messages from all projects, optionally filtered by importance.
 pub async fn unified_inbox_json(

@@ -362,7 +362,7 @@ pub async fn send_message(
     }
 }
 
-/// Unified inbox message (from GET /mail/api/unified-inbox).
+/// Unified inbox message (from GET /api/unified-inbox).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct UnifiedInboxMessage {
     pub id: i64,
@@ -382,7 +382,7 @@ pub async fn get_unified_inbox(
     importance: Option<&str>,
     limit: Option<i32>,
 ) -> Result<Vec<UnifiedInboxMessage>, ApiError> {
-    let mut url = format!("{}/mail/api/unified-inbox", API_BASE_URL);
+    let mut url = format!("{}/api/unified-inbox", API_BASE_URL);
 
     let mut params = Vec::new();
     if let Some(imp) = importance {

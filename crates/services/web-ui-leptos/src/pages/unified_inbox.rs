@@ -1,5 +1,5 @@
 //! Unified Inbox page - Gmail-style view of ALL messages across ALL projects.
-//! Uses the /mail/api/unified-inbox API from s0j task.
+//! Uses the /api/unified-inbox endpoint.
 //!
 //! Features:
 //! - SplitViewLayout for Gmail-style two-column view on desktop
