@@ -217,6 +217,7 @@ fn sanitize_error_message(error: &lib_core::Error) -> String {
         lib_core::Error::Io(_) => "File operation failed".to_string(),
         lib_core::Error::LockTimeout { .. } => "Lock acquisition timed out".to_string(),
         lib_core::Error::Validation(ve) => ve.to_string(),
+        lib_core::Error::Image(_) => "Image processing failed".to_string(),
     }
 }
 
@@ -249,6 +250,7 @@ fn map_core_error_to_status(error: &lib_core::Error) -> StatusCode {
         }
 
         lib_core::Error::Validation(_) => StatusCode::BAD_REQUEST,
+        lib_core::Error::Image(_) => StatusCode::BAD_REQUEST,
     }
 }
 
@@ -281,6 +283,8 @@ fn map_core_error_to_code(error: &lib_core::Error) -> ErrorCode {
         lib_core::Error::Git2(_) | lib_core::Error::Io(_) | lib_core::Error::LockTimeout { .. } => {
             ErrorCode::InternalError
         }
+
+        lib_core::Error::Image(_) => ErrorCode::ValidationError,
     }
 }
 
