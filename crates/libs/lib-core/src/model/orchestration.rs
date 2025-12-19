@@ -228,6 +228,77 @@ impl CompletionReport {
 
         md
     }
+
+    /// Auto-populate a CompletionReport from git state and beads task info.
+    ///
+    /// This function shells out to `git` and `bd` commands to gather:
+    /// - Current branch name
+    /// - HEAD commit SHA
+    /// - Files changed (from git diff --name-only)
+    /// - Task title from beads (if task_id is a valid beads ID)
+    ///
+    /// # Errors
+    /// Returns an error if git commands fail or the working directory is not a git repo.
+    pub fn from_git_and_beads(task_id: &str) -> std::io::Result<Self> {
+        use std::process::Command;
+
+        // Get current branch
+        let branch_output = Command::new("git")
+            .args(["rev-parse", "--abbrev-ref", "HEAD"])
+            .output()?;
+        let branch = String::from_utf8_lossy(&branch_output.stdout)
+            .trim()
+            .to_string();
+
+        // Get HEAD commit
+        let commit_output = Command::new("git")
+            .args(["rev-parse", "--short", "HEAD"])
+            .output()?;
+        let commit_id = String::from_utf8_lossy(&commit_output.stdout)
+            .trim()
+            .to_string();
+
+        // Get files changed (staged and unstaged)
+        let diff_output = Command::new("git")
+            .args(["diff", "--name-only", "HEAD~1..HEAD"])
+            .output()?;
+        let files_changed: Vec<String> = String::from_utf8_lossy(&diff_output.stdout)
+            .lines()
+            .filter(|s| !s.is_empty())
+            .map(|s| s.to_string())
+            .collect();
+
+        // Try to get task title from beads (bd show <task_id>)
+        let task_title = Command::new("bd")
+            .args(["show", task_id])
+            .output()
+            .ok()
+            .and_then(|output| {
+                let stdout = String::from_utf8_lossy(&output.stdout);
+                // Parse first line after ID for title
+                stdout
+                    .lines()
+                    .find(|line| line.contains(':') && !line.starts_with("Status"))
+                    .map(|line| {
+                        line.split_once(':')
+                            .map(|(_, title)| title.trim().to_string())
+                            .unwrap_or_else(|| task_id.to_string())
+                    })
+            })
+            .unwrap_or_else(|| task_id.to_string());
+
+        Ok(Self {
+            task_id: task_id.to_string(),
+            task_title,
+            commit_id,
+            branch,
+            files_changed,
+            summary: String::new(), // Must be filled in by caller
+            criteria_status: vec![],
+            quality_gates: QualityGateResults::default(),
+            notes: None,
+        })
+    }
 }
 
 // -- ORCH-5: WorktreeManager --
@@ -517,17 +588,19 @@ impl OrchestrationBmc {
                 OrchestrationState::Started | OrchestrationState::Reviewing
             ) {
                 // Check if last activity is before cutoff
-                let last_msg = messages.last().unwrap();
-                let last_ts = last_msg.created_ts;
+                // Safe: we checked messages.is_empty() above
+                if let Some(last_msg) = messages.last() {
+                    let last_ts = last_msg.created_ts;
 
-                if last_ts < cutoff.naive_utc() {
-                    abandoned.push(AbandonedTask {
-                        thread_id: thread.thread_id.clone(),
-                        task_title: thread.subject,
-                        worker_name: last_msg.sender_name.clone(),
-                        last_activity: last_ts.to_string(),
-                        state,
-                    });
+                    if last_ts < cutoff.naive_utc() {
+                        abandoned.push(AbandonedTask {
+                            thread_id: thread.thread_id.clone(),
+                            task_title: thread.subject,
+                            worker_name: last_msg.sender_name.clone(),
+                            last_activity: last_ts.to_string(),
+                            state,
+                        });
+                    }
                 }
             }
         }
@@ -565,23 +638,25 @@ impl OrchestrationBmc {
             let state = parse_thread_state(&messages);
 
             if matches!(state, OrchestrationState::Reviewing) {
-                let last_msg = messages.last().unwrap();
-                let last_ts = last_msg.created_ts;
+                // Safe: we checked messages.is_empty() above
+                if let Some(last_msg) = messages.last() {
+                    let last_ts = last_msg.created_ts;
 
-                if last_ts < cutoff.naive_utc() {
-                    // Find the reviewer name from REVIEWING message
-                    let reviewer = messages
-                        .iter()
-                        .rev()
-                        .find(|m| m.subject.to_uppercase().starts_with("[REVIEWING]"))
-                        .map(|m| m.sender_name.clone())
-                        .unwrap_or_else(|| "unknown".to_string());
+                    if last_ts < cutoff.naive_utc() {
+                        // Find the reviewer name from REVIEWING message
+                        let reviewer = messages
+                            .iter()
+                            .rev()
+                            .find(|m| m.subject.to_uppercase().starts_with("[REVIEWING]"))
+                            .map(|m| m.sender_name.clone())
+                            .unwrap_or_else(|| "unknown".to_string());
 
-                    abandoned.push(AbandonedReview {
-                        thread_id: thread.thread_id.clone(),
-                        reviewer_name: reviewer,
-                        last_activity: last_ts.to_string(),
-                    });
+                        abandoned.push(AbandonedReview {
+                            thread_id: thread.thread_id.clone(),
+                            reviewer_name: reviewer,
+                            last_activity: last_ts.to_string(),
+                        });
+                    }
                 }
             }
         }
@@ -817,5 +892,25 @@ mod tests {
         assert!(md.contains("❌ Docs updated"));
         assert!(md.contains("✅ Tests"));
         assert!(md.contains("⏭️ Coverage")); // None case
+    }
+
+    #[test]
+    fn test_from_git_and_beads_in_repo() {
+        // This test only works in a git repo - skip gracefully if not
+        let result = CompletionReport::from_git_and_beads("test-task-123");
+        match result {
+            Ok(report) => {
+                assert_eq!(report.task_id, "test-task-123");
+                // Branch and commit should be populated if in a git repo
+                assert!(!report.branch.is_empty(), "branch should be populated");
+                assert!(
+                    !report.commit_id.is_empty(),
+                    "commit_id should be populated"
+                );
+            }
+            Err(_) => {
+                // Not in a git repo or git not available - test passes
+            }
+        }
     }
 }

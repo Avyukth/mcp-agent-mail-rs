@@ -104,3 +104,11 @@ Use this file to record completed beads work in a consistent, auditable format. 
   Files: crates/services/web-ui-leptos/src/components/overseer_composer.rs, crates/services/web-ui-leptos/src/components/mod.rs
   Tests: cargo check -p web-ui-leptos; cargo fmt --check; cargo clippy -p web-ui-leptos
 
+- Beads ID: mcp-agent-mail-rs-r3a9, q434, okgk, 2iyu, 93fx, hij6, qqjw, ppp4
+  Commit ID: a071515, d6193b8
+  Title: ORCH-1 through ORCH-8: Multi-Agent Orchestration System
+  Date: 2025-12-20
+  Agent: Antigravity
+  Summary: Implemented orchestration state machine (OrchestrationState enum with 7 states), CompletionReport struct, get_review_state and claim_review MCP tools, check_reviewer_exists helper, WorktreeManager for sandboxing, QualityGateRunner for cargo gates, and OrchestrationBmc for crash recovery.
+  Files: crates/libs/lib-core/src/model/orchestration.rs, crates/libs/lib-core/src/model/agent.rs, crates/libs/lib-mcp/src/tools.rs
+  Tests: cargo test -p lib-core --lib orchestration (13 tests pass)
