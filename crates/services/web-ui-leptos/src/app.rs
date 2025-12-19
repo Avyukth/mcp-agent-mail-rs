@@ -25,6 +25,7 @@ pub fn App() -> impl IntoView {
                     <Route path=path!("mail") view=UnifiedInbox />
                     <Route path=path!("mail/unified") view=UnifiedInbox />
                     <Route path=path!("mail/unified-inbox") view=UnifiedInbox />
+                    <Route path=path!("thread/:id") view=ThreadView />
                 </ParentRoute>
             </Routes>
         </Router>
