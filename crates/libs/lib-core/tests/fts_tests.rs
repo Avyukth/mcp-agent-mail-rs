@@ -4,15 +4,21 @@ use lib_core::model::ModelManager;
 use lib_core::model::agent::{AgentBmc, AgentForCreate};
 use lib_core::model::message::{MessageBmc, MessageForCreate};
 use lib_core::model::project::ProjectBmc;
+use serial_test::serial;
 
 // --- Test Setup Helper ---
 async fn create_test_mm() -> ModelManager {
     // In-memory DB with migrations
+    // FTS tables created automatically by migrations in ModelManager::new()
     ModelManager::new().await.unwrap()
 }
 
 async fn setup_project_and_agent(ctx: &Ctx, mm: &ModelManager, suffix: &str) -> (i64, i64) {
-    let p_slug = format!("fts-proj-{}", suffix);
+    // Start with "ftsproj-" so it is slug-safe (lowercase, etc)
+    // Avoid underscores in slug usually, but uuid has hyphens.
+    let random_id = uuid::Uuid::new_v4().to_string();
+    let p_slug = format!("ftsproj-{}-{}", suffix, random_id);
+    // human_key can be anything
     let p_id = ProjectBmc::create(ctx, mm, &p_slug, "FTS Project")
         .await
         .unwrap();
@@ -35,6 +41,7 @@ async fn setup_project_and_agent(ctx: &Ctx, mm: &ModelManager, suffix: &str) -> 
 }
 
 #[tokio::test]
+#[serial]
 async fn test_fts_wildcard_search() -> Result<()> {
     let mm = create_test_mm().await;
     let ctx = Ctx::root_ctx();
@@ -50,8 +57,8 @@ async fn test_fts_wildcard_search() -> Result<()> {
             recipient_ids: vec![],
             cc_ids: None,
             bcc_ids: None,
-            subject: "The quick brown fox".to_string(),
-            body_md: "Jumps over the lazy dog".to_string(),
+            subject: "Test Message".to_string(),
+            body_md: "The quick brown fox jumps over the lazy dog".to_string(),
             thread_id: None,
             importance: None,
             ack_required: false,
@@ -69,19 +76,24 @@ async fn test_fts_wildcard_search() -> Result<()> {
     let res2 = MessageBmc::search(&ctx, &mm, p_id, "\"brown fox\"", 10).await?;
     assert_eq!(res2.len(), 1, "Should match phrase \"brown fox\"");
 
+    // 4. Leading wildcard (FTS5 syntax error typically)
+    // We want to return empty (graceful) instead of error
+    let res3 = MessageBmc::search(&ctx, &mm, p_id, "*dog", 10).await;
+    // Assertion: Should be Ok(empty) or Ok(results) if supported, but NOT Err
+    assert!(res3.is_ok(), "Should handle '*dog' gracefully (no crash)");
+
     Ok(())
 }
 
 #[tokio::test]
+#[serial]
 async fn test_fts_malformed_query_graceful() -> Result<()> {
     let mm = create_test_mm().await;
     let ctx = Ctx::root_ctx();
     let (p_id, _) = setup_project_and_agent(&ctx, &mm, "err").await;
 
     // Unclosed quote - FTS5 throws error if passed raw
-    // We want graceful empty result (or handled error, but preferably empty as per python logic)
-    // Currently passes because we quote it, making it valid literal.
-    // When we fix wildcards (unquote), this will likely bubble an error if not handled.
+    // We want graceful empty result
     let res = MessageBmc::search(&ctx, &mm, p_id, "\"unclosed phrase", 10).await;
 
     // We expect OK (handled) and empty

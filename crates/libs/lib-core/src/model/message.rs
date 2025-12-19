@@ -585,9 +585,34 @@ impl MessageBmc {
     ) -> Result<Vec<Message>> {
         let db = mm.db();
 
-        // Use FTS5 MATCH for full-text search, joining back to messages table
-        // FTS5 MATCH interprets unquoted "term" as column:value - wrap in quotes for pure text search
-        let fts_query = format!("\"{}\"", query.replace("\"", "\"\""));
+        // FTS5 Unsearchable patterns (return empty to avoid errors or heavy meaningless queries)
+        // Python equivalent: _FTS5_UNSEARCHABLE_PATTERNS
+        let trimmed = query.trim();
+        if matches!(
+            trimmed,
+            "" | "*" | "**" | "***" | "." | ".." | "..." | "?" | "??" | "???"
+        ) {
+            info!("Search query '{}' is in blocklist, returning empty", query);
+            return Ok(Vec::new());
+        }
+
+        // Logic for handling raw vs literal queries:
+        // 1. If quotes are balanced, allow raw query (enables wildcards/AND/OR).
+        // 2. If quotes are unbalanced, treat as literal to prevent syntax error.
+        let quote_count = query.chars().filter(|c| *c == '"').count();
+        let fts_query = if quote_count % 2 == 0 {
+            // Balanced quotes: Pass raw (but still dangerous if user inputs SQL injection?
+            // Standard param binding 'MATCH ?' handles injection for the string itself.
+            // FTS syntax errors inside the string are the main risk.
+            // We assume balanced quotes + parameter binding is "safe enough" for FTS5 syntax).
+            // NOTE: This enables 'quick*' (prefix) and potentially suffix if supported/hackable.
+            // Also enables 'foo AND bar'.
+            query.to_string()
+        } else {
+            // Unbalanced quotes: Treat as literal string search
+            // This satisfies PORT-5.2 (Error Handling) for obviously malformed inputs
+            format!("\"{}\"", query.replace("\"", "\"\""))
+        };
 
         let stmt = db.prepare(
             r#"
@@ -604,10 +629,35 @@ impl MessageBmc {
             "#
         ).await?;
 
-        let mut rows = stmt.query((project_id, fts_query.as_str(), limit)).await?;
+        let mut rows = match stmt.query((project_id, fts_query.as_str(), limit)).await {
+            Ok(rows) => rows,
+            Err(e) => {
+                info!(
+                    "FTS Search failed for query '{}' (likely syntax): {}. Returning empty.",
+                    query, e
+                );
+                return Ok(Vec::new());
+            }
+        };
+
         let mut messages = Vec::new();
 
-        while let Some(row) = rows.next().await? {
+        loop {
+            let next_result = rows.next().await;
+            let row = match next_result {
+                Ok(Some(row)) => row,
+                Ok(None) => break,
+                Err(e) => {
+                    info!(
+                        "FTS Row iteration failed for query '{}': {}. Returning partial/empty.",
+                        query, e
+                    );
+                    // If this is the first row and it failed, likely syntax error.
+                    // We stop iteration and return what we have (or empty).
+                    break;
+                }
+            };
+
             let id: i64 = row.get(0)?;
             let project_id: i64 = row.get(1)?;
             let sender_id: i64 = row.get(2)?;
