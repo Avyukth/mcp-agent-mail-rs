@@ -57,6 +57,7 @@ mod tests {
             "projects/:slug",
             "projects/:slug/file-reservations",
             "agents",
+            "attachments",
             "inbox",
             "inbox/:id",
             "mail",
@@ -67,5 +68,6 @@ mod tests {
         assert!(routes.contains(&"mail"));
         assert!(routes.contains(&"mail/unified"));
         assert!(routes.contains(&"mail/unified-inbox"));
+        assert!(routes.contains(&"attachments"));
     }
 }

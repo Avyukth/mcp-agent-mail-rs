@@ -550,7 +550,12 @@ pub struct Attachment {
 impl Attachment {
     /// Get file type category for icon display.
     pub fn file_type_category(&self) -> &'static str {
-        let ext = self.filename.rsplit('.').next().unwrap_or("").to_lowercase();
+        let ext = self
+            .filename
+            .rsplit('.')
+            .next()
+            .unwrap_or("")
+            .to_lowercase();
         match ext.as_str() {
             "jpg" | "jpeg" | "png" | "gif" | "webp" | "svg" | "bmp" => "image",
             "pdf" => "pdf",

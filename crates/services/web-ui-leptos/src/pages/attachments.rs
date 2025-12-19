@@ -4,10 +4,7 @@
 //! filtering, sorting, and download functionality.
 
 use crate::api::client::{self, Attachment, Project};
-use crate::components::{
-    Button, ButtonSize, ButtonVariant, Card, CardContent, CardHeader, CardTitle, Select,
-    SelectOption, Skeleton,
-};
+use crate::components::{Card, CardContent, Select, SelectOption, Skeleton};
 use leptos::prelude::*;
 use leptos_router::hooks::use_query_map;
 
@@ -46,7 +43,7 @@ impl AttachmentSort {
         }
     }
 
-    fn to_str(&self) -> &'static str {
+    fn as_str(self) -> &'static str {
         match self {
             Self::DateDesc => "date_desc",
             Self::DateAsc => "date_asc",
@@ -57,12 +54,26 @@ impl AttachmentSort {
         }
     }
 
+    /// Returns all sort variants for building options.
+    fn all() -> [Self; 6] {
+        [
+            Self::DateDesc,
+            Self::DateAsc,
+            Self::NameAsc,
+            Self::NameDesc,
+            Self::SizeDesc,
+            Self::SizeAsc,
+        ]
+    }
+
     fn sort(&self, attachments: &mut [Attachment]) {
         match self {
             Self::DateDesc => attachments.sort_by(|a, b| b.created_ts.cmp(&a.created_ts)),
             Self::DateAsc => attachments.sort_by(|a, b| a.created_ts.cmp(&b.created_ts)),
-            Self::NameAsc => attachments.sort_by(|a, b| a.filename.to_lowercase().cmp(&b.filename.to_lowercase())),
-            Self::NameDesc => attachments.sort_by(|a, b| b.filename.to_lowercase().cmp(&a.filename.to_lowercase())),
+            Self::NameAsc => attachments
+                .sort_by(|a, b| a.filename.to_lowercase().cmp(&b.filename.to_lowercase())),
+            Self::NameDesc => attachments
+                .sort_by(|a, b| b.filename.to_lowercase().cmp(&a.filename.to_lowercase())),
             Self::SizeDesc => attachments.sort_by(|a, b| b.size_bytes.cmp(&a.size_bytes)),
             Self::SizeAsc => attachments.sort_by(|a, b| a.size_bytes.cmp(&b.size_bytes)),
         }
@@ -71,10 +82,7 @@ impl AttachmentSort {
 
 /// Attachment card component for grid display.
 #[component]
-fn AttachmentCard(
-    attachment: Attachment,
-    project_slug: String,
-) -> impl IntoView {
+fn AttachmentCard(attachment: Attachment, project_slug: String) -> impl IntoView {
     let download_url = client::attachment_download_url(attachment.id, &project_slug);
     let icon = attachment.icon_name();
     let file_type = attachment.file_type_category();
@@ -192,9 +200,8 @@ pub fn Attachments() -> impl IntoView {
     let error = RwSignal::new(Option::<String>::None);
 
     // Filters
-    let selected_project = RwSignal::new(
-        query.with_untracked(|q| q.get("project").unwrap_or_default())
-    );
+    let selected_project =
+        RwSignal::new(query.with_untracked(|q| q.get("project").unwrap_or_default()));
     let sort_value = RwSignal::new("date_desc".to_string());
 
     // Sync sort_value to sort_order
@@ -250,21 +257,20 @@ pub fn Attachments() -> impl IntoView {
     // Build project options
     let project_options = Signal::derive(move || {
         let mut opts: Vec<SelectOption> = vec![SelectOption::new("", "Select Project...")];
-        opts.extend(projects.get().iter().map(|p| {
-            SelectOption::new(p.slug.clone(), p.slug.clone())
-        }));
+        opts.extend(
+            projects
+                .get()
+                .iter()
+                .map(|p| SelectOption::new(p.slug.clone(), p.slug.clone())),
+        );
         opts
     });
 
-    // Sort options
-    let sort_options: Vec<SelectOption> = vec![
-        SelectOption::new("date_desc", "Newest First"),
-        SelectOption::new("date_asc", "Oldest First"),
-        SelectOption::new("name_asc", "Name A-Z"),
-        SelectOption::new("name_desc", "Name Z-A"),
-        SelectOption::new("size_desc", "Largest First"),
-        SelectOption::new("size_asc", "Smallest First"),
-    ];
+    // Sort options - generated from enum to stay DRY
+    let sort_options: Vec<SelectOption> = AttachmentSort::all()
+        .into_iter()
+        .map(|s| SelectOption::new(s.as_str(), s.label()))
+        .collect();
 
     view! {
         <div class="space-y-6">
@@ -352,13 +358,35 @@ mod tests {
 
     #[test]
     fn test_attachment_sort_from_str() {
-        assert_eq!(AttachmentSort::from_str("date_desc"), AttachmentSort::DateDesc);
-        assert_eq!(AttachmentSort::from_str("name_asc"), AttachmentSort::NameAsc);
-        assert_eq!(AttachmentSort::from_str("invalid"), AttachmentSort::DateDesc);
+        assert_eq!(
+            AttachmentSort::from_str("date_desc"),
+            AttachmentSort::DateDesc
+        );
+        assert_eq!(
+            AttachmentSort::from_str("name_asc"),
+            AttachmentSort::NameAsc
+        );
+        assert_eq!(
+            AttachmentSort::from_str("invalid"),
+            AttachmentSort::DateDesc
+        );
     }
 
     #[test]
-    fn test_attachment_sort_to_str() {
-        assert_eq!(AttachmentSort::SizeDesc.to_str(), "size_desc");
+    fn test_attachment_sort_as_str() {
+        assert_eq!(AttachmentSort::SizeDesc.as_str(), "size_desc");
+    }
+
+    #[test]
+    fn test_attachment_sort_label() {
+        assert_eq!(AttachmentSort::DateDesc.label(), "Newest First");
+        assert_eq!(AttachmentSort::NameAsc.label(), "Name A-Z");
+    }
+
+    #[test]
+    fn test_attachment_sort_all() {
+        let all = AttachmentSort::all();
+        assert_eq!(all.len(), 6);
+        assert_eq!(all[0], AttachmentSort::DateDesc);
     }
 }

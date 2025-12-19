@@ -75,6 +75,7 @@ pub fn Layout() -> impl IntoView {
                                 <NavLink href="/agents" label="Agents" icon="bot" />
                                 <NavLink href="/inbox" label="Inbox" icon="inbox" />
                                 <NavLink href="/mail/unified" label="All Mail" icon="layers" />
+                                <NavLink href="/attachments" label="Files" icon="paperclip" />
                             </div>
                         </div>
 
@@ -235,6 +236,7 @@ mod tests {
             ("Agents", "bot"),
             ("Inbox", "inbox"),
             ("All Mail", "layers"),
+            ("Files", "paperclip"),
         ];
 
         for (label, icon) in nav_items {
@@ -246,7 +248,14 @@ mod tests {
     #[test]
     fn test_nav_links_have_valid_hrefs() {
         // All navigation hrefs should start with /
-        let hrefs = ["/", "/projects", "/agents", "/inbox", "/mail/unified"];
+        let hrefs = [
+            "/",
+            "/projects",
+            "/agents",
+            "/inbox",
+            "/mail/unified",
+            "/attachments",
+        ];
         for href in hrefs {
             assert!(href.starts_with('/'), "Href '{}' should start with /", href);
         }
