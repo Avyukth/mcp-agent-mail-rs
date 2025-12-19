@@ -1546,4 +1546,67 @@ mod tests {
         assert!(temp_dir.path().join(&paths.canonical).exists());
         assert!(temp_dir.path().join(&paths.outbox).exists());
     }
+
+    // ============================================================================
+    // FTS Query Escaping Tests
+    // ============================================================================
+
+    /// Helper to simulate FTS query escaping logic from MessageBmc::search
+    fn escape_fts_query(query: &str) -> String {
+        let quote_count = query.chars().filter(|c| *c == '"').count();
+        let has_fts_operators = query.contains(" AND ")
+            || query.contains(" OR ")
+            || query.contains(" NOT ")
+            || query.contains('*');
+
+        if quote_count % 2 != 0 {
+            format!("\"{}\"", query.replace('"', "\"\""))
+        } else if has_fts_operators || query.starts_with('"') {
+            query.to_string()
+        } else {
+            query
+                .split_whitespace()
+                .map(|word| {
+                    if word.contains('-') && !word.starts_with('"') {
+                        format!("\"{}\"", word)
+                    } else {
+                        word.to_string()
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join(" ")
+        }
+    }
+
+    #[test]
+    fn test_fts_query_escapes_hyphens() {
+        // "full-text search" should NOT be interpreted as "full AND NOT text AND search"
+        // FTS5 treats hyphen as NOT operator by default
+        let escaped = escape_fts_query("full-text search");
+        assert_eq!(escaped, "\"full-text\" search");
+
+        // Multiple hyphenated words
+        let escaped2 = escape_fts_query("real-time data-driven");
+        assert_eq!(escaped2, "\"real-time\" \"data-driven\"");
+    }
+
+    #[test]
+    fn test_fts_query_preserves_operators() {
+        // Explicit FTS operators should be preserved
+        assert_eq!(escape_fts_query("full AND text"), "full AND text");
+        assert_eq!(escape_fts_query("search*"), "search*");
+    }
+
+    #[test]
+    fn test_fts_query_handles_phrases() {
+        // Quoted phrases should be preserved
+        assert_eq!(escape_fts_query("\"exact phrase\""), "\"exact phrase\"");
+    }
+
+    #[test]
+    fn test_fts_query_escapes_unbalanced_quotes() {
+        // Unbalanced quotes should be escaped
+        let escaped = escape_fts_query("\"unclosed phrase");
+        assert!(escaped.starts_with('"') && escaped.ends_with('"'));
+    }
 }
