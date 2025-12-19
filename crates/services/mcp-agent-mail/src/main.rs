@@ -2,6 +2,7 @@ use clap::{Args, Parser, Subcommand};
 use lib_common::config::AppConfig;
 use lib_mcp::{docs::generate_markdown_docs, run_sse, run_stdio, tools::get_tool_schemas};
 use std::io::Write;
+use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 use tracing::info;
 
@@ -122,6 +123,77 @@ fn load_config() -> AppConfig {
     })
 }
 
+// ============================================================================
+// Port Validation (PORT-6.3)
+// ============================================================================
+
+/// Error returned when a port is unavailable.
+#[derive(Debug)]
+pub struct PortInUseError {
+    pub port: u16,
+    pub suggestion: String,
+}
+
+impl std::fmt::Display for PortInUseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Port {} is already in use.\n\n{}\n",
+            self.port, self.suggestion
+        )
+    }
+}
+
+impl std::error::Error for PortInUseError {}
+
+/// Validate that a port is available for binding.
+///
+/// Attempts to bind to the port briefly to check availability.
+/// Returns Ok(()) if the port is available, or a helpful error if not.
+///
+/// # Arguments
+/// * `port` - The port number to validate
+///
+/// # Returns
+/// * `Ok(())` - Port is available
+/// * `Err(PortInUseError)` - Port is in use, with helpful suggestions
+pub fn validate_port(port: u16) -> Result<(), PortInUseError> {
+    let addr = format!("127.0.0.1:{}", port);
+
+    match TcpListener::bind(&addr) {
+        Ok(_listener) => {
+            // Port is available - listener will be dropped and port released
+            Ok(())
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
+            let alt_port = if port < 65535 { port + 1 } else { port - 1 };
+
+            let suggestion = format!(
+                "To find what's using port {}:\n\
+                 \x20 lsof -i :{}\n\n\
+                 To kill the process:\n\
+                 \x20 lsof -ti :{} | xargs kill\n\n\
+                 Or use an alternative port:\n\
+                 \x20 mcp-agent-mail serve http --port {}",
+                port, port, port, alt_port
+            );
+
+            Err(PortInUseError { port, suggestion })
+        }
+        Err(e) => {
+            // Other errors (permission denied, etc.)
+            let suggestion = format!(
+                "Failed to bind to port {}: {}\n\n\
+                 Try running with a different port:\n\
+                 \x20 mcp-agent-mail serve http --port 8766",
+                port, e
+            );
+
+            Err(PortInUseError { port, suggestion })
+        }
+    }
+}
+
 async fn handle_serve_http(
     port: Option<u16>,
     with_ui: bool,
@@ -133,7 +205,14 @@ async fn handle_serve_http(
     }
     // --no-ui takes precedence, otherwise use --with-ui value
     config.server.serve_ui = !no_ui && with_ui;
-    info!("Starting HTTP Server...");
+
+    // Validate port availability before starting server
+    if let Err(e) = validate_port(config.server.port) {
+        eprintln!("\n{}", e);
+        std::process::exit(1);
+    }
+
+    info!("Starting HTTP Server on port {}...", config.server.port);
     lib_server::run(config.server).await?;
     Ok(())
 }
