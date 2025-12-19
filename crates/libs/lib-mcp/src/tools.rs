@@ -4169,15 +4169,15 @@ impl AgentMailService {
         let mut conflicts = Vec::new();
 
         for path in p.paths {
-            // Check conflicts
+            // Check conflicts using glob pattern matching
             for res in &active_reservations {
                 if res.agent_id != agent.id
                     && (res.exclusive || p.exclusive)
-                    && res.path_pattern == path
+                    && lib_core::utils::pathspec::paths_conflict(&res.path_pattern, &path)
                 {
                     conflicts.push(format!(
-                        "Conflict: {} (held by agent ID {}, expires: {})",
-                        res.path_pattern, res.agent_id, res.expires_ts
+                        "Conflict: {} overlaps with {} (held by agent ID {}, expires: {})",
+                        path, res.path_pattern, res.agent_id, res.expires_ts
                     ));
                 }
             }

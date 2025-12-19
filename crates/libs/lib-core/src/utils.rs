@@ -43,3 +43,6 @@ pub mod mistake_detection;
 
 /// Image processing and validation helpers (PORT-7.3).
 pub mod image_processing;
+
+/// Git pathspec matching utilities for file reservation conflict detection.
+pub mod pathspec;
