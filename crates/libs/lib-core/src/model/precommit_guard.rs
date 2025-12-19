@@ -106,11 +106,11 @@ impl PrecommitGuardBmc {
     ///
     /// # Example
     ///
-    /// ```
+    /// ```no_run
+    /// # // Note: Uses env vars which require unsafe in Rust 2024 edition
     /// # use lib_core::model::precommit_guard::PrecommitGuardBmc;
-    /// std::env::set_var("WORKTREES_ENABLED", "1");
+    /// // With WORKTREES_ENABLED=1, should_check() returns true
     /// assert!(PrecommitGuardBmc::should_check());
-    /// std::env::remove_var("WORKTREES_ENABLED");
     /// ```
     pub fn should_check() -> bool {
         worktrees_active()

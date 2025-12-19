@@ -10,7 +10,7 @@ pub use tools::{
     UnregisterMacroParams,
 };
 
-pub async fn run_stdio(_config: McpConfig) -> Result<()> {
+pub async fn run_stdio(config: McpConfig) -> Result<()> {
     // Initializing logging to stderr is crucial for MCP stdio transport
     // This might be already handled by the caller (unified binary), but stdio mode specifically
     // requires logs to go to stderr. The unified binary setup_tracing usually does this if not json.
@@ -21,8 +21,9 @@ pub async fn run_stdio(_config: McpConfig) -> Result<()> {
 
     tracing::info!("Starting MCP Agent Mail server (stdio mode)...");
 
-    // Initialize the service
-    let service = AgentMailService::new().await?;
+    // Initialize the service with worktrees config
+    let worktrees_enabled = config.worktrees_active();
+    let service = AgentMailService::new_with_config(worktrees_enabled).await?;
 
     // Run over stdio
     let transport = (stdin(), stdout());
@@ -55,22 +56,23 @@ pub async fn run_sse(config: McpConfig) -> Result<()> {
     let session_manager = Arc::new(LocalSessionManager::default());
 
     // Configure the HTTP server
-    let config = StreamableHttpServerConfig::default();
+    let worktrees_enabled = config.worktrees_active();
+    let server_config = StreamableHttpServerConfig::default();
 
     // Create a service factory that creates a new AgentMailService for each connection
-    let service_factory = || {
+    let service_factory = move || {
         // Note: AgentMailService::new() is async but the factory needs to be sync
         // We'll use a blocking approach here for simplicity, or handle via tokio::spawn if structure allows
         let rt = tokio::runtime::Handle::current();
         rt.block_on(async {
-            AgentMailService::new()
+            AgentMailService::new_with_config(worktrees_enabled)
                 .await
                 .map_err(|e| std::io::Error::other(e.to_string()))
         })
     };
 
     // Create the StreamableHttpService (tower-compatible)
-    let mcp_service = StreamableHttpService::new(service_factory, session_manager, config);
+    let mcp_service = StreamableHttpService::new(service_factory, session_manager, server_config);
 
     tracing::info!("HTTP/SSE MCP endpoints:");
     tracing::info!("  - POST http://{}/mcp (for tool calls)", addr);
@@ -115,6 +117,10 @@ async fn shutdown_signal() {
     tracing::info!("Signal received, starting graceful shutdown");
 }
 
-pub fn get_tool_schemas() -> Vec<tools::ToolSchema> {
-    tools::get_tool_schemas()
+/// Get tool schemas, conditionally filtering build slot tools.
+///
+/// When `worktrees_enabled` is false, build slot tools (acquire, release, renew)
+/// are excluded from the returned list.
+pub fn get_tool_schemas(worktrees_enabled: bool) -> Vec<tools::ToolSchema> {
+    tools::get_tool_schemas(worktrees_enabled)
 }

@@ -32,13 +32,21 @@ fn create_mcp_service(mm: ModelManager) -> StreamableHttpService<AgentMailServic
     // Configure the HTTP server
     let config = StreamableHttpServerConfig::default();
 
+    // Check if worktrees/build-slot tools are enabled via environment
+    let worktrees_enabled = std::env::var("WORKTREES_ENABLED")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false)
+        || std::env::var("GIT_IDENTITY_ENABLED")
+            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false);
+
     // Wrap ModelManager in Arc for sharing across connections
     let mm = Arc::new(mm);
 
     // Create a service factory that creates a new AgentMailService for each connection.
     // Uses the shared ModelManager to avoid migration conflicts.
     let service_factory = move || -> Result<AgentMailService, std::io::Error> {
-        Ok(AgentMailService::new_with_mm(mm.clone()))
+        Ok(AgentMailService::new_with_mm(mm.clone(), worktrees_enabled))
     };
 
     // Create the StreamableHttpService (tower-compatible)

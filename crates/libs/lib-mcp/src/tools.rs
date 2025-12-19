@@ -45,8 +45,25 @@ pub struct ParameterSchema {
     pub description: String,
 }
 
+/// Names of build slot tools (conditional on worktrees_enabled)
+const BUILD_SLOT_TOOLS: &[&str] = &[
+    "acquire_build_slot",
+    "release_build_slot",
+    "renew_build_slot",
+];
+
 /// Get schema information for all tools
-pub fn get_tool_schemas() -> Vec<ToolSchema> {
+///
+/// When `worktrees_enabled` is false, build slot tools are excluded from the list.
+pub fn get_tool_schemas(worktrees_enabled: bool) -> Vec<ToolSchema> {
+    get_all_tool_schemas()
+        .into_iter()
+        .filter(|schema| worktrees_enabled || !BUILD_SLOT_TOOLS.contains(&schema.name.as_str()))
+        .collect()
+}
+
+/// Get all tool schemas regardless of configuration
+fn get_all_tool_schemas() -> Vec<ToolSchema> {
     vec![
         ToolSchema {
             name: "ensure_project".into(),
@@ -980,20 +997,61 @@ macro_rules! guard_unwrap {
 pub struct AgentMailService {
     mm: Arc<ModelManager>,
     tool_router: ToolRouter<Self>,
+    /// Whether worktrees/build slot tools are enabled
+    worktrees_enabled: bool,
 }
 
 impl AgentMailService {
+    /// Create a new AgentMailService with default configuration.
+    ///
+    /// Worktrees are disabled by default. Use `new_with_config()` to enable.
     pub async fn new() -> Result<Self> {
+        Self::new_with_config(false).await
+    }
+
+    /// Create a new AgentMailService with explicit worktrees configuration.
+    ///
+    /// When `worktrees_enabled` is true, build slot tools (acquire, release, renew)
+    /// are registered and available. When false, they are hidden from the tool list
+    /// and calls to them will return an error.
+    pub async fn new_with_config(worktrees_enabled: bool) -> Result<Self> {
         let mm = Arc::new(ModelManager::new().await?);
         let tool_router = Self::tool_router();
-        Ok(Self { mm, tool_router })
+
+        if worktrees_enabled {
+            tracing::info!("MCP service starting with worktrees/build-slots ENABLED");
+        } else {
+            tracing::info!("MCP service starting with worktrees/build-slots DISABLED");
+        }
+
+        Ok(Self {
+            mm,
+            tool_router,
+            worktrees_enabled,
+        })
     }
 
     /// Create AgentMailService with an existing ModelManager
     /// Use this to share the ModelManager with the main server to avoid migration conflicts
-    pub fn new_with_mm(mm: Arc<ModelManager>) -> Self {
+    pub fn new_with_mm(mm: Arc<ModelManager>, worktrees_enabled: bool) -> Self {
         let tool_router = Self::tool_router();
-        Self { mm, tool_router }
+
+        if worktrees_enabled {
+            tracing::info!("MCP service starting with worktrees/build-slots ENABLED");
+        } else {
+            tracing::info!("MCP service starting with worktrees/build-slots DISABLED");
+        }
+
+        Self {
+            mm,
+            tool_router,
+            worktrees_enabled,
+        }
+    }
+
+    /// Returns whether worktrees/build-slot tools are enabled
+    pub fn worktrees_enabled(&self) -> bool {
+        self.worktrees_enabled
     }
 
     fn ctx(&self) -> Ctx {
@@ -1216,8 +1274,20 @@ impl ServerHandler for AgentMailService {
         _context: RequestContext<RoleServer>,
     ) -> impl std::future::Future<Output = Result<ListToolsResult, McpError>> + Send + '_ {
         async move {
+            let all_tools = self.tool_router.list_all();
+
+            // Filter out build slot tools when worktrees is disabled
+            let tools = if self.worktrees_enabled {
+                all_tools
+            } else {
+                all_tools
+                    .into_iter()
+                    .filter(|tool| !BUILD_SLOT_TOOLS.contains(&&*tool.name))
+                    .collect()
+            };
+
             Ok(ListToolsResult {
-                tools: self.tool_router.list_all(),
+                tools,
                 next_cursor: None,
                 meta: None,
             })
@@ -1233,6 +1303,21 @@ impl ServerHandler for AgentMailService {
             let start = std::time::Instant::now();
             let tool_name = request.name.clone();
             let args = request.arguments.clone();
+
+            // Reject build slot tool calls when worktrees is disabled
+            if !self.worktrees_enabled && BUILD_SLOT_TOOLS.contains(&&*tool_name) {
+                tracing::warn!(
+                    tool = %tool_name,
+                    "Attempted to call build slot tool but worktrees are disabled"
+                );
+                return Err(McpError::invalid_request(
+                    format!(
+                        "Tool '{}' is not available. Build slot tools require WORKTREES_ENABLED=true.",
+                        tool_name
+                    ),
+                    None,
+                ));
+            }
 
             let tool_context =
                 rmcp::handler::server::tool::ToolCallContext::new(self, request, context);
@@ -4403,7 +4488,7 @@ mod tests {
     async fn test_middleware_enforcement() {
         let (mm, _temp) = create_test_mm().await;
         // Construct service
-        let service = AgentMailService::new_with_mm(mm.clone());
+        let service = AgentMailService::new_with_mm(mm.clone(), false);
         let ctx = Ctx::root_ctx();
 
         // Create project/agent
@@ -4476,7 +4561,7 @@ mod tests {
         use lib_core::model::product::ProductBmc;
 
         let (mm, _temp) = create_test_mm().await;
-        let service = AgentMailService::new_with_mm(mm.clone());
+        let service = AgentMailService::new_with_mm(mm.clone(), false);
         let ctx = Ctx::root_ctx();
 
         // 1. Create Projects
@@ -4520,7 +4605,7 @@ mod tests {
 
         let (mm, _temp) = create_test_mm().await;
         // Construct service
-        let service = AgentMailService::new_with_mm(mm.clone());
+        let service = AgentMailService::new_with_mm(mm.clone(), false);
         let ctx = Ctx::root_ctx();
 
         // Create project
@@ -4629,7 +4714,7 @@ mod tests {
 
         let (mm, _temp) = create_test_mm().await;
         // Construct service
-        let service = AgentMailService::new_with_mm(mm.clone());
+        let service = AgentMailService::new_with_mm(mm.clone(), false);
         let ctx = Ctx::root_ctx();
 
         // Create project
@@ -4695,7 +4780,7 @@ mod tests {
 
         let (mm, _temp) = create_test_mm().await;
         // Construct service
-        let service = AgentMailService::new_with_mm(mm.clone());
+        let service = AgentMailService::new_with_mm(mm.clone(), false);
         let ctx = Ctx::root_ctx();
 
         // 1. Create Project and Agent
@@ -4746,5 +4831,99 @@ mod tests {
         assert_eq!(m.status, "success");
         assert_eq!(m.project_id, Some(project_id));
         assert_eq!(m.agent_id, Some(agent_id));
+    }
+
+    // ==========================================================================
+    // Conditional Build Slot Tool Registration (PORT-1.4)
+    // ==========================================================================
+
+    #[test]
+    fn test_get_tool_schemas_worktrees_enabled_includes_build_slots() {
+        let schemas = get_tool_schemas(true);
+        let names: Vec<&str> = schemas.iter().map(|s| s.name.as_str()).collect();
+
+        assert!(
+            names.contains(&"acquire_build_slot"),
+            "acquire_build_slot should be present when worktrees enabled"
+        );
+        assert!(
+            names.contains(&"release_build_slot"),
+            "release_build_slot should be present when worktrees enabled"
+        );
+        assert!(
+            names.contains(&"renew_build_slot"),
+            "renew_build_slot should be present when worktrees enabled"
+        );
+    }
+
+    #[test]
+    fn test_get_tool_schemas_worktrees_disabled_excludes_build_slots() {
+        let schemas = get_tool_schemas(false);
+        let names: Vec<&str> = schemas.iter().map(|s| s.name.as_str()).collect();
+
+        assert!(
+            !names.contains(&"acquire_build_slot"),
+            "acquire_build_slot should NOT be present when worktrees disabled"
+        );
+        assert!(
+            !names.contains(&"release_build_slot"),
+            "release_build_slot should NOT be present when worktrees disabled"
+        );
+        assert!(
+            !names.contains(&"renew_build_slot"),
+            "renew_build_slot should NOT be present when worktrees disabled"
+        );
+    }
+
+    #[test]
+    fn test_get_tool_schemas_worktrees_disabled_includes_other_tools() {
+        let schemas = get_tool_schemas(false);
+        let names: Vec<&str> = schemas.iter().map(|s| s.name.as_str()).collect();
+
+        // Core tools should still be present
+        assert!(
+            names.contains(&"ensure_project"),
+            "ensure_project should be present"
+        );
+        assert!(
+            names.contains(&"register_agent"),
+            "register_agent should be present"
+        );
+        assert!(
+            names.contains(&"send_message"),
+            "send_message should be present"
+        );
+        assert!(
+            names.contains(&"check_inbox"),
+            "check_inbox should be present"
+        );
+    }
+
+    #[test]
+    fn test_build_slot_tools_constant() {
+        // Ensure the constant matches expected tool names
+        assert_eq!(BUILD_SLOT_TOOLS.len(), 3);
+        assert!(BUILD_SLOT_TOOLS.contains(&"acquire_build_slot"));
+        assert!(BUILD_SLOT_TOOLS.contains(&"release_build_slot"));
+        assert!(BUILD_SLOT_TOOLS.contains(&"renew_build_slot"));
+    }
+
+    #[tokio::test]
+    async fn test_service_worktrees_enabled_flag() {
+        let (mm, _temp) = create_test_mm().await;
+
+        // Test with worktrees enabled
+        let service_enabled = AgentMailService::new_with_mm(mm.clone(), true);
+        assert!(
+            service_enabled.worktrees_enabled(),
+            "Service should report worktrees enabled"
+        );
+
+        // Test with worktrees disabled
+        let service_disabled = AgentMailService::new_with_mm(mm.clone(), false);
+        assert!(
+            !service_disabled.worktrees_enabled(),
+            "Service should report worktrees disabled"
+        );
     }
 }

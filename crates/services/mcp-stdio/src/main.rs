@@ -48,6 +48,12 @@ async fn handle_serve(transport: String, port: u16) -> Result<()> {
     let config = McpConfig {
         transport: transport.clone(),
         port,
+        worktrees_enabled: std::env::var("WORKTREES_ENABLED")
+            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false),
+        git_identity_enabled: std::env::var("GIT_IDENTITY_ENABLED")
+            .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+            .unwrap_or(false),
     };
     if transport == "sse" {
         run_sse(config).await
@@ -57,7 +63,8 @@ async fn handle_serve(transport: String, port: u16) -> Result<()> {
 }
 
 fn handle_schema(format: String, output: Option<String>) -> Result<()> {
-    let schemas = get_tool_schemas();
+    // Show all tools in documentation (worktrees_enabled=true)
+    let schemas = get_tool_schemas(true);
     let content = if format == "markdown" || format == "md" {
         lib_mcp::docs::generate_markdown_docs(&schemas)
     } else {
@@ -73,7 +80,8 @@ fn handle_schema(format: String, output: Option<String>) -> Result<()> {
 }
 
 fn handle_tools() {
-    let schemas = get_tool_schemas();
+    // Show all tools in documentation (worktrees_enabled=true)
+    let schemas = get_tool_schemas(true);
     println!("MCP Agent Mail Tools ({} total)\n", schemas.len());
     println!("{:<30} DESCRIPTION", "TOOL");
     println!("{}", "-".repeat(80));

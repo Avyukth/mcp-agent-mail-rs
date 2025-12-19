@@ -146,7 +146,8 @@ async fn handle_health(url: String) -> anyhow::Result<()> {
 }
 
 fn handle_schema(format: String, output: Option<String>) -> anyhow::Result<()> {
-    let schemas = get_tool_schemas();
+    // Show all tools in documentation (worktrees_enabled=true)
+    let schemas = get_tool_schemas(true);
     let content = if format == "markdown" || format == "md" {
         generate_markdown_docs(&schemas)
     } else {
@@ -162,7 +163,8 @@ fn handle_schema(format: String, output: Option<String>) -> anyhow::Result<()> {
 }
 
 fn handle_tools() {
-    let schemas = get_tool_schemas();
+    // Show all tools in documentation (worktrees_enabled=true)
+    let schemas = get_tool_schemas(true);
     println!("MCP Agent Mail Tools ({} total)\n", schemas.len());
     println!("{:<30} DESCRIPTION", "TOOL");
     println!("{}", "-".repeat(80));
