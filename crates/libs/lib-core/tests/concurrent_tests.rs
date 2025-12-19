@@ -3,6 +3,13 @@
 //! Tests verifying thread safety and race condition handling.
 //! Uses tokio::spawn for parallelism and futures::future::join_all for collection.
 
+// Tests are allowed to use unwrap()/expect() for clearer failure messages
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::inefficient_to_string
+)]
+
 use chrono::{Duration, Utc};
 use futures::future::join_all;
 use lib_core::ctx::Ctx;
@@ -280,7 +287,7 @@ async fn test_concurrent_file_reservation_overlapping_globs() {
     let mm = Arc::new(mm);
 
     let (project_id, agent_ids) = setup_test_project(&mm).await;
-    let globs = vec![
+    let globs = [
         "src/**/*.rs",
         "src/core/**/*",
         "src/*.rs",
@@ -293,7 +300,7 @@ async fn test_concurrent_file_reservation_overlapping_globs() {
         .zip(globs.iter())
         .map(|(&agent_id, glob)| {
             let mm = Arc::clone(&mm);
-            let glob = glob.to_string();
+            let glob = (*glob).to_string();
 
             tokio::spawn(async move {
                 let ctx = Ctx::root_ctx();

@@ -2,6 +2,13 @@
 //!
 //! Tests for aggregated activity feed across messages, agents, and tool usage.
 
+// Tests are allowed to use unwrap()/expect() for clearer failure messages
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::inefficient_to_string
+)]
+
 #[path = "common/mod.rs"]
 mod common;
 
@@ -82,7 +89,7 @@ async fn test_list_activity_with_messages() {
         .expect("Failed to list activity");
 
     // Should have: 2 agents (created) + 1 message
-    assert!(activity.len() >= 1, "Should have at least 1 activity item");
+    assert!(!activity.is_empty(), "Should have at least 1 activity item");
 
     // Check message is in activity
     let has_message = activity.iter().any(|a| a.kind == "message");

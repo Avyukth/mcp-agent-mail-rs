@@ -1,3 +1,10 @@
+// Tests are allowed to use unwrap()/expect() for clearer failure messages
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::inefficient_to_string
+)]
+
 use image::{DynamicImage, ImageFormat, Luma, LumaA, Rgba};
 use lib_core::utils::image_processing::{decode_data_uri, validate_image};
 use std::io::Cursor;

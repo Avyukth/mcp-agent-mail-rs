@@ -572,6 +572,11 @@ exit 0
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::inefficient_to_string
+)]
 mod tests {
     use super::*;
     use serial_test::serial;
@@ -1375,7 +1380,7 @@ mod tests {
         // Worktree should reference main repo's hooks (via .git file)
         // The hooks should be in the main repo's git dir, not the worktree
         assert!(
-            wt_hooks_dir.exists() || wt_hooks_dir.parent().map_or(false, |p| p.exists()),
+            wt_hooks_dir.exists() || wt_hooks_dir.parent().is_some_and(|p| p.exists()),
             "Worktree hooks dir or parent should be resolvable"
         );
     }

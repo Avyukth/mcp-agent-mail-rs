@@ -2,6 +2,13 @@
 //!
 //! Tests for file reservation CRUD operations - critical for multi-agent coordination.
 
+// Tests are allowed to use unwrap()/expect() for clearer failure messages
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::inefficient_to_string
+)]
+
 #[path = "common/mod.rs"]
 mod common;
 

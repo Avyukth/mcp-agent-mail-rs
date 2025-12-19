@@ -1,4 +1,11 @@
+// Tests are allowed to use unwrap()/expect() for clearer failure messages
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::inefficient_to_string
+)]
 #![allow(unused)]
+
 use crate::common::TestContext;
 use lib_core::model::macro_def::{MacroDefBmc, MacroDefForCreate};
 use lib_core::model::project::ProjectBmc;

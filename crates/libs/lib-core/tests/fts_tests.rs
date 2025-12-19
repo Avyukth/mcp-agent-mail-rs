@@ -1,3 +1,10 @@
+// Tests are allowed to use unwrap()/expect() for clearer failure messages
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::inefficient_to_string
+)]
+
 use lib_core::Result;
 use lib_core::ctx::Ctx;
 use lib_core::model::ModelManager;

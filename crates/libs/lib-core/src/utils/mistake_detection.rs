@@ -90,6 +90,11 @@ pub fn suggest_similar<'a>(
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::inefficient_to_string
+)]
 mod tests {
     use super::*;
 

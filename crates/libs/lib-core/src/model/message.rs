@@ -1263,6 +1263,11 @@ async fn commit_message_to_git(
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::inefficient_to_string
+)]
 mod tests {
     use super::*;
     use tempfile::TempDir;

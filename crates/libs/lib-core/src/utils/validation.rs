@@ -162,6 +162,11 @@ pub fn validate_ttl(ttl_seconds: u64) -> Result<(), ValidationError> {
 }
 
 #[cfg(test)]
+#[allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::inefficient_to_string
+)]
 mod tests {
     use super::*;
 

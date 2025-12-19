@@ -3,6 +3,13 @@
 //! Tests for the global unified inbox that shows messages across ALL projects.
 //! Following EXTREME TDD: these tests are written FIRST (RED phase).
 
+// Tests are allowed to use unwrap()/expect() for clearer failure messages
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::inefficient_to_string
+)]
+
 #[path = "common/mod.rs"]
 mod common;
 
