@@ -13,6 +13,7 @@ pub mod inline_message_detail;
 pub mod input;
 pub mod layout;
 pub mod message_detail_header;
+pub mod overseer_composer;
 pub mod project_card;
 pub mod select;
 pub mod separator;
