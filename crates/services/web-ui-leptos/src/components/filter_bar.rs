@@ -741,6 +741,9 @@ mod tests {
         assert!(!state3.threaded);
     }
 
+    // Note: test_from_params_map requires wasm target (ParamsMap uses wasm-bindgen)
+    // The from_params_map function is tested via from_query_params which shares logic
+    #[cfg(target_arch = "wasm32")]
     #[test]
     fn test_from_params_map() {
         let mut params = ParamsMap::new();
