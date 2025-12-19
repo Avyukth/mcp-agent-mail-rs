@@ -3500,6 +3500,7 @@ dependencies = [
 name = "lib-core"
 version = "0.1.0"
 dependencies = [
+ "base64 0.22.1",
  "chrono",
  "csv",
  "derive_more",
@@ -3507,6 +3508,7 @@ dependencies = [
  "git2",
  "hex",
  "hostname",
+ "image",
  "lazy_static",
  "libc",
  "libsql",
