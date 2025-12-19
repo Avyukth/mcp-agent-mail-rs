@@ -1,6 +1,8 @@
 use clap::{Args, Parser, Subcommand};
 use lib_common::config::AppConfig;
 use lib_mcp::{docs::generate_markdown_docs, run_sse, run_stdio, tools::get_tool_schemas};
+use std::io::Write;
+use std::path::{Path, PathBuf};
 use tracing::info;
 
 #[derive(Parser)]
@@ -40,8 +42,27 @@ enum Commands {
     /// List all available tools
     Tools,
 
+    /// Install shell alias and configuration
+    Install(InstallArgs),
+
     /// Show version info
     Version,
+}
+
+#[derive(Args)]
+struct InstallArgs {
+    #[command(subcommand)]
+    command: InstallCommands,
+}
+
+#[derive(Subcommand)]
+enum InstallCommands {
+    /// Add 'am' shell alias for quick server start
+    Alias {
+        /// Force overwrite existing alias
+        #[arg(long)]
+        force: bool,
+    },
 }
 
 #[derive(Args)]
@@ -173,6 +194,172 @@ fn handle_tools() {
     }
 }
 
+// ============================================================================
+// Install Command Handlers (PORT-6.1)
+// ============================================================================
+
+/// Detect user's shell and return the appropriate rc file path.
+fn detect_shell_rc() -> Option<PathBuf> {
+    let home = std::env::var("HOME").ok()?;
+    let home_path = PathBuf::from(&home);
+
+    // Check SHELL environment variable first
+    if let Ok(shell) = std::env::var("SHELL") {
+        if shell.ends_with("zsh") {
+            return Some(home_path.join(".zshrc"));
+        } else if shell.ends_with("bash") {
+            return Some(home_path.join(".bashrc"));
+        } else if shell.ends_with("fish") {
+            return Some(home_path.join(".config/fish/config.fish"));
+        }
+    }
+
+    // Fallback: check which rc files exist
+    let zshrc = home_path.join(".zshrc");
+    if zshrc.exists() {
+        return Some(zshrc);
+    }
+
+    let bashrc = home_path.join(".bashrc");
+    if bashrc.exists() {
+        return Some(bashrc);
+    }
+
+    // Default to .profile for POSIX shells
+    Some(home_path.join(".profile"))
+}
+
+/// Check if the 'am' alias marker already exists in the rc file.
+fn alias_marker_exists(rc_path: &PathBuf) -> bool {
+    if let Ok(contents) = std::fs::read_to_string(rc_path) {
+        contents.contains("# >>> MCP Agent Mail alias")
+    } else {
+        false
+    }
+}
+
+/// Check if a different 'am' alias exists (not managed by us).
+fn other_am_alias_exists(rc_path: &PathBuf) -> bool {
+    if let Ok(contents) = std::fs::read_to_string(rc_path) {
+        // Check for any 'alias am=' that isn't in our managed block
+        for line in contents.lines() {
+            let trimmed = line.trim();
+            if trimmed.starts_with("alias am=") && !contents.contains("# >>> MCP Agent Mail alias")
+            {
+                return true;
+            }
+        }
+    }
+    false
+}
+
+/// Generate the alias snippet for a given shell type.
+fn generate_alias_snippet(rc_path: &Path) -> &'static str {
+    let is_fish = rc_path
+        .to_string_lossy()
+        .contains(".config/fish/config.fish");
+
+    if is_fish {
+        // Fish shell uses different syntax
+        r#"
+# >>> MCP Agent Mail alias
+function am
+    mcp-agent-mail serve http
+end
+# <<< MCP Agent Mail alias
+"#
+    } else {
+        // Bash/Zsh syntax
+        r#"
+# >>> MCP Agent Mail alias
+alias am='mcp-agent-mail serve http'
+# <<< MCP Agent Mail alias
+"#
+    }
+}
+
+/// Handle the 'install alias' command.
+fn handle_install_alias(force: bool) -> anyhow::Result<()> {
+    // Detect shell rc file
+    let rc_path = detect_shell_rc().ok_or_else(|| {
+        anyhow::anyhow!("Could not detect shell configuration file. Set HOME environment variable.")
+    })?;
+
+    println!("Detected shell config: {}", rc_path.display());
+
+    // Check if our marker already exists
+    if alias_marker_exists(&rc_path) {
+        if force {
+            println!("Updating existing 'am' alias...");
+            // Remove old marker block and re-add
+            if let Ok(contents) = std::fs::read_to_string(&rc_path) {
+                let mut new_contents = String::new();
+                let mut in_block = false;
+
+                for line in contents.lines() {
+                    if line.contains("# >>> MCP Agent Mail alias") {
+                        in_block = true;
+                        continue;
+                    }
+                    if line.contains("# <<< MCP Agent Mail alias") {
+                        in_block = false;
+                        continue;
+                    }
+                    if !in_block {
+                        new_contents.push_str(line);
+                        new_contents.push('\n');
+                    }
+                }
+
+                // Append new alias
+                new_contents.push_str(generate_alias_snippet(&rc_path));
+
+                std::fs::write(&rc_path, new_contents)?;
+                println!("✓ Updated 'am' alias in {}", rc_path.display());
+            }
+        } else {
+            println!("✓ 'am' alias already installed in {}", rc_path.display());
+            println!("  Use --force to update the alias.");
+        }
+        return Ok(());
+    }
+
+    // Check for conflicting alias
+    if other_am_alias_exists(&rc_path) && !force {
+        println!(
+            "⚠ An existing 'am' alias was found in {}",
+            rc_path.display()
+        );
+        println!("  Use --force to overwrite it.");
+        return Ok(());
+    }
+
+    // Ensure parent directory exists (for fish)
+    if let Some(parent) = rc_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+
+    // Append alias to rc file
+    let mut file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&rc_path)?;
+
+    file.write_all(generate_alias_snippet(&rc_path).as_bytes())?;
+
+    println!("✓ Added 'am' alias to {}", rc_path.display());
+    println!();
+    println!("To use the alias now, run:");
+    println!("  source {}", rc_path.display());
+    println!();
+    println!("Or open a new terminal, then run:");
+    println!("  am");
+    println!();
+    println!("This starts the HTTP server on port 8765.");
+
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
@@ -193,6 +380,9 @@ async fn main() -> anyhow::Result<()> {
         Commands::Health { url } => handle_health(url).await?,
         Commands::Schema { format, output } => handle_schema(format, output)?,
         Commands::Tools => handle_tools(),
+        Commands::Install(args) => match args.command {
+            InstallCommands::Alias { force } => handle_install_alias(force)?,
+        },
         Commands::Version => println!("mcp-agent-mail v{}", env!("CARGO_PKG_VERSION")),
     }
 
