@@ -1,7 +1,9 @@
 //! OverseerComposer modal component.
 //! Specialized composer for Human Overseer interventions.
+//!
+//! Follows shadcn/ui Dialog anatomy with destructive theme variant.
 
-use super::{Button, ButtonVariant, Input, Select, SelectOption};
+use super::{Button, ButtonSize, ButtonVariant, Input, Select, SelectOption};
 use crate::api::client::{self, Agent};
 use leptos::prelude::*;
 
@@ -135,41 +137,47 @@ pub fn OverseerComposer(
     };
 
     view! {
-        <div class="flex flex-col h-full max-h-[90vh] bg-red-50/50 dark:bg-red-950/10 border-2 border-red-200 dark:border-red-900 rounded-xl overflow-hidden shadow-2xl">
-            // Header - Overseer Style
-            <div class="p-4 bg-red-100 dark:bg-red-900/30 border-b border-red-200 dark:border-red-800 flex items-center justify-between">
-                <div class="flex items-center gap-3">
-                    <div class="p-2 bg-red-200 dark:bg-red-800 rounded-lg">
-                        <i data-lucide="shield-alert" class="icon-md text-red-700 dark:text-red-200"></i>
+        // Dialog Content - shadcn anatomy with destructive theme
+        <div class="flex flex-col h-full max-h-[90vh] rounded-lg border border-destructive/50 bg-background shadow-lg overflow-hidden">
+            // DialogHeader - shadcn pattern
+            <div class="flex flex-col space-y-1.5 p-6 bg-destructive/10 border-b border-destructive/20">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/20">
+                            <i data-lucide="shield-alert" class="h-5 w-5 text-destructive"></i>
+                        </div>
+                        <div class="flex flex-col space-y-1">
+                            <h2 class="text-lg font-semibold leading-none tracking-tight text-destructive">
+                                "Overseer Intervention"
+                            </h2>
+                            <p class="text-sm text-muted-foreground">
+                                "Issuing authoritative commands as 'Overseer'"
+                            </p>
+                        </div>
                     </div>
-                    <div>
-                        <h2 class="text-lg font-bold text-red-900 dark:text-red-100">
-                            "Overseer Intervention"
-                        </h2>
-                        <p class="text-xs text-red-700 dark:text-red-300">
-                            "Issuing authoritative commands as 'Overseer'"
-                        </p>
-                    </div>
+                    <Button
+                        variant=ButtonVariant::Ghost
+                        size=ButtonSize::Icon
+                        on_click=Callback::new(move |_| on_close.run(()))
+                        class="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2".to_string()
+                    >
+                        <i data-lucide="x" class="h-4 w-4"></i>
+                        <span class="sr-only">"Close"</span>
+                    </Button>
                 </div>
-                <Button
-                    variant=ButtonVariant::Ghost
-                    size=super::ButtonSize::Icon
-                    on_click=Callback::new(move |_| on_close.run(()))
-                >
-                    <i data-lucide="x" class="icon-sm text-red-800 dark:text-red-200"></i>
-                </Button>
             </div>
 
-            // Form
-            <div class="flex-1 overflow-y-auto p-4 space-y-5">
-                // Broadcaster / Target Selection
-                <div>
-                     <div class="flex justify-between items-center mb-2">
-                        <span class="text-sm font-bold text-charcoal-700 dark:text-charcoal-200">
+            // DialogContent - Form area
+            <div class="flex-1 overflow-y-auto p-6 space-y-6">
+                // Target Agent Selection
+                <div class="space-y-3">
+                    <div class="flex items-center justify-between">
+                        <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                             "Target Agents"
-                        </span>
+                        </label>
                         <button
-                            class="text-xs text-red-600 dark:text-red-400 hover:underline font-medium"
+                            type="button"
+                            class="text-sm text-destructive hover:underline underline-offset-4 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
                             on:click=toggle_all
                         >
                             {
@@ -180,7 +188,7 @@ pub fn OverseerComposer(
                     </div>
 
                     {if all_agents.is_empty() {
-                        view! { <p class="text-sm italic text-gray-500">"No agents available."</p> }.into_any()
+                        view! { <p class="text-sm text-muted-foreground italic">"No agents available."</p> }.into_any()
                     } else {
                         view! {
                             <div class="flex flex-wrap gap-2">
@@ -188,22 +196,25 @@ pub fn OverseerComposer(
                                     let name = agent.name.clone();
                                     let name_display = name.clone();
                                     let toggle = toggle_recipient;
+                                    // shadcn toggle button pattern - outline variant when unselected, destructive when selected
                                     view! {
                                         <button
                                             type="button"
                                             on:click=move |_| toggle(name.clone())
                                             class=move || {
+                                                // Base classes from shadcn Button
+                                                let base = "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-3";
                                                 if recipients.get().contains(&name_display) {
-                                                    "px-3 py-1.5 rounded-md text-sm font-bold transition-colors bg-red-600 text-white shadow-sm ring-2 ring-red-600 ring-offset-1 dark:ring-offset-gray-900"
+                                                    // Selected: destructive variant
+                                                    format!("{} bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm", base)
                                                 } else {
-                                                    "px-3 py-1.5 rounded-md text-sm font-medium transition-colors bg-white dark:bg-charcoal-800 text-charcoal-600 dark:text-charcoal-300 border border-charcoal-200 dark:border-charcoal-600 hover:border-red-400"
+                                                    // Unselected: outline variant
+                                                    format!("{} border border-input bg-background hover:bg-accent hover:text-accent-foreground", base)
                                                 }
                                             }
                                         >
-                                            <div class="flex items-center gap-2">
-                                                <i data-lucide="bot" class="w-3 h-3"></i>
-                                                {name_display.clone()}
-                                            </div>
+                                            <i data-lucide="bot" class="h-4 w-4 shrink-0"></i>
+                                            <span class="truncate max-w-[100px]">{name_display.clone()}</span>
                                         </button>
                                     }
                                 }).collect::<Vec<_>>()}
@@ -212,9 +223,9 @@ pub fn OverseerComposer(
                     }}
                 </div>
 
-                // Subject / Directive
-                <div>
-                    <label for="subject" class="block text-sm font-bold text-charcoal-700 dark:text-charcoal-200 mb-1">
+                // Subject / Directive - shadcn Input pattern
+                <div class="space-y-2">
+                    <label for="subject" class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                         "Directive / Subject"
                     </label>
                     <Input
@@ -224,10 +235,10 @@ pub fn OverseerComposer(
                     />
                 </div>
 
-                // Metadata Details (Thread, Importance) - Compact Row
+                // Metadata Details - Grid layout
                 <div class="grid grid-cols-2 gap-4">
-                     <div>
-                        <label class="block text-sm font-medium text-charcoal-700 dark:text-charcoal-300 mb-1">
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                             "Importance"
                         </label>
                         <Select
@@ -241,21 +252,21 @@ pub fn OverseerComposer(
                             disabled=false
                         />
                     </div>
-                    <div>
-                         <label class="block text-sm font-medium text-charcoal-700 dark:text-charcoal-300 mb-1">
-                             "Thread Context"
-                         </label>
-                         <Input
-                             id="threadId".to_string()
-                             value=thread_id
-                             placeholder="New Thread".to_string()
-                         />
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                            "Thread Context"
+                        </label>
+                        <Input
+                            id="threadId".to_string()
+                            value=thread_id
+                            placeholder="New Thread".to_string()
+                        />
                     </div>
                 </div>
 
-                // Body / Instructions
-                <div>
-                    <label for="body" class="block text-sm font-bold text-charcoal-700 dark:text-charcoal-200 mb-1">
+                // Instructions - Textarea with explicit dark mode support
+                <div class="space-y-2">
+                    <label for="body" class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                         "Instructions"
                     </label>
                     <textarea
@@ -264,79 +275,89 @@ pub fn OverseerComposer(
                         on:input=move |ev| body.set(event_target_value(&ev))
                         rows="6"
                         placeholder="Detailed instructions for the agents..."
-                        class="w-full px-3 py-2 bg-white dark:bg-charcoal-800 border border-gray-300 dark:border-charcoal-600 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500 text-charcoal-900 dark:text-cream-100 font-mono text-sm resize-none"
+                        class="flex min-h-[120px] w-full rounded-md border border-input bg-white dark:bg-zinc-900 text-foreground px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none font-mono"
                     ></textarea>
                 </div>
 
-                 // Ack Required (Locked Checked for visual reinforcement, though technically toggleable)
-                <div class="flex items-center p-3 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                    <label class="flex items-center gap-2 cursor-pointer w-full">
-                        <input
-                            type="checkbox"
-                            prop:checked=move || ack_required.get()
-                            on:change=move |ev| ack_required.set(event_target_checked(&ev))
-                            class="w-4 h-4 text-amber-600 border-charcoal-300 rounded focus:ring-amber-500"
-                        />
-                        <div class="flex flex-col">
-                            <span class="text-sm font-semibold text-charcoal-800 dark:text-charcoal-200">
-                                "Require Explicit Acknowledgment"
+                // Acknowledgment Checkbox - with visible text on amber background
+                <div class="flex items-start space-x-3 rounded-md border border-amber-300 dark:border-amber-700 bg-amber-50 dark:bg-amber-950/30 p-4">
+                    <button
+                        type="button"
+                        role="checkbox"
+                        aria-checked=move || ack_required.get().to_string()
+                        on:click=move |_| ack_required.set(!ack_required.get())
+                        class=move || {
+                            let base = "peer h-5 w-5 shrink-0 rounded-sm border ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+                            if ack_required.get() {
+                                format!("{} border-amber-600 bg-amber-600 text-white", base)
+                            } else {
+                                format!("{} border-amber-600 bg-white dark:bg-zinc-900", base)
+                            }
+                        }
+                    >
+                        {move || ack_required.get().then(|| view! {
+                            <span class="flex items-center justify-center text-current">
+                                <i data-lucide="check" class="h-4 w-4"></i>
                             </span>
-                            <span class="text-xs text-charcoal-500 dark:text-charcoal-400">
-                                "Agents must confirm receipt of this directive."
-                            </span>
-                        </div>
-                    </label>
+                        })}
+                    </button>
+                    <div class="grid gap-1.5 leading-none">
+                        <label class="text-sm font-semibold leading-none text-amber-900 dark:text-amber-100">
+                            "Require Explicit Acknowledgment"
+                        </label>
+                        <p class="text-sm text-amber-700 dark:text-amber-300">
+                            "Agents must confirm receipt of this directive."
+                        </p>
+                    </div>
                 </div>
 
-                // Error
+                // Error Alert - shadcn Alert destructive variant
                 {move || {
                     error.get().map(|e| view! {
-                        <div class="p-3 bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700 rounded-lg flex gap-2 items-center">
-                            <i data-lucide="alert-circle" class="icon-sm text-red-600 dark:text-red-300"></i>
-                            <p class="text-red-800 dark:text-red-200 text-sm font-medium">{e}</p>
+                        <div
+                            role="alert"
+                            class="relative w-full rounded-lg border border-destructive/50 p-4 text-destructive [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-destructive [&>svg~*]:pl-7"
+                        >
+                            <i data-lucide="alert-circle" class="h-4 w-4"></i>
+                            <h5 class="mb-1 font-medium leading-none tracking-tight">"Error"</h5>
+                            <div class="text-sm [&_p]:leading-relaxed">{e}</div>
                         </div>
                     })
                 }}
             </div>
 
-            // Footer
-            <div class="p-4 bg-gray-50 dark:bg-charcoal-800/50 border-t border-gray-200 dark:border-charcoal-700 flex justify-end gap-3">
-                 <Button
-                    variant=ButtonVariant::Ghost
-                    on_click=Callback::new(move |_| on_close.run(()))
-                >
-                    <span>"Cancel"</span>
-                </Button>
-                <button
-                    class="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 bg-red-600 text-white hover:bg-red-700 h-10 px-4 py-2"
-                    on:click=move |_| handle_submit(())
-                    disabled=move || sending.get() || recipients.get().is_empty()
-                >
-                    {move || {
-                        if sending.get() {
-                            view! {
-                                <i data-lucide="loader-2" class="icon-sm animate-spin"></i>
-                                <span>"Transmitting..."</span>
-                            }.into_any()
-                        } else {
-                            view! {
-                                <i data-lucide="megaphone" class="icon-sm"></i>
-                                <span>"Broadcast Directive"</span>
-                            }.into_any()
-                        }
-                    }}
-                </button>
+            // DialogFooter - fixed layout to prevent button cutoff
+            <div class="p-6 border-t border-border bg-muted/50">
+                <div class="flex items-center justify-end gap-3">
+                    <Button
+                        variant=ButtonVariant::Outline
+                        on_click=Callback::new(move |_| on_close.run(()))
+                    >
+                        <span>"Cancel"</span>
+                    </Button>
+                    <Button
+                        variant=ButtonVariant::Destructive
+                        on_click=Callback::new(move |_| handle_submit(()))
+                        disabled=Signal::derive(move || sending.get() || recipients.get().is_empty())
+                    >
+                        {move || {
+                            if sending.get() {
+                                view! {
+                                    <i data-lucide="loader-2" class="mr-2 h-4 w-4 animate-spin"></i>
+                                    <span>"Transmitting..."</span>
+                                }.into_any()
+                            } else {
+                                view! {
+                                    <i data-lucide="megaphone" class="mr-2 h-4 w-4"></i>
+                                    <span>"Broadcast Directive"</span>
+                                }.into_any()
+                            }
+                        }}
+                    </Button>
+                </div>
             </div>
         </div>
     }
-}
-
-fn event_target_checked(ev: &web_sys::Event) -> bool {
-    use wasm_bindgen::JsCast;
-    ev.target()
-        .and_then(|t| t.dyn_into::<web_sys::HtmlInputElement>().ok())
-        .map(|el| el.checked())
-        .unwrap_or(false)
 }
 
 fn event_target_value(ev: &web_sys::Event) -> String {

@@ -105,9 +105,9 @@ pub fn Button(
     /// Button size
     #[prop(default = ButtonSize::Default)]
     size: ButtonSize,
-    /// Whether button is disabled
-    #[prop(default = false)]
-    disabled: bool,
+    /// Whether button is disabled (reactive)
+    #[prop(into, default = Signal::derive(|| false))]
+    disabled: Signal<bool>,
     /// Additional CSS classes
     #[prop(optional, into)]
     class: Option<String>,
@@ -136,7 +136,7 @@ pub fn Button(
         <button
             type={button_type}
             class={final_class}
-            disabled={disabled}
+            disabled=move || disabled.get()
             title={title}
             on:click=move |_| {
                 if let Some(cb) = on_click.as_ref() {

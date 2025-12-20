@@ -222,7 +222,7 @@ pub fn UnifiedInbox() -> impl IntoView {
 
     view! {
         <div class="space-y-6">
-            // Overseer Composer Modal
+            // Overseer Composer Modal - shadcn Dialog pattern
             {move || {
                 if show_overseer.get() {
                     let agents = overseer_agents.get();
@@ -230,10 +230,10 @@ pub fn UnifiedInbox() -> impl IntoView {
                     Some(view! {
                         <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
                             <div
-                                class="fixed inset-0 bg-charcoal-900/50 backdrop-blur-sm"
+                                class="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
                                 on:click=move |_| show_overseer.set(false)
                             ></div>
-                            <div class="relative w-full max-w-2xl animate-scale-in">
+                            <div class="relative z-50 w-full max-w-2xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
                                 <OverseerComposer
                                     props=OverseerComposeProps {
                                         project_slug: project,
@@ -256,14 +256,14 @@ pub fn UnifiedInbox() -> impl IntoView {
                 }
             }}
 
-            // Header
+            // Header - shadcn typography pattern
             <div class="flex items-center justify-between mb-2">
                 <div>
-                    <h1 class="font-display text-2xl font-bold text-charcoal-800 dark:text-cream-100 flex items-center gap-3">
-                        <i data-lucide="inbox" class="icon-xl text-amber-500"></i>
+                    <h1 class="text-2xl font-bold tracking-tight text-foreground flex items-center gap-3">
+                        <i data-lucide="inbox" class="h-7 w-7 text-primary"></i>
                         "Unified Inbox"
                     </h1>
-                    <p class="text-sm text-charcoal-500 dark:text-charcoal-400 mt-1">
+                    <p class="text-sm text-muted-foreground mt-1">
                         "All messages across all projects"
                     </p>
                 </div>
@@ -271,7 +271,7 @@ pub fn UnifiedInbox() -> impl IntoView {
                     variant=ButtonVariant::Destructive
                     on_click=Callback::new(open_overseer)
                 >
-                    <i data-lucide="shield-alert" class="icon-sm mr-2"></i>
+                    <i data-lucide="shield-alert" class="h-4 w-4 mr-2"></i>
                     "Overseer Mode"
                 </Button>
             </div>

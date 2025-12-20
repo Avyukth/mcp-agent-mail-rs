@@ -270,11 +270,11 @@ pub fn FilterBar(
 
     view! {
         <div class="flex flex-col gap-3">
-            // Desktop: Single row layout
-            <div class="hidden md:flex items-center gap-3 p-3 bg-cream-50 dark:bg-charcoal-800 rounded-xl border border-cream-200 dark:border-charcoal-700">
+            // Desktop: Single row layout - shadcn Card muted pattern
+            <div class="hidden md:flex items-center gap-3 p-3 bg-muted/50 rounded-lg border border-border">
                 // Search Input with icon
                 <div class="relative flex-1">
-                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 icon-sm text-charcoal-400 z-10"></i>
+                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10"></i>
                     <Input
                         id="filterSearch".to_string()
                         value=search_value
@@ -336,7 +336,7 @@ pub fn FilterBar(
                 }}
 
                 // View Mode Toggle (reactive to view_mode changes)
-                <div class="flex items-center gap-1 border-l border-cream-200 dark:border-charcoal-600 pl-3">
+                <div class="flex items-center gap-1 border-l border-border pl-3">
                     {move || {
                         let is_list = filter_state.get().view_mode == "list";
                         view! {
@@ -366,7 +366,7 @@ pub fn FilterBar(
                 </div>
 
                 // Message Count Badge
-                <div class="text-sm text-charcoal-500 dark:text-charcoal-400 whitespace-nowrap">
+                <div class="text-sm text-muted-foreground whitespace-nowrap">
                     {move || format!("{} messages", message_count.get())}
                 </div>
             </div>
@@ -375,7 +375,7 @@ pub fn FilterBar(
             <div class="md:hidden space-y-2">
                 // Search (full width) with icon
                 <div class="relative">
-                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 icon-sm text-charcoal-400 z-10"></i>
+                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10"></i>
                     <Input
                         id="filterSearchMobile".to_string()
                         value=search_value
@@ -409,26 +409,26 @@ pub fn FilterBar(
                         }}
                     </Button>
 
-                    <span class="text-sm text-charcoal-500">
+                    <span class="text-sm text-muted-foreground">
                         {move || format!("{} messages", message_count.get())}
                     </span>
                 </div>
             </div>
 
-            // Mobile Bottom Sheet
+            // Mobile Bottom Sheet - shadcn Dialog overlay pattern
             {move || {
                 if show_filters_sheet.get() {
                     Some(view! {
                         <div
-                            class="fixed inset-0 bg-black/50 z-50 md:hidden"
+                            class="fixed inset-0 z-50 bg-black/80 md:hidden data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
                             on:click=move |_| show_filters_sheet.set(false)
                         >
                             <div
-                                class="absolute bottom-0 left-0 right-0 bg-white dark:bg-charcoal-900 rounded-t-2xl p-4 space-y-4"
+                                class="absolute bottom-0 left-0 right-0 bg-background rounded-t-lg border-t border-border p-6 space-y-4 shadow-lg"
                                 on:click=|e| e.stop_propagation()
                             >
                                 <div class="flex items-center justify-between">
-                                    <h3 class="font-semibold text-charcoal-800 dark:text-cream-100">"Filters"</h3>
+                                    <h3 class="text-lg font-semibold leading-none tracking-tight">"Filters"</h3>
                                     <Button
                                         variant=ButtonVariant::Ghost
                                         size=super::ButtonSize::Icon

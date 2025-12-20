@@ -125,7 +125,7 @@ pub fn InlineMessageDetail(
                                 />
 
                                 // Badges
-                                <div class="px-6 py-3 border-b border-cream-200 dark:border-charcoal-700 flex flex-wrap items-center gap-2">
+                                <div class="px-6 py-3 border-b border-border flex flex-wrap items-center gap-2">
                                     {if importance != "normal" {
                                         let variant = if importance == "high" { BadgeVariant::Destructive } else { BadgeVariant::Secondary };
                                         Some(view! {
@@ -158,19 +158,19 @@ pub fn InlineMessageDetail(
                                 // Message Body
                                 <div class="p-6">
                                     <div class="prose dark:prose-invert max-w-none">
-                                        <pre class="whitespace-pre-wrap font-sans text-charcoal-700 dark:text-charcoal-300 bg-transparent p-0 overflow-visible text-sm">
+                                        <pre class="whitespace-pre-wrap font-sans text-foreground bg-transparent p-0 overflow-visible text-sm">
                                             {body}
                                         </pre>
                                     </div>
                                 </div>
 
-                                // Open in full view link
-                                <div class="px-6 py-4 border-t border-cream-200 dark:border-charcoal-700 bg-cream-50/50 dark:bg-charcoal-800/50">
+                                // Open in full view link - shadcn link pattern
+                                <div class="px-6 py-4 border-t border-border bg-muted/50">
                                     <a
                                         href={format!("/inbox/{}?project={}", msg_id, project)}
-                                        class="text-sm text-amber-600 dark:text-amber-400 hover:underline flex items-center gap-1"
+                                        class="text-sm text-primary underline-offset-4 hover:underline flex items-center gap-1"
                                     >
-                                        <i data-lucide="external-link" class="icon-xs"></i>
+                                        <i data-lucide="external-link" class="h-3 w-3"></i>
                                         "Open in full view"
                                     </a>
                                 </div>
@@ -180,9 +180,9 @@ pub fn InlineMessageDetail(
                         // Not found
                         Some(view! {
                             <div class="flex-1 flex items-center justify-center">
-                                <div class="text-center">
-                                    <i data-lucide="mail-x" class="icon-2xl text-charcoal-400 mb-4"></i>
-                                    <p class="text-charcoal-500">"Message not found"</p>
+                                <div class="text-center text-muted-foreground">
+                                    <i data-lucide="mail-x" class="h-16 w-16 mx-auto mb-4 opacity-50"></i>
+                                    <p>"Message not found"</p>
                                 </div>
                             </div>
                         }.into_any())

@@ -29,7 +29,7 @@ pub struct MessageListItem {
 #[component]
 pub fn EmptyDetailPanel() -> impl IntoView {
     view! {
-        <div class="h-full flex flex-col items-center justify-center text-charcoal-400 dark:text-charcoal-500">
+        <div class="h-full flex flex-col items-center justify-center text-muted-foreground">
             <i data-lucide="mail-open" class="w-16 h-16 mb-4 opacity-50"></i>
             <p class="text-lg font-medium">"Select a message"</p>
             <p class="text-sm mt-1">"Choose a message from the list to view its contents"</p>
@@ -55,15 +55,16 @@ pub fn MessageListItemView(
     let unread = item.unread;
     let importance = item.importance.clone();
 
+    // shadcn list item pattern with proper focus/selection states
     view! {
         <button
             class={move || format!(
-                "w-full text-left p-4 border-b border-cream-200 dark:border-charcoal-700 \
-                 hover:bg-cream-50 dark:hover:bg-charcoal-800 transition-colors \
-                 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-amber-500 \
+                "w-full text-left p-4 border-b border-border \
+                 hover:bg-accent transition-colors \
+                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring \
                  {} {}",
                 if selected.get() {
-                    "bg-amber-50 dark:bg-amber-900/20 border-l-4 border-l-amber-500"
+                    "bg-accent border-l-4 border-l-primary"
                 } else {
                     "border-l-4 border-l-transparent"
                 },
@@ -79,27 +80,27 @@ pub fn MessageListItemView(
                         <div class="flex items-center gap-2 min-w-0">
                             {if unread {
                                 Some(view! {
-                                    <span class="w-2 h-2 bg-amber-500 rounded-full flex-shrink-0" title="Unread"></span>
+                                    <span class="w-2 h-2 bg-primary rounded-full flex-shrink-0" title="Unread"></span>
                                 })
                             } else {
                                 None
                             }}
-                            <span class="truncate text-charcoal-700 dark:text-cream-200 text-sm font-medium">
+                            <span class="truncate text-foreground text-sm font-medium">
                                 {sender}
                             </span>
                             {if importance == "high" {
                                 Some(view! {
-                                    <i data-lucide="alert-circle" class="icon-xs text-rose-500 flex-shrink-0" title="High Importance"></i>
+                                    <i data-lucide="alert-circle" class="h-3 w-3 text-destructive flex-shrink-0" title="High Importance"></i>
                                 })
                             } else {
                                 None
                             }}
                         </div>
-                        <span class="text-xs text-charcoal-400 dark:text-charcoal-500 whitespace-nowrap flex-shrink-0">
+                        <span class="text-xs text-muted-foreground whitespace-nowrap flex-shrink-0">
                             {timestamp}
                         </span>
                     </div>
-                    <p class="text-sm text-charcoal-600 dark:text-charcoal-300 truncate mt-0.5">
+                    <p class="text-sm text-muted-foreground truncate mt-0.5">
                         {subject}
                     </p>
                 </div>
@@ -223,28 +224,28 @@ pub fn SplitViewLayout(
     };
 
     view! {
-        // Desktop: Two-column split view
+        // Desktop: Two-column split view - shadcn Card pattern with flexbox
         <div
-            class="hidden lg:grid lg:grid-cols-[35%_65%] h-[calc(100vh-12rem)] border border-cream-200 dark:border-charcoal-700 rounded-xl overflow-hidden"
+            class="hidden lg:flex lg:flex-row gap-0 h-[calc(100vh-12rem)] rounded-lg border bg-card text-card-foreground shadow-sm overflow-hidden"
             tabindex="0"
             on:keydown=on_keydown
         >
-            // Message List Panel
+            // Message List Panel - 35% width
             <div
-                class="border-r border-cream-200 dark:border-charcoal-700 overflow-y-auto bg-white dark:bg-charcoal-900"
+                class="flex-none w-[35%] border-r border-border overflow-y-auto bg-background"
                 role="region"
                 aria-label="Message list"
             >
                 {if messages.is_empty() {
                     view! {
-                        <div class="p-8 text-center text-charcoal-400">
+                        <div class="p-8 text-center text-muted-foreground">
                             <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-3 opacity-50"></i>
                             <p>"No messages"</p>
                         </div>
                     }.into_any()
                 } else {
                     view! {
-                        <div class="divide-y divide-cream-200 dark:divide-charcoal-700">
+                        <div class="divide-y divide-border">
                             {messages.iter().map(|msg| {
                                 let msg_id = msg.id;
                                 let is_selected = Signal::derive(move || selected_id.get() == Some(msg_id));
@@ -261,9 +262,9 @@ pub fn SplitViewLayout(
                 }}
             </div>
 
-            // Detail Panel
+            // Detail Panel - flex-1 takes remaining space
             <div
-                class="overflow-y-auto bg-cream-50 dark:bg-charcoal-800"
+                class="flex-1 overflow-y-auto bg-muted/30"
                 role="region"
                 aria-label="Message detail"
             >
@@ -271,36 +272,36 @@ pub fn SplitViewLayout(
             </div>
         </div>
 
-        // Mobile: Single column (list only)
+        // Mobile: Single column (list only) - shadcn Card pattern
         <div class="lg:hidden">
             {if messages.is_empty() {
                 view! {
-                    <div class="p-8 text-center text-charcoal-400 card-elevated">
+                    <div class="p-8 text-center text-muted-foreground rounded-lg border bg-card shadow-sm">
                         <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-3 opacity-50"></i>
                         <p>"No messages"</p>
                     </div>
                 }.into_any()
             } else {
                 view! {
-                    <div class="card-elevated overflow-hidden divide-y divide-cream-200 dark:divide-charcoal-700">
+                    <div class="rounded-lg border bg-card shadow-sm overflow-hidden divide-y divide-border">
                         {messages.iter().map(|msg| {
                             let project = msg.project_slug.clone();
                             let id = msg.id;
                             view! {
                                 <a
                                     href={format!("/inbox/{}?project={}", id, project)}
-                                    class="block p-4 hover:bg-cream-50 dark:hover:bg-charcoal-800 transition-colors"
+                                    class="block p-4 hover:bg-accent transition-colors"
                                 >
                                     <div class="flex items-start justify-between gap-2">
                                         <div class="flex-1 min-w-0">
-                                            <span class="font-medium text-charcoal-700 dark:text-cream-200 truncate block">
+                                            <span class="font-medium text-foreground truncate block">
                                                 {msg.sender.clone()}
                                             </span>
-                                            <p class="text-sm text-charcoal-600 dark:text-charcoal-300 truncate">
+                                            <p class="text-sm text-muted-foreground truncate">
                                                 {msg.subject.clone()}
                                             </p>
                                         </div>
-                                        <span class="text-xs text-charcoal-400 whitespace-nowrap">
+                                        <span class="text-xs text-muted-foreground whitespace-nowrap">
                                             {msg.timestamp.clone()}
                                         </span>
                                     </div>
