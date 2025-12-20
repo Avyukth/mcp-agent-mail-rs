@@ -5,9 +5,9 @@
 use lib_core::{
     ctx::Ctx,
     model::{
+        ModelManager,
         agent::{Agent, AgentBmc},
         project::{Project, ProjectBmc},
-        ModelManager,
     },
 };
 use rmcp::ErrorData as McpError;
@@ -64,7 +64,11 @@ pub async fn resolve_agent_names(
     names_csv: &str,
 ) -> Result<Vec<i64>, McpError> {
     let mut ids = Vec::new();
-    for name in names_csv.split(',').map(|s| s.trim()).filter(|s| !s.is_empty()) {
+    for name in names_csv
+        .split(',')
+        .map(|s| s.trim())
+        .filter(|s| !s.is_empty())
+    {
         let agent = resolve_agent(ctx, mm, project_id, name).await?;
         ids.push(agent.id);
     }

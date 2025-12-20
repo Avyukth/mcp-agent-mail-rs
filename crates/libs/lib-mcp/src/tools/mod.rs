@@ -26,8 +26,18 @@ use lib_core::{
     },
 };
 
+mod agent;
+mod archive;
+mod attachments;
+mod builds;
+mod contacts;
+mod files;
 mod helpers;
+mod observability;
+mod outbox;
 mod params;
+mod project;
+mod reviews;
 
 pub use params::*;
 
@@ -2129,52 +2139,7 @@ impl AgentMailService {
         &self,
         params: Parameters<GetReviewStateParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::message::MessageBmc;
-        use lib_core::model::orchestration::{OrchestrationState, parse_thread_state};
-        use lib_core::model::project::ProjectBmc;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        let messages = MessageBmc::list_by_thread(&ctx, &self.mm, project.id, &p.thread_id)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let state = parse_thread_state(&messages);
-        let is_reviewed = matches!(
-            state,
-            OrchestrationState::Approved | OrchestrationState::Acknowledged
-        );
-
-        // Try to find reviewer from [REVIEWING] or [APPROVED] messages
-        let reviewer = messages
-            .iter()
-            .rev()
-            .find(|m| {
-                let subj = m.subject.to_uppercase();
-                subj.starts_with("[REVIEWING]") || subj.starts_with("[APPROVED]")
-            })
-            .map(|m| m.sender_name.clone());
-
-        let last_update = messages
-            .last()
-            .map(|m| m.created_ts.to_string())
-            .unwrap_or_else(|| "N/A".to_string());
-
-        let response = ReviewStateResponse {
-            thread_id: p.thread_id.clone(),
-            state: state.prefix().to_string(),
-            is_reviewed,
-            reviewer,
-            last_update,
-        };
-
-        let json = serde_json::to_string_pretty(&response)
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        Ok(CallToolResult::success(vec![Content::text(json)]))
+        reviews::get_review_state_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// Claim a pending review atomically
@@ -2185,90 +2150,7 @@ impl AgentMailService {
         &self,
         params: Parameters<ClaimReviewParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::message::{MessageBmc, MessageForCreate};
-        use lib_core::model::orchestration::{OrchestrationState, parse_thread_state};
-        use lib_core::model::project::ProjectBmc;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        // Get project
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        // Get the completion message
-        let message = MessageBmc::get(&ctx, &self.mm, p.message_id)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("Message not found: {}", e), None))?;
-
-        let thread_id = message
-            .thread_id
-            .clone()
-            .unwrap_or_else(|| format!("TASK-{}", p.message_id));
-
-        // Get thread messages to check state
-        let messages = MessageBmc::list_by_thread(&ctx, &self.mm, project.id, &thread_id)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let state = parse_thread_state(&messages);
-
-        // Check if already claimed (REVIEWING state)
-        if matches!(state, OrchestrationState::Reviewing) {
-            // Find who claimed it
-            let claimer = messages
-                .iter()
-                .rev()
-                .find(|m| m.subject.to_uppercase().starts_with("[REVIEWING]"))
-                .map(|m| m.sender_name.clone());
-
-            let result = ClaimResult {
-                success: false,
-                thread_id,
-                claimed_by: claimer,
-            };
-            let json = serde_json::to_string_pretty(&result)
-                .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-            return Ok(CallToolResult::success(vec![Content::text(json)]));
-        }
-
-        // Get reviewer agent ID
-        let reviewer = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.reviewer_name)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("Reviewer not found: {}", e), None))?;
-
-        // Send [REVIEWING] message
-        let msg = MessageForCreate {
-            project_id: project.id,
-            sender_id: reviewer.id,
-            recipient_ids: vec![message.sender_id],
-            cc_ids: None,
-            bcc_ids: None,
-            subject: format!(
-                "[REVIEWING] {}",
-                message.subject.trim_start_matches("[COMPLETION]").trim()
-            ),
-            body_md: format!(
-                "Claiming review for task. Original message ID: {}",
-                p.message_id
-            ),
-            thread_id: Some(thread_id.clone()),
-            importance: None,
-            ack_required: false,
-        };
-
-        MessageBmc::create(&ctx, &self.mm, msg)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let result = ClaimResult {
-            success: true,
-            thread_id,
-            claimed_by: Some(p.reviewer_name),
-        };
-        let json = serde_json::to_string_pretty(&result)
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        Ok(CallToolResult::success(vec![Content::text(json)]))
+        reviews::claim_review_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// List all projects
@@ -2328,87 +2210,7 @@ impl AgentMailService {
         &self,
         params: Parameters<FileReservationParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::agent::AgentBmc;
-        use lib_core::model::file_reservation::{FileReservationBmc, FileReservationForCreate};
-        use lib_core::model::project::ProjectBmc;
-        use lib_core::utils::validation::{
-            validate_agent_name, validate_project_key, validate_reservation_path, validate_ttl,
-        };
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        // Validate inputs
-        validate_project_key(&p.project_slug).map_err(|e| {
-            McpError::invalid_params(
-                format!("{}", e),
-                Some(serde_json::json!({ "details": e.context() })),
-            )
-        })?;
-
-        validate_agent_name(&p.agent_name).map_err(|e| {
-            McpError::invalid_params(
-                format!("{}", e),
-                Some(serde_json::json!({ "details": e.context() })),
-            )
-        })?;
-
-        validate_reservation_path(&p.path_pattern).map_err(|e| {
-            McpError::invalid_params(
-                format!("{}", e),
-                Some(serde_json::json!({ "details": e.context() })),
-            )
-        })?;
-
-        if let Some(ttl) = p.ttl_seconds {
-            validate_ttl(ttl as u64).map_err(|e| {
-                McpError::invalid_params(
-                    format!("{}", e),
-                    Some(serde_json::json!({ "details": e.context() })),
-                )
-            })?;
-        }
-
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
-
-        if !AgentCapabilityBmc::check(&ctx, &self.mm, agent.id, "file_reservation_paths")
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?
-        {
-            return Err(McpError::invalid_params(
-                format!(
-                    "Agent '{}' does not have 'file_reservation_paths' capability",
-                    p.agent_name
-                ),
-                None,
-            ));
-        }
-
-        let ttl = p.ttl_seconds.unwrap_or(3600);
-        let expires_ts = chrono::Utc::now().naive_utc() + chrono::Duration::seconds(ttl);
-
-        let res_c = FileReservationForCreate {
-            project_id: project.id,
-            agent_id: agent.id,
-            path_pattern: p.path_pattern.clone(),
-            exclusive: p.exclusive.unwrap_or(true),
-            reason: p.reason.unwrap_or_else(|| "Reserved via MCP".to_string()),
-            expires_ts,
-        };
-
-        let id = FileReservationBmc::create(&ctx, &self.mm, res_c)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let msg = format!(
-            "Reserved '{}' for agent '{}' (reservation id: {}, expires: {})",
-            p.path_pattern, p.agent_name, id, expires_ts
-        );
-        Ok(CallToolResult::success(vec![Content::text(msg)]))
+        files::reserve_file_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// List active file reservations
@@ -2417,31 +2219,7 @@ impl AgentMailService {
         &self,
         params: Parameters<ListReservationsParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::file_reservation::FileReservationBmc;
-        use lib_core::model::project::ProjectBmc;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        let reservations = FileReservationBmc::list_active_for_project(&ctx, &self.mm, project.id)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let mut output = format!(
-            "Active reservations in '{}' ({}):\n\n",
-            p.project_slug,
-            reservations.len()
-        );
-        for r in &reservations {
-            output.push_str(&format!(
-                "- [{}] {} (agent_id: {}, exclusive: {}, expires: {})\n",
-                r.id, r.path_pattern, r.agent_id, r.exclusive, r.expires_ts
-            ));
-        }
-
-        Ok(CallToolResult::success(vec![Content::text(output)]))
+        files::list_reservations_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// Release a file reservation
@@ -2450,17 +2228,7 @@ impl AgentMailService {
         &self,
         params: Parameters<ReleaseReservationParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::file_reservation::FileReservationBmc;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        FileReservationBmc::release(&ctx, &self.mm, p.reservation_id)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let msg = format!("Released reservation {}", p.reservation_id);
-        Ok(CallToolResult::success(vec![Content::text(msg)]))
+        files::release_reservation_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// Force release a file reservation (emergency override)
@@ -2471,17 +2239,7 @@ impl AgentMailService {
         &self,
         params: Parameters<ForceReleaseReservationParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::file_reservation::FileReservationBmc;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        FileReservationBmc::force_release(&ctx, &self.mm, p.reservation_id)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let msg = format!("Force released reservation {}", p.reservation_id);
-        Ok(CallToolResult::success(vec![Content::text(msg)]))
+        files::force_release_reservation_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// Renew a file reservation TTL
@@ -2492,23 +2250,7 @@ impl AgentMailService {
         &self,
         params: Parameters<RenewFileReservationParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::file_reservation::FileReservationBmc;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        let ttl = p.ttl_seconds.unwrap_or(3600);
-        let new_expires = chrono::Utc::now().naive_utc() + chrono::Duration::seconds(ttl);
-
-        FileReservationBmc::renew(&ctx, &self.mm, p.reservation_id, new_expires)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let msg = format!(
-            "Renewed reservation {} until {}",
-            p.reservation_id, new_expires
-        );
-        Ok(CallToolResult::success(vec![Content::text(msg)]))
+        files::renew_file_reservation_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// Reply to a message
@@ -2865,46 +2607,7 @@ impl AgentMailService {
         &self,
         params: Parameters<RequestContactParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::agent::AgentBmc;
-        use lib_core::model::agent_link::{AgentLinkBmc, AgentLinkForCreate};
-        use lib_core::model::project::ProjectBmc;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        let from_project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.from_project_slug)
-            .await
-            .map_err(|e| {
-                McpError::invalid_params(format!("From project not found: {}", e), None)
-            })?;
-        let from_agent = AgentBmc::get_by_name(&ctx, &self.mm, from_project.id, &p.from_agent_name)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("From agent not found: {}", e), None))?;
-
-        let to_project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.to_project_slug)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("To project not found: {}", e), None))?;
-        let to_agent = AgentBmc::get_by_name(&ctx, &self.mm, to_project.id, &p.to_agent_name)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("To agent not found: {}", e), None))?;
-
-        let link_c = AgentLinkForCreate {
-            a_project_id: from_project.id,
-            a_agent_id: from_agent.id,
-            b_project_id: to_project.id,
-            b_agent_id: to_agent.id,
-            reason: p.reason,
-        };
-
-        let link_id = AgentLinkBmc::request_contact(&ctx, &self.mm, link_c)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let msg = format!(
-            "Contact request sent (link_id: {}, status: pending)",
-            link_id
-        );
-        Ok(CallToolResult::success(vec![Content::text(msg)]))
+        contacts::request_contact_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// Respond to contact request
@@ -2913,18 +2616,7 @@ impl AgentMailService {
         &self,
         params: Parameters<RespondContactParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::agent_link::AgentLinkBmc;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        AgentLinkBmc::respond_contact(&ctx, &self.mm, p.link_id, p.accept)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let status = if p.accept { "accepted" } else { "rejected" };
-        let msg = format!("Contact request {} {}", p.link_id, status);
-        Ok(CallToolResult::success(vec![Content::text(msg)]))
+        contacts::respond_contact_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// List contacts
@@ -2933,36 +2625,7 @@ impl AgentMailService {
         &self,
         params: Parameters<ListContactsParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::agent::AgentBmc;
-        use lib_core::model::agent_link::AgentLinkBmc;
-        use lib_core::model::project::ProjectBmc;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
-
-        let links = AgentLinkBmc::list_contacts(&ctx, &self.mm, project.id, agent.id)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let mut output = format!("Contacts for '{}' ({}):\n\n", p.agent_name, links.len());
-        for link in &links {
-            let (other_project_id, other_agent_id) = if link.a_agent_id == agent.id {
-                (link.b_project_id, link.b_agent_id)
-            } else {
-                (link.a_project_id, link.a_agent_id)
-            };
-            output.push_str(&format!(
-                "- [{}] project:{} agent:{} (status: {}, reason: {})\n",
-                link.id, other_project_id, other_agent_id, link.status, link.reason
-            ));
-        }
-        Ok(CallToolResult::success(vec![Content::text(output)]))
+        contacts::list_contacts_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// Set contact policy
@@ -2971,33 +2634,7 @@ impl AgentMailService {
         &self,
         params: Parameters<SetContactPolicyParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::agent::{AgentBmc, AgentProfileUpdate};
-        use lib_core::model::project::ProjectBmc;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
-
-        let update = AgentProfileUpdate {
-            task_description: None,
-            attachments_policy: None,
-            contact_policy: Some(p.contact_policy.clone()),
-        };
-
-        AgentBmc::update_profile(&ctx, &self.mm, agent.id, update)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let msg = format!(
-            "Contact policy for '{}' set to '{}'",
-            p.agent_name, p.contact_policy
-        );
-        Ok(CallToolResult::success(vec![Content::text(msg)]))
+        contacts::set_contact_policy_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// Acquire build slot
@@ -3006,37 +2643,7 @@ impl AgentMailService {
         &self,
         params: Parameters<AcquireBuildSlotParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::agent::AgentBmc;
-        use lib_core::model::build_slot::{BuildSlotBmc, BuildSlotForCreate};
-        use lib_core::model::project::ProjectBmc;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
-
-        let ttl = p.ttl_seconds.unwrap_or(1800);
-        let slot_c = BuildSlotForCreate {
-            project_id: project.id,
-            agent_id: agent.id,
-            slot_name: p.slot_name.clone(),
-            ttl_seconds: ttl,
-        };
-
-        let slot_id = BuildSlotBmc::acquire(&ctx, &self.mm, slot_c)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let expires = chrono::Utc::now().naive_utc() + chrono::Duration::seconds(ttl);
-        let msg = format!(
-            "Acquired build slot '{}' (id: {}, expires: {})",
-            p.slot_name, slot_id, expires
-        );
-        Ok(CallToolResult::success(vec![Content::text(msg)]))
+        builds::acquire_build_slot_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// Renew build slot
@@ -3045,21 +2652,7 @@ impl AgentMailService {
         &self,
         params: Parameters<RenewBuildSlotParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::build_slot::BuildSlotBmc;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        let ttl = p.ttl_seconds.unwrap_or(1800);
-        let new_expires = BuildSlotBmc::renew(&ctx, &self.mm, p.slot_id, ttl)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let msg = format!(
-            "Renewed build slot {} (new expires: {})",
-            p.slot_id, new_expires
-        );
-        Ok(CallToolResult::success(vec![Content::text(msg)]))
+        builds::renew_build_slot_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// Release build slot
@@ -3068,17 +2661,7 @@ impl AgentMailService {
         &self,
         params: Parameters<ReleaseBuildSlotParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::build_slot::BuildSlotBmc;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        BuildSlotBmc::release(&ctx, &self.mm, p.slot_id)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let msg = format!("Released build slot {}", p.slot_id);
-        Ok(CallToolResult::success(vec![Content::text(msg)]))
+        builds::release_build_slot_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// Send overseer message
@@ -4174,22 +3757,7 @@ impl AgentMailService {
         &self,
         params: Parameters<CommitArchiveParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::project::ProjectBmc;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        let oid = ProjectBmc::sync_to_archive(&ctx, &self.mm, project.id, &p.message)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let msg = format!(
-            "Archived project '{}' to git. Commit ID: {}",
-            project.slug, oid
-        );
-        Ok(CallToolResult::success(vec![Content::text(msg)]))
+        archive::commit_archive_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// Product-wide inbox
@@ -4576,42 +4144,7 @@ impl AgentMailService {
         &self,
         params: Parameters<ListOutboxParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::agent::AgentBmc;
-        use lib_core::model::message::MessageBmc;
-        use lib_core::model::project::ProjectBmc;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
-
-        let messages = MessageBmc::list_outbox_for_agent(
-            &ctx,
-            &self.mm,
-            project.id,
-            agent.id,
-            p.limit.unwrap_or(50),
-        )
-        .await
-        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let mut output = format!(
-            "Outbox for '{}' ({} messages):\n\n",
-            p.agent_name,
-            messages.len()
-        );
-        for m in &messages {
-            output.push_str(&format!(
-                "- [{}] {} (to: {:?}, thread: {:?}, {})\n",
-                m.id, m.subject, m.sender_name, m.thread_id, m.importance
-            ));
-        }
-
-        Ok(CallToolResult::success(vec![Content::text(output)]))
+        outbox::list_outbox_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// Reserve multiple file paths with conflict detection
@@ -4837,61 +4370,7 @@ exit 0
         &self,
         params: Parameters<AddAttachmentParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::message::MessageBmc;
-        use lib_core::model::project::ProjectBmc;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        // Verify message exists
-        let _message = MessageBmc::get(&ctx, &self.mm, p.message_id)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("Message not found: {}", e), None))?;
-
-        // Generate attachment ID
-        let attachment_id = format!(
-            "att_{}_{}",
-            p.message_id,
-            uuid::Uuid::new_v4()
-                .to_string()
-                .split('-')
-                .next()
-                .unwrap_or("0")
-        );
-
-        // Store attachment in Git
-        let repo = lib_core::store::git_store::open_repo(&self.mm.repo_root)
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let attachment_path = std::path::PathBuf::from("projects")
-            .join(&project.slug)
-            .join("attachments")
-            .join(&attachment_id)
-            .join(&p.filename);
-
-        // Decode base64 content
-        use base64::Engine;
-        let content = base64::engine::general_purpose::STANDARD
-            .decode(&p.content_base64)
-            .map_err(|e| McpError::invalid_params(format!("Invalid base64: {}", e), None))?;
-
-        lib_core::store::git_store::commit_file(
-            &repo,
-            &attachment_path,
-            &String::from_utf8_lossy(&content),
-            &format!("attachment: {} for message {}", p.filename, p.message_id),
-            "mcp-bot",
-            "mcp-bot@localhost",
-        )
-        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let msg = format!(
-            "Attachment '{}' added with ID {}",
-            p.filename, attachment_id
-        );
-        Ok(CallToolResult::success(vec![Content::text(msg)]))
+        attachments::add_attachment_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// Get attachment from a message
@@ -4900,49 +4379,7 @@ exit 0
         &self,
         params: Parameters<GetAttachmentParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::project::ProjectBmc;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        let repo = lib_core::store::git_store::open_repo(&self.mm.repo_root)
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let attachment_path = std::path::PathBuf::from("projects")
-            .join(&project.slug)
-            .join("attachments")
-            .join(&p.attachment_id)
-            .join(&p.filename);
-
-        match lib_core::store::git_store::read_file_content(&repo, &attachment_path) {
-            Ok(content) => {
-                use base64::Engine;
-                let content_base64 =
-                    base64::engine::general_purpose::STANDARD.encode(content.as_bytes());
-
-                let mime_type = match p.filename.rsplit('.').next() {
-                    Some("txt") => "text/plain",
-                    Some("json") => "application/json",
-                    Some("md") => "text/markdown",
-                    Some("png") => "image/png",
-                    Some("jpg") | Some("jpeg") => "image/jpeg",
-                    Some("pdf") => "application/pdf",
-                    _ => "application/octet-stream",
-                };
-
-                let output = format!(
-                    "Attachment: {}\nMIME Type: {}\n\nContent (base64):\n{}",
-                    p.filename, mime_type, content_base64
-                );
-                Ok(CallToolResult::success(vec![Content::text(output)]))
-            }
-            Err(_) => Err(McpError::invalid_params(
-                format!("Attachment not found: {}", p.filename),
-                None,
-            )),
-        }
+        attachments::get_attachment_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// List tool usage metrics
@@ -4951,20 +4388,7 @@ exit 0
         &self,
         params: Parameters<ListToolMetricsParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::tool_metric::ToolMetricBmc;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        let limit = p.limit.unwrap_or(50);
-        let metrics = ToolMetricBmc::list_recent(&ctx, &self.mm, p.project_id, limit)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let json_str = serde_json::to_string_pretty(&metrics)
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        Ok(CallToolResult::success(vec![Content::text(json_str)]))
+        observability::list_tool_metrics_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// Get tool usage statistics
@@ -4973,19 +4397,7 @@ exit 0
         &self,
         params: Parameters<ListToolMetricsParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::tool_metric::ToolMetricBmc;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        let stats = ToolMetricBmc::get_stats(&ctx, &self.mm, p.project_id)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let json_str = serde_json::to_string_pretty(&stats)
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        Ok(CallToolResult::success(vec![Content::text(json_str)]))
+        observability::get_tool_stats_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// List activity for a project
@@ -4994,20 +4406,7 @@ exit 0
         &self,
         params: Parameters<ListActivityParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::activity::ActivityBmc;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        let limit = p.limit.unwrap_or(50);
-        let items = ActivityBmc::list_recent(&ctx, &self.mm, p.project_id, limit)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let json_str = serde_json::to_string_pretty(&items)
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        Ok(CallToolResult::success(vec![Content::text(json_str)]))
+        observability::list_activity_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// List messages requiring acknowledgment that haven't been fully acknowledged
@@ -5018,42 +4417,7 @@ exit 0
         &self,
         params: Parameters<ListPendingReviewsParams>,
     ) -> Result<CallToolResult, McpError> {
-        let ctx = self.ctx();
-        let p = params.0;
-
-        // Resolve project_id from slug if provided
-        let project_id = if let Some(ref slug) = p.project_slug {
-            let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, slug)
-                .await
-                .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-            Some(project.id)
-        } else {
-            None
-        };
-
-        // Resolve sender_id from name if provided (requires project context)
-        let sender_id = if let Some(ref sender_name) = p.sender_name {
-            if let Some(pid) = project_id {
-                let agent = AgentBmc::get_by_name(&ctx, &self.mm, pid, sender_name)
-                    .await
-                    .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-                Some(agent.id)
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
-        let limit = p.limit.unwrap_or(5);
-        let rows = MessageBmc::list_pending_reviews(&ctx, &self.mm, project_id, sender_id, limit)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let json_str = serde_json::to_string_pretty(&rows)
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        Ok(CallToolResult::success(vec![Content::text(json_str)]))
+        observability::list_pending_reviews_impl(&self.ctx(), &self.mm, params.0).await
     }
 }
 
