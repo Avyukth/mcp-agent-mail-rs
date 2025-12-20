@@ -2,6 +2,7 @@
 //! Digital Correspondence design - warm, inviting, purposeful.
 
 use crate::api::client::{self, Project};
+use crate::components::{Alert, AlertDescription, AlertTitle, AlertVariant};
 use leptos::prelude::*;
 
 /// Dashboard page component with health check and project stats.
@@ -148,20 +149,16 @@ pub fn Dashboard() -> impl IntoView {
             // Error display
             {move || {
                 health_error.get().map(|e| view! {
-                    <div class="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4 animate-slide-up">
-                        <div class="flex items-start gap-3">
-                            <i data-lucide="triangle-alert" class="icon-lg text-red-500"></i>
-                            <div>
-                                <p class="font-medium text-red-700 dark:text-red-400">
-                                    "Connection Error"
-                                </p>
-                                <p class="text-sm text-red-600 dark:text-red-500 mt-1">{e}</p>
-                                <p class="text-xs text-red-500 dark:text-red-600 mt-2 font-mono">
-                                    "Ensure backend is running on port 8765"
-                                </p>
-                            </div>
-                        </div>
-                    </div>
+                    <Alert variant=AlertVariant::Destructive class="animate-slide-up">
+                        <i data-lucide="triangle-alert" class="h-4 w-4"></i>
+                        <AlertTitle>"Connection Error"</AlertTitle>
+                        <AlertDescription>
+                            <p class="mb-1">{e}</p>
+                            <p class="text-xs font-mono opacity-75">
+                                "Ensure backend is running on port 8765"
+                            </p>
+                        </AlertDescription>
+                    </Alert>
                 })
             }}
 

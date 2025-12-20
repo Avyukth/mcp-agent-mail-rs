@@ -1,45 +1,12 @@
 //! Alert component for displaying important messages.
 //!
 //! Follows shadcn/ui pattern with compound components.
+//! Uses CVA patterns from cva.rs for consistency.
 
 use leptos::prelude::*;
 
-const ALERT_BASE: &str = "relative w-full rounded-lg border p-4 [&>svg~*]:pl-7 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-foreground";
-const TITLE_CLASS: &str = "mb-1 font-medium leading-none tracking-tight";
-const DESCRIPTION_CLASS: &str = "text-sm [&_p]:leading-relaxed";
-
-/// Alert variant styles
-#[derive(Debug, Clone, Copy, PartialEq, Default)]
-pub enum AlertVariant {
-    /// Default style (background/foreground)
-    #[default]
-    Default,
-    /// Destructive style (red)
-    Destructive,
-    /// Success style (green/emerald)
-    Success,
-    /// Warning style (amber)
-    Warning,
-}
-
-impl AlertVariant {
-    pub fn classes(&self) -> &'static str {
-        match self {
-            AlertVariant::Default => {
-                "bg-white dark:bg-charcoal-800 text-charcoal-900 dark:text-cream-50 border-charcoal-200 dark:border-charcoal-700"
-            }
-            AlertVariant::Destructive => {
-                "border-red-500/50 text-red-600 dark:border-red-500 [&>svg]:text-red-600 dark:text-red-500"
-            }
-            AlertVariant::Success => {
-                "border-teal-500/50 text-teal-600 dark:border-teal-500 [&>svg]:text-teal-600 dark:text-teal-500"
-            }
-            AlertVariant::Warning => {
-                "border-amber-500/50 text-amber-600 dark:border-amber-500 [&>svg]:text-amber-600 dark:text-amber-500"
-            }
-        }
-    }
-}
+// Re-export CVA types for convenience
+pub use super::cva::{ALERT_BASE, ALERT_DESCRIPTION, ALERT_TITLE, AlertVariant, alert_class};
 
 /// Alert container component.
 ///
@@ -59,12 +26,8 @@ pub fn Alert(
     #[prop(optional, into)] class: Option<String>,
     children: Children,
 ) -> impl IntoView {
-    let final_class = format!(
-        "{} {} {}",
-        ALERT_BASE,
-        variant.classes(),
-        class.unwrap_or_default()
-    );
+    // Use CVA function for class merging
+    let final_class = alert_class(variant, class.as_deref());
 
     view! {
         <div class={final_class} role="alert">
@@ -79,7 +42,8 @@ pub fn AlertTitle(
     #[prop(optional, into)] class: Option<String>,
     children: Children,
 ) -> impl IntoView {
-    let final_class = format!("{} {}", TITLE_CLASS, class.unwrap_or_default());
+    use super::cva::with_class;
+    let final_class = with_class(ALERT_TITLE, class.as_deref());
     view! {
         <h5 class={final_class}>
             {children()}
@@ -93,7 +57,8 @@ pub fn AlertDescription(
     #[prop(optional, into)] class: Option<String>,
     children: Children,
 ) -> impl IntoView {
-    let final_class = format!("{} {}", DESCRIPTION_CLASS, class.unwrap_or_default());
+    use super::cva::with_class;
+    let final_class = with_class(ALERT_DESCRIPTION, class.as_deref());
     view! {
         <div class={final_class}>
             {children()}
@@ -114,26 +79,48 @@ mod tests {
 
     #[test]
     fn test_alert_variant_default() {
-        let classes = AlertVariant::Default.classes();
-        assert!(classes.contains("bg-white"));
-        assert!(classes.contains("text-charcoal-900"));
+        let classes = AlertVariant::Default.class();
+        assert!(classes.contains("bg-background"));
+        assert!(classes.contains("text-foreground"));
     }
 
     #[test]
     fn test_alert_variant_destructive() {
-        let classes = AlertVariant::Destructive.classes();
-        assert!(classes.contains("text-red-600"));
-        assert!(classes.contains("border-red-500/50"));
+        let classes = AlertVariant::Destructive.class();
+        assert!(classes.contains("text-destructive"));
+        assert!(classes.contains("border-destructive"));
+    }
+
+    #[test]
+    fn test_alert_variant_success() {
+        let classes = AlertVariant::Success.class();
+        assert!(classes.contains("text-teal-600"));
+        assert!(classes.contains("border-teal-500"));
+    }
+
+    #[test]
+    fn test_alert_variant_warning() {
+        let classes = AlertVariant::Warning.class();
+        assert!(classes.contains("text-amber-600"));
+        assert!(classes.contains("border-amber-500"));
     }
 
     #[test]
     fn test_alert_title_class() {
-        assert!(TITLE_CLASS.contains("font-medium"));
-        assert!(TITLE_CLASS.contains("tracking-tight"));
+        assert!(ALERT_TITLE.contains("font-medium"));
+        assert!(ALERT_TITLE.contains("tracking-tight"));
     }
 
     #[test]
     fn test_alert_description_class() {
-        assert!(DESCRIPTION_CLASS.contains("text-sm"));
+        assert!(ALERT_DESCRIPTION.contains("text-sm"));
+    }
+
+    #[test]
+    fn test_alert_class_function() {
+        let class = alert_class(AlertVariant::Destructive, Some("custom-class"));
+        assert!(class.contains("text-destructive"));
+        assert!(class.contains("custom-class"));
+        assert!(class.contains("rounded-lg"));
     }
 }

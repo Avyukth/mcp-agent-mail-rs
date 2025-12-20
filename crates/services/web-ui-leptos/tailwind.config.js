@@ -80,6 +80,21 @@ module.exports = {
                 'fade-in': 'fade-in 0.3s ease-out',
                 'slide-up': 'slide-up 0.4s ease-out',
                 'pulse-gentle': 'pulse-gentle 2s ease-in-out infinite',
+                // Magic UI animations
+                'gradient-x': 'gradient-x 3s ease infinite',
+                'gradient-y': 'gradient-y 3s ease infinite',
+                'gradient-xy': 'gradient-xy 3s ease infinite',
+                'shimmer': 'shimmer 2s linear infinite',
+                'shimmer-bg': 'shimmer-bg 2s linear infinite',
+                'blur-fade': 'blur-fade 0.5s ease-out forwards',
+                'blur-fade-up': 'blur-fade-up 0.5s ease-out forwards',
+                'blur-fade-down': 'blur-fade-down 0.5s ease-out forwards',
+                'blur-fade-left': 'blur-fade-left 0.5s ease-out forwards',
+                'blur-fade-right': 'blur-fade-right 0.5s ease-out forwards',
+                'blink': 'blink 1s step-end infinite',
+                'grid-pulse': 'grid-pulse 2s ease-in-out infinite',
+                'typing': 'typing 3s steps(30) forwards',
+                'progress-indeterminate': 'progress-indeterminate 1.5s ease-in-out infinite',
             },
             keyframes: {
                 'fade-in': {
@@ -93,6 +108,63 @@ module.exports = {
                 'pulse-gentle': {
                     '0%, 100%': { opacity: '1' },
                     '50%': { opacity: '0.7' },
+                },
+                // Magic UI keyframes
+                'gradient-x': {
+                    '0%, 100%': { backgroundPosition: '0% 50%' },
+                    '50%': { backgroundPosition: '100% 50%' },
+                },
+                'gradient-y': {
+                    '0%, 100%': { backgroundPosition: '50% 0%' },
+                    '50%': { backgroundPosition: '50% 100%' },
+                },
+                'gradient-xy': {
+                    '0%, 100%': { backgroundPosition: '0% 0%' },
+                    '50%': { backgroundPosition: '100% 100%' },
+                },
+                'shimmer': {
+                    '0%': { backgroundPosition: '-200% 0' },
+                    '100%': { backgroundPosition: '200% 0' },
+                },
+                'shimmer-bg': {
+                    '0%': { backgroundPosition: '200% 0' },
+                    '100%': { backgroundPosition: '-200% 0' },
+                },
+                'blur-fade': {
+                    '0%': { opacity: '0', filter: 'blur(var(--blur-fade-blur, 6px))' },
+                    '100%': { opacity: '1', filter: 'blur(0)' },
+                },
+                'blur-fade-up': {
+                    '0%': { opacity: '0', filter: 'blur(var(--blur-fade-blur, 6px))', transform: 'translateY(10px)' },
+                    '100%': { opacity: '1', filter: 'blur(0)', transform: 'translateY(0)' },
+                },
+                'blur-fade-down': {
+                    '0%': { opacity: '0', filter: 'blur(var(--blur-fade-blur, 6px))', transform: 'translateY(-10px)' },
+                    '100%': { opacity: '1', filter: 'blur(0)', transform: 'translateY(0)' },
+                },
+                'blur-fade-left': {
+                    '0%': { opacity: '0', filter: 'blur(var(--blur-fade-blur, 6px))', transform: 'translateX(10px)' },
+                    '100%': { opacity: '1', filter: 'blur(0)', transform: 'translateX(0)' },
+                },
+                'blur-fade-right': {
+                    '0%': { opacity: '0', filter: 'blur(var(--blur-fade-blur, 6px))', transform: 'translateX(-10px)' },
+                    '100%': { opacity: '1', filter: 'blur(0)', transform: 'translateX(0)' },
+                },
+                'blink': {
+                    '0%, 100%': { opacity: '1' },
+                    '50%': { opacity: '0' },
+                },
+                'grid-pulse': {
+                    '0%, 100%': { opacity: '1' },
+                    '50%': { opacity: '0.5' },
+                },
+                'typing': {
+                    '0%': { width: '0' },
+                    '100%': { width: '100%' },
+                },
+                'progress-indeterminate': {
+                    '0%': { transform: 'translateX(-100%)' },
+                    '100%': { transform: 'translateX(400%)' },
                 },
             },
             backdropBlur: {

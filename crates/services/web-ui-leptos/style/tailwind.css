@@ -227,9 +227,34 @@ a:not(.skip-link):not(.nav-link) {
 
 /* =================================
    Component Classes
+
+   NOTE: Many of these classes are DEPRECATED.
+   Prefer using the Leptos component library instead:
+
+   DEPRECATED CLASSES (use component instead):
+   - .btn-primary, .btn-secondary, .btn-ghost, .btn-destructive
+     → Use <Button variant=ButtonVariant::*> component
+   - .card, .card-elevated
+     → Use <Card> component
+   - .badge, .badge-primary, .badge-success, .badge-error, .badge-warning
+     → Use <Badge variant=BadgeVariant::*> component
+   - .input, .search-input
+     → Use <Input> component
+   - .select
+     → Use <Select> component
+
+   KEEP (no component equivalent):
+   - .glass (glassmorphism utility)
+   - .kbd (keyboard shortcut display)
+   - .separator, .split-view-divider
+   - .nav-link (navigation specific)
+   - .skeleton (animation utility)
+   - .status-online (indicator)
+   - .empty-state-icon
+
    ================================= */
 @layer components {
-    /* Glassmorphism Navigation */
+    /* Glassmorphism Navigation (KEEP) */
     .glass {
         background: rgba(255, 255, 255, 0.8);
         backdrop-filter: blur(12px);
@@ -242,7 +267,7 @@ a:not(.skip-link):not(.nav-link) {
         border: 1px solid rgba(51, 65, 85, 0.5);
     }
 
-    /* Cards */
+    /* Cards - @deprecated Use <Card> component instead */
     .card {
         background: var(--color-bg-primary);
         border: 1px solid var(--color-border);
@@ -263,7 +288,7 @@ a:not(.skip-link):not(.nav-link) {
         border-color: var(--color-border-hover);
     }
 
-    /* Primary Button */
+    /* Primary Button - @deprecated Use <Button variant=ButtonVariant::Default> */
     .btn-primary {
         background: var(--color-primary);
         color: white;
@@ -289,7 +314,7 @@ a:not(.skip-link):not(.nav-link) {
         transform: translateY(0);
     }
 
-    /* Secondary/Outline Button */
+    /* Secondary Button - @deprecated Use <Button variant=ButtonVariant::Secondary> */
     .btn-secondary {
         background: var(--color-bg-primary);
         color: var(--color-text-primary);
@@ -313,7 +338,7 @@ a:not(.skip-link):not(.nav-link) {
         background: var(--color-primary-light);
     }
 
-    /* Ghost Button */
+    /* Ghost Button - @deprecated Use <Button variant=ButtonVariant::Ghost> */
     .btn-ghost {
         background: transparent;
         color: var(--color-text-secondary);
@@ -334,7 +359,7 @@ a:not(.skip-link):not(.nav-link) {
         color: var(--color-text-primary);
     }
 
-    /* Destructive Button */
+    /* Destructive Button - @deprecated Use <Button variant=ButtonVariant::Destructive> */
     .btn-destructive {
         background: var(--color-error);
         color: white;
@@ -352,7 +377,7 @@ a:not(.skip-link):not(.nav-link) {
         background: #DC2626;
     }
 
-    /* Badges */
+    /* Badges - @deprecated Use <Badge variant=BadgeVariant::*> component */
     .badge {
         display: inline-flex;
         align-items: center;
@@ -384,7 +409,7 @@ a:not(.skip-link):not(.nav-link) {
         color: var(--color-warning);
     }
 
-    /* Inputs */
+    /* Inputs - @deprecated Use <Input> component */
     .input {
         background: var(--color-bg-secondary);
         border: 1px solid var(--color-border);
@@ -406,7 +431,7 @@ a:not(.skip-link):not(.nav-link) {
         color: var(--color-text-placeholder);
     }
 
-    /* Search Input with Icon */
+    /* Search Input - @deprecated Use <Input> component with icon prop */
     .search-input {
         background: var(--color-bg-secondary);
         border: 1px solid var(--color-border);
@@ -423,7 +448,7 @@ a:not(.skip-link):not(.nav-link) {
         box-shadow: var(--shadow-focus);
     }
 
-    /* Select */
+    /* Select - @deprecated Use <Select> component */
     .select {
         background: var(--color-bg-secondary);
         border: 1px solid var(--color-border);

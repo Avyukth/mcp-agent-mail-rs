@@ -2,7 +2,10 @@
 //! Digital Correspondence design - envelope-style message cards.
 
 use crate::api::client::{self, Agent, InboxMessage, Project};
-use crate::components::{AgentAvatar, AvatarSize, Button, ButtonVariant, Select, SelectOption};
+use crate::components::{
+    AgentAvatar, Alert, AlertDescription, AlertVariant, AvatarSize, Badge, BadgeVariant, Button,
+    ButtonVariant, Select, SelectOption, Spinner, SpinnerSize,
+};
 use leptos::prelude::*;
 use leptos_router::hooks::use_query_map;
 
@@ -312,12 +315,10 @@ pub fn Inbox() -> impl IntoView {
             // Error Message
             {move || {
                 error.get().map(|e| view! {
-                    <div class="rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/20 p-4 animate-slide-up">
-                        <div class="flex items-start gap-3">
-                            <i data-lucide="triangle-alert" class="icon-lg text-red-500"></i>
-                            <p class="text-red-700 dark:text-red-400">{e}</p>
-                        </div>
-                    </div>
+                    <Alert variant=AlertVariant::Destructive class="animate-slide-up">
+                        <i data-lucide="triangle-alert" class="h-4 w-4"></i>
+                        <AlertDescription>{e}</AlertDescription>
+                    </Alert>
                 })
             }}
 
@@ -327,8 +328,8 @@ pub fn Inbox() -> impl IntoView {
                     view! {
                         <div class="flex items-center justify-center py-16">
                             <div class="flex flex-col items-center gap-4">
-                                <i data-lucide="loader-2" class="icon-2xl text-amber-500 animate-spin"></i>
-                                <p class="text-charcoal-500 dark:text-charcoal-400 text-sm">"Loading..."</p>
+                                <Spinner size=SpinnerSize::Lg class="text-primary" />
+                                <p class="text-muted-foreground text-sm">"Loading..."</p>
                             </div>
                         </div>
                     }.into_any()
@@ -349,8 +350,8 @@ pub fn Inbox() -> impl IntoView {
                     view! {
                         <div class="flex items-center justify-center py-16">
                             <div class="flex flex-col items-center gap-4">
-                                <i data-lucide="loader-2" class="icon-2xl text-amber-500 animate-spin"></i>
-                                <p class="text-charcoal-500 dark:text-charcoal-400 text-sm">"Fetching messages..."</p>
+                                <Spinner size=SpinnerSize::Lg class="text-primary" />
+                                <p class="text-muted-foreground text-sm">"Fetching messages..."</p>
                             </div>
                         </div>
                     }.into_any()
@@ -382,6 +383,7 @@ pub fn Inbox() -> impl IntoView {
                         // Messages List
                         let project = selected_project.get();
                         let agent = selected_agent.get();
+                        let agent_for_badge = agent.clone();
                         let msg_count = msg_list.len();
                         view! {
                             <div class="card-elevated overflow-hidden">
@@ -392,10 +394,10 @@ pub fn Inbox() -> impl IntoView {
                                             <i data-lucide="mails" class="icon-sm"></i>
                                             {msg_count} " message" {if msg_count == 1 { "" } else { "s" }}
                                         </span>
-                                        <span class="badge badge-teal flex items-center gap-1.5">
-                                            <i data-lucide="bot" class="icon-xs"></i>
-                                            {agent.clone()}
-                                        </span>
+                                        <Badge variant=BadgeVariant::Success class="flex items-center gap-1.5">
+                                            <i data-lucide="bot" class="h-3 w-3"></i>
+                                            {agent_for_badge}
+                                        </Badge>
                                     </div>
                                 </div>
 
