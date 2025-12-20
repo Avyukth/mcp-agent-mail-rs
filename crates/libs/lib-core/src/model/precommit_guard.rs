@@ -458,7 +458,8 @@ impl PrecommitGuardBmc {
     /// * `ctx` - Request context
     /// * `mm` - Model manager
     /// * `git_repo_path` - Path to the git repository root
-    /// * `server_url` - Optional server URL for pre-push validation (default: http://localhost:8080)
+    /// * `server_url` - Optional server URL for pre-push validation.
+    ///   Falls back to `MCP_AGENT_MAIL_URL` or `API_URL` env vars, then `http://localhost:8080`
     pub async fn install(
         _ctx: &Ctx,
         _mm: &ModelManager,
@@ -517,8 +518,13 @@ exit 0
 
         // Install pre-push hook
         let prepush_path = hooks_dir.join("pre-push");
-        let server = server_url.unwrap_or("http://localhost:8080");
-        let prepush_script = render_prepush_script(server);
+        let server = match server_url {
+            Some(url) => url.to_string(),
+            None => std::env::var("MCP_AGENT_MAIL_URL")
+                .or_else(|_| std::env::var("API_URL"))
+                .unwrap_or_else(|_| "http://localhost:8080".to_string()),
+        };
+        let prepush_script = render_prepush_script(&server);
 
         tokio::fs::write(&prepush_path, prepush_script).await?;
         Self::make_executable(&prepush_path).await?;

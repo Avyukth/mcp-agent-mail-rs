@@ -43,12 +43,12 @@ fn copy_to_clipboard(_text: &str) {
 fn window_origin() -> String {
     web_sys::window()
         .and_then(|w| w.location().origin().ok())
-        .unwrap_or_else(|| "http://localhost:8765".to_string())
+        .unwrap_or_else(|| crate::api::client::api_base_url())
 }
 
 #[cfg(not(target_arch = "wasm32"))]
 fn window_origin() -> String {
-    "http://localhost:8765".to_string()
+    crate::api::client::api_base_url()
 }
 
 /// A single metadata item in the header grid
@@ -252,9 +252,10 @@ mod tests {
 
     #[test]
     fn test_window_origin_fallback() {
-        // In non-WASM builds, should return localhost fallback
+        // In non-WASM builds, should return api_base_url() fallback
         let origin = window_origin();
-        assert_eq!(origin, "http://localhost:8765");
+        // Just verify it returns a valid URL, not a specific port
+        assert!(origin.starts_with("http"));
     }
 
     // === Copy to clipboard (non-WASM no-op) ===
@@ -328,7 +329,9 @@ mod tests {
         let message_id: i64 = 12345;
         let origin = window_origin();
         let url = format!("{}/inbox/{}", origin, message_id);
-        assert_eq!(url, "http://localhost:8765/inbox/12345");
+        // Verify URL structure, not specific port
+        assert!(url.starts_with("http"));
+        assert!(url.ends_with("/inbox/12345"));
     }
 
     #[test]

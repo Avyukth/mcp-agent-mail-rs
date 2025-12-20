@@ -28,7 +28,13 @@ enum Commands {
 
     /// Check server health
     Health {
-        #[arg(short, long, default_value = "http://localhost:8765")]
+        /// Server URL to check (reads from MCP_AGENT_MAIL_URL env var)
+        #[arg(
+            short,
+            long,
+            env = "MCP_AGENT_MAIL_URL",
+            default_value = "http://localhost:8765"
+        )]
         url: String,
     },
 

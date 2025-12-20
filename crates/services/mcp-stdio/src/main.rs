@@ -17,11 +17,11 @@ struct Cli {
 enum Commands {
     /// Run the MCP server over stdio (default)
     Serve {
-        #[arg(short, long, default_value = "stdio")]
+        #[arg(short, long, env = "MOUCHAK_MCP__TRANSPORT", default_value = "stdio")]
         transport: String,
-        #[arg(short, long, default_value = "3000")]
+        #[arg(short, long, env = "MOUCHAK_MCP__PORT", default_value = "3000")]
         port: u16,
-        #[arg(long, default_value = "127.0.0.1")]
+        #[arg(long, env = "MCP_AGENT_MAIL_HOST", default_value = "127.0.0.1")]
         host: String,
     },
     /// Export JSON schemas for all tools

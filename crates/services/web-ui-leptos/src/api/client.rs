@@ -3,7 +3,36 @@
 use gloo_net::http::Request;
 use serde::{Deserialize, Serialize};
 
-/// API base URL - defaults to localhost for development.
+/// Get the API base URL.
+///
+/// In WASM (browser), uses the current window origin so the API is on the same host.
+/// This allows the frontend to work correctly when deployed behind a reverse proxy.
+///
+/// Build-time configuration via `API_BASE_URL` env var is also supported for development.
+pub fn api_base_url() -> String {
+    // Check for build-time env var first (for development overrides)
+    if let Some(url) = option_env!("API_BASE_URL") {
+        if !url.is_empty() {
+            return url.to_string();
+        }
+    }
+
+    // In WASM, use the current window origin
+    #[cfg(target_arch = "wasm32")]
+    {
+        if let Some(window) = web_sys::window() {
+            if let Ok(origin) = window.location().origin() {
+                return origin;
+            }
+        }
+    }
+
+    // Fallback for non-WASM or if window is unavailable
+    "http://127.0.0.1:8080".to_string()
+}
+
+/// Legacy constant for backwards compatibility - prefer api_base_url() function
+#[deprecated(since = "0.2.0", note = "Use api_base_url() function instead")]
 pub const API_BASE_URL: &str = "http://127.0.0.1:8080";
 
 /// API error type.
@@ -102,7 +131,7 @@ pub struct Message {
 
 /// Check API health.
 pub async fn check_health() -> Result<HealthResponse, ApiError> {
-    let url = format!("{}/api/health", API_BASE_URL);
+    let url = format!("{}/api/health", api_base_url());
     let response = Request::get(&url).send().await?;
 
     if response.ok() {
@@ -116,7 +145,7 @@ pub async fn check_health() -> Result<HealthResponse, ApiError> {
 
 /// Get all projects.
 pub async fn get_projects() -> Result<Vec<Project>, ApiError> {
-    let url = format!("{}/api/projects", API_BASE_URL);
+    let url = format!("{}/api/projects", api_base_url());
     let response = Request::get(&url).send().await?;
 
     if response.ok() {
@@ -130,7 +159,7 @@ pub async fn get_projects() -> Result<Vec<Project>, ApiError> {
 
 /// Create or ensure a project exists.
 pub async fn ensure_project(human_key: &str) -> Result<Project, ApiError> {
-    let url = format!("{}/api/project/ensure", API_BASE_URL);
+    let url = format!("{}/api/project/ensure", api_base_url());
 
     #[derive(Serialize)]
     struct CreateProjectPayload<'a> {
@@ -156,7 +185,7 @@ pub async fn ensure_project(human_key: &str) -> Result<Project, ApiError> {
 
 /// Get project by slug.
 pub async fn get_project(slug: &str) -> Result<Project, ApiError> {
-    let url = format!("{}/api/projects/{}", API_BASE_URL, slug);
+    let url = format!("{}/api/projects/{}", api_base_url(), slug);
     let response = Request::get(&url).send().await?;
 
     if response.ok() {
@@ -170,7 +199,7 @@ pub async fn get_project(slug: &str) -> Result<Project, ApiError> {
 
 /// Get agents for a project.
 pub async fn get_agents(project_slug: &str) -> Result<Vec<Agent>, ApiError> {
-    let url = format!("{}/api/projects/{}/agents", API_BASE_URL, project_slug);
+    let url = format!("{}/api/projects/{}/agents", api_base_url(), project_slug);
     let response = Request::get(&url).send().await?;
 
     if response.ok() {
@@ -212,7 +241,7 @@ pub async fn register_agent(
     model: &str,
     task_description: Option<&str>,
 ) -> Result<Agent, ApiError> {
-    let url = format!("{}/api/agent/register", API_BASE_URL);
+    let url = format!("{}/api/agent/register", api_base_url());
 
     #[derive(Serialize)]
     struct RegisterAgentPayload<'a> {
@@ -255,7 +284,7 @@ pub async fn register_agent(
 
 /// Get all agents.
 pub async fn get_all_agents() -> Result<Vec<Agent>, ApiError> {
-    let url = format!("{}/api/agents", API_BASE_URL);
+    let url = format!("{}/api/agents", api_base_url());
     let response = Request::get(&url).send().await?;
 
     if response.ok() {
@@ -272,7 +301,7 @@ pub async fn get_inbox(
     project_slug: &str,
     agent_name: &str,
 ) -> Result<Vec<InboxMessage>, ApiError> {
-    let url = format!("{}/api/inbox", API_BASE_URL);
+    let url = format!("{}/api/inbox", api_base_url());
 
     let payload = serde_json::json!({
         "project_slug": project_slug,
@@ -300,7 +329,7 @@ pub async fn get_inbox(
 
 /// Get a single message by ID.
 pub async fn get_message(id: &str) -> Result<Message, ApiError> {
-    let url = format!("{}/api/messages/{}", API_BASE_URL, id);
+    let url = format!("{}/api/messages/{}", api_base_url(), id);
     let response = Request::get(&url).send().await?;
 
     if response.ok() {
@@ -324,7 +353,7 @@ pub async fn send_message(
     importance: &str,
     _ack_required: bool,
 ) -> Result<Message, ApiError> {
-    let url = format!("{}/api/message/send", API_BASE_URL);
+    let url = format!("{}/api/message/send", api_base_url());
 
     #[derive(Serialize)]
     struct SendMessagePayload<'a> {
@@ -384,7 +413,7 @@ pub async fn get_unified_inbox(
     importance: Option<&str>,
     limit: Option<i32>,
 ) -> Result<Vec<UnifiedInboxMessage>, ApiError> {
-    let mut url = format!("{}/api/unified-inbox", API_BASE_URL);
+    let mut url = format!("{}/api/unified-inbox", api_base_url());
 
     let mut params = Vec::new();
     if let Some(imp) = importance {
@@ -412,7 +441,9 @@ pub async fn get_unified_inbox(
 pub async fn get_thread(project_slug: &str, thread_id: &str) -> Result<Vec<Message>, ApiError> {
     let url = format!(
         "{}/api/projects/{}/threads/{}",
-        API_BASE_URL, project_slug, thread_id
+        api_base_url(),
+        project_slug,
+        thread_id
     );
     let response = Request::get(&url).send().await?;
 
@@ -429,7 +460,9 @@ pub async fn get_thread(project_slug: &str, thread_id: &str) -> Result<Vec<Messa
 pub async fn search_messages(project_slug: &str, query: &str) -> Result<Vec<Message>, ApiError> {
     let url = format!(
         "{}/api/projects/{}/search?q={}",
-        API_BASE_URL, project_slug, query
+        api_base_url(),
+        project_slug,
+        query
     );
     let response = Request::get(&url).send().await?;
 
@@ -460,7 +493,7 @@ pub struct FileReservationResponse {
 pub async fn get_file_reservations(
     project_slug: &str,
 ) -> Result<Vec<FileReservationResponse>, ApiError> {
-    let url = format!("{}/api/file_reservations/list", API_BASE_URL);
+    let url = format!("{}/api/file_reservations/list", api_base_url());
 
     #[derive(Serialize)]
     struct Payload<'a> {
@@ -503,7 +536,7 @@ pub async fn mark_read(
     agent_name: &str,
     is_read: bool,
 ) -> Result<MarkReadResponse, ApiError> {
-    let url = format!("{}/api/messages/{}/read", API_BASE_URL, message_id);
+    let url = format!("{}/api/messages/{}/read", api_base_url(), message_id);
 
     #[derive(Serialize)]
     struct Payload<'a> {
@@ -614,7 +647,7 @@ pub async fn list_attachments(
 ) -> Result<Vec<Attachment>, ApiError> {
     let mut url = format!(
         "{}/api/attachments?project_slug={}",
-        API_BASE_URL,
+        api_base_url(),
         urlencoding::encode(project_slug)
     );
 
@@ -637,7 +670,7 @@ pub async fn list_attachments(
 pub fn attachment_download_url(id: i64, project_slug: &str) -> String {
     format!(
         "{}/api/attachments/{}?project_slug={}",
-        API_BASE_URL,
+        api_base_url(),
         id,
         urlencoding::encode(project_slug)
     )
