@@ -100,13 +100,15 @@ async fn create_test_db(db_path: &std::path::Path) -> Result<lib_core::store::Db
     conn.execute_batch(schema004).await?;
     let schema005 = include_str!("../../../../../migrations/005_attachments_agent.sql");
     conn.execute_batch(schema005).await?;
+    let schema006 = include_str!("../../../../../migrations/006_query_indexes.sql");
+    conn.execute_batch(schema006).await?;
 
     // Verify idempotency: running migrations again should not fail
-    // Note: schema005 uses ALTER TABLE which isn't idempotent in SQLite
     conn.execute_batch(schema).await?;
     conn.execute_batch(schema002).await?;
     conn.execute_batch(schema003).await?;
     conn.execute_batch(schema004).await?;
+    conn.execute_batch(schema006).await?;
 
     Ok(conn)
 }

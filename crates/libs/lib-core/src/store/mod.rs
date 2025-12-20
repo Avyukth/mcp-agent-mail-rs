@@ -178,6 +178,7 @@ pub async fn new_db_pool() -> Result<Db> {
         include_str!("../../../../../migrations/003_tool_metrics.sql"),
         include_str!("../../../../../migrations/004_attachments.sql"),
         include_str!("../../../../../migrations/005_attachments_agent.sql"),
+        include_str!("../../../../../migrations/006_query_indexes.sql"),
     ];
 
     for migration in &migrations {
