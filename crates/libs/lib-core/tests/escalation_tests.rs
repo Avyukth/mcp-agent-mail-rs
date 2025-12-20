@@ -1,5 +1,6 @@
-use lib_core::ctx::Ctx;
-use lib_core::model::ModelManager;
+mod common;
+
+use common::TestContext;
 use lib_core::model::agent::{AgentBmc, AgentForCreate};
 use lib_core::model::message::{MessageBmc, MessageForCreate};
 use lib_core::model::project::ProjectBmc;
@@ -7,8 +8,9 @@ use uuid::Uuid;
 
 #[tokio::test]
 async fn test_list_overdue_acks() -> lib_core::Result<()> {
-    let mm = ModelManager::new().await?;
-    let ctx = Ctx::root_ctx();
+    let tc = TestContext::new().await?;
+    let mm = &tc.mm;
+    let ctx = &tc.ctx;
 
     // 1. Setup Data
     let project_slug = Uuid::new_v4().to_string();

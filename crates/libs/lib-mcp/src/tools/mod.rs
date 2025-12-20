@@ -14,8 +14,7 @@ use rmcp::{
     service::{RequestContext, RoleServer},
     tool, tool_router,
 };
-use schemars::JsonSchema;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::sync::Arc;
 
 use lib_core::{
@@ -26,6 +25,9 @@ use lib_core::{
         project::ProjectBmc,
     },
 };
+
+mod params;
+pub use params::*;
 
 // ============================================================================
 // Schema Export Types
@@ -1718,623 +1720,6 @@ impl ServerHandler for AgentMailService {
     ) -> impl std::future::Future<Output = Result<ReadResourceResult, McpError>> + Send + '_ {
         self.read_resource_impl(request)
     }
-}
-
-// ============================================================================
-// Tool Parameter Types
-// ============================================================================
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct EnsureProjectParams {
-    /// The project slug (URL-safe identifier)
-    pub slug: String,
-    /// Human-readable project name/key
-    pub human_key: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct RegisterAgentParams {
-    /// Project slug the agent belongs to
-    pub project_slug: String,
-    /// Agent's unique name within the project
-    pub name: String,
-    /// Agent's program identifier (e.g., "claude-code", "antigravity")
-    pub program: String,
-    /// Model being used (e.g., "claude-3-opus", "gemini-2.0-pro")
-    pub model: String,
-    /// Description of the agent's task/responsibilities
-    pub task_description: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct SendMessageParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Sender agent name
-    pub sender_name: String,
-    /// Recipient agent names (comma-separated for multiple)
-    pub to: String,
-    /// CC recipient agent names (comma-separated for multiple)
-    pub cc: Option<String>,
-    /// BCC recipient agent names (comma-separated for multiple)
-    pub bcc: Option<String>,
-    /// Message subject
-    pub subject: String,
-    /// Message body in markdown
-    pub body_md: String,
-    /// Message importance (low, normal, high, urgent)
-    pub importance: Option<String>,
-    /// Thread ID to continue existing conversation
-    pub thread_id: Option<String>,
-    /// Whether recipients must acknowledge this message (default: false)
-    #[serde(default)]
-    pub ack_required: Option<bool>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListInboxParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Agent name to list inbox for
-    pub agent_name: String,
-    /// Maximum number of messages to return
-    pub limit: Option<i64>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct GetMessageParams {
-    /// Message ID to retrieve
-    pub message_id: i64,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListProjectSiblingsParams {
-    /// Project slug to find siblings for
-    pub project_slug: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct CommitArchiveParams {
-    /// Project slug to archive
-    pub project_slug: String,
-    /// Commit message
-    pub message: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct WhoisParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Agent name to look up
-    pub agent_name: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct SearchMessagesParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Search query (full-text search)
-    pub query: String,
-    /// Maximum results
-    pub limit: Option<i64>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct GetThreadParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Thread ID
-    pub thread_id: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct GetReviewStateParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Thread ID (e.g., TASK-abc123)
-    pub thread_id: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ReviewStateResponse {
-    pub thread_id: String,
-    pub state: String,
-    pub is_reviewed: bool,
-    pub reviewer: Option<String>,
-    pub last_update: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ClaimReviewParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Message ID of the [COMPLETION] message to review
-    pub message_id: i64,
-    /// Reviewer agent name
-    pub reviewer_name: String,
-}
-
-#[derive(Debug, Serialize)]
-pub struct ClaimResult {
-    pub success: bool,
-    pub thread_id: String,
-    pub claimed_by: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListAgentsParams {
-    /// Project slug
-    pub project_slug: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct FileReservationParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Agent name requesting reservations
-    pub agent_name: String,
-    /// File path pattern to reserve
-    pub path_pattern: String,
-    /// Whether this is an exclusive reservation
-    pub exclusive: Option<bool>,
-    /// Reason for the reservation
-    pub reason: Option<String>,
-    /// TTL in seconds (default 3600)
-    pub ttl_seconds: Option<i64>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListReservationsParams {
-    /// Project slug
-    pub project_slug: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ReleaseReservationParams {
-    /// Reservation ID to release
-    pub reservation_id: i64,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ForceReleaseReservationParams {
-    /// Reservation ID to force release (for emergencies)
-    pub reservation_id: i64,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct RenewFileReservationParams {
-    /// Reservation ID to renew
-    pub reservation_id: i64,
-    /// New TTL in seconds (default 3600)
-    pub ttl_seconds: Option<i64>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ReplyMessageParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Sender agent name
-    pub sender_name: String,
-    /// Message ID to reply to
-    pub message_id: i64,
-    /// Reply body in markdown
-    pub body_md: String,
-    /// Message importance (optional)
-    pub importance: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct MarkMessageReadParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Agent name marking as read
-    pub agent_name: String,
-    /// Message ID to mark as read
-    pub message_id: i64,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct AcknowledgeMessageParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Agent name acknowledging
-    pub agent_name: String,
-    /// Message ID to acknowledge
-    pub message_id: i64,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct CreateAgentIdentityParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Optional hint for name generation
-    #[allow(dead_code)]
-    pub hint: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct UpdateAgentProfileParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Agent name to update
-    pub agent_name: String,
-    /// New task description (optional)
-    pub task_description: Option<String>,
-    /// New attachments policy (optional)
-    pub attachments_policy: Option<String>,
-    /// New contact policy (optional)
-    pub contact_policy: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct GetProjectInfoParams {
-    /// Project slug
-    pub project_slug: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct GetAgentProfileParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Agent name
-    pub agent_name: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListThreadsParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Maximum threads to return
-    pub limit: Option<i64>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct RequestContactParams {
-    /// From project slug
-    pub from_project_slug: String,
-    /// From agent name
-    pub from_agent_name: String,
-    /// To project slug
-    pub to_project_slug: String,
-    /// To agent name
-    pub to_agent_name: String,
-    /// Reason for contact request
-    pub reason: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct RespondContactParams {
-    /// Agent link ID
-    pub link_id: i64,
-    /// Accept (true) or reject (false)
-    pub accept: bool,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListContactsParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Agent name
-    pub agent_name: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct SetContactPolicyParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Agent name
-    pub agent_name: String,
-    /// Contact policy: auto, manual, or deny
-    pub contact_policy: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct AcquireBuildSlotParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Agent name
-    pub agent_name: String,
-    /// Slot name
-    pub slot_name: String,
-    /// TTL in seconds (default 1800)
-    pub ttl_seconds: Option<i64>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct RenewBuildSlotParams {
-    /// Slot ID to renew
-    pub slot_id: i64,
-    /// TTL in seconds (default 1800)
-    pub ttl_seconds: Option<i64>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ReleaseBuildSlotParams {
-    /// Slot ID to release
-    pub slot_id: i64,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct SendOverseerMessageParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Agent name receiving the message
-    pub agent_name: String,
-    /// Message subject
-    pub subject: String,
-    /// Message body in markdown
-    pub body_md: String,
-    /// Message importance (optional)
-    pub importance: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListMacrosParams {
-    /// Project slug
-    pub project_slug: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct RegisterMacroParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Macro name
-    pub name: String,
-    /// Macro description
-    pub description: String,
-    /// Macro steps as JSON array
-    pub steps: Vec<serde_json::Value>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct UnregisterMacroParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Macro name to remove
-    pub name: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct InvokeMacroParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Macro name to invoke
-    pub name: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListBuiltinWorkflowsParams {
-    // No parameters needed
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct QuickStandupWorkflowParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Sender agent name
-    pub sender_name: String,
-    /// Optional custom standup question
-    pub standup_question: Option<String>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct QuickHandoffWorkflowParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Agent handing off the task
-    pub from_agent: String,
-    /// Agent receiving the task
-    pub to_agent: String,
-    /// Task description
-    pub task_description: String,
-    /// Optional files being handed off
-    pub files: Option<Vec<String>>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct QuickReviewWorkflowParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Agent requesting review
-    pub requester: String,
-    /// Agent who will review
-    pub reviewer: String,
-    /// Files to review
-    pub files_to_review: Vec<String>,
-    /// Review description
-    pub description: String,
-}
-
-#[derive(Debug, Clone, Deserialize, Serialize, JsonSchema)]
-#[serde(untagged)]
-pub enum ThreadIdInput {
-    Single(String),
-    Multiple(Vec<String>),
-}
-
-impl From<ThreadIdInput> for Vec<String> {
-    fn from(input: ThreadIdInput) -> Self {
-        match input {
-            ThreadIdInput::Single(s) => vec![s],
-            ThreadIdInput::Multiple(v) => v,
-        }
-    }
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct SummarizeThreadParams {
-    pub project_slug: String,
-    pub thread_id: ThreadIdInput,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct ThreadSummaryItem {
-    pub thread_id: String,
-    pub subject: String,
-    pub message_count: usize,
-    pub participants: Vec<String>,
-    pub last_snippet: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct ThreadSummaryError {
-    pub thread_id: String,
-    pub error: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
-pub struct SummarizeResult {
-    pub summaries: Vec<ThreadSummaryItem>,
-    pub errors: Vec<ThreadSummaryError>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct EnsureProductParams {
-    /// Product UID (unique identifier)
-    pub product_uid: String,
-    /// Human-readable product name
-    pub name: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct LinkProjectToProductParams {
-    /// Product UID
-    pub product_uid: String,
-    /// Project slug to link
-    pub project_slug: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct UnlinkProjectFromProductParams {
-    /// Product UID
-    pub product_uid: String,
-    /// Project slug to unlink
-    pub project_slug: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ProductInboxParams {
-    /// Product UID
-    pub product_uid: String,
-    /// Maximum messages per project
-    pub limit: Option<i64>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct SearchMessagesProductParams {
-    /// Product UID to search across
-    pub product_uid: String,
-    /// Search query (full-text search)
-    pub query: String,
-    /// Maximum results per project
-    pub limit: Option<i64>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct SummarizeThreadProductParams {
-    /// Product UID
-    pub product_uid: String,
-    /// Thread ID(s) to summarize
-    pub thread_id: ThreadIdInput,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ExportMailboxParams {
-    /// Project slug to export
-    pub project_slug: String,
-    /// Export format: html, json, or markdown
-    pub format: Option<String>,
-    /// Include attachments in export
-    #[allow(dead_code)]
-    pub include_attachments: Option<bool>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListOutboxParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Agent name to list outbox for
-    pub agent_name: String,
-    /// Maximum number of messages to return
-    pub limit: Option<i64>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct FileReservationPathsParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Agent name requesting reservations
-    pub agent_name: String,
-    /// File paths to reserve (array)
-    pub paths: Vec<String>,
-    /// Whether this is an exclusive reservation
-    pub exclusive: bool,
-    /// Reason for the reservation
-    pub reason: Option<String>,
-    /// TTL in seconds (default 3600)
-    pub ttl_seconds: Option<i64>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct InstallPrecommitGuardParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Target repository path
-    pub target_repo_path: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct UninstallPrecommitGuardParams {
-    /// Target repository path
-    pub target_repo_path: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct AddAttachmentParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Message ID to attach to
-    pub message_id: i64,
-    /// Filename
-    pub filename: String,
-    /// Base64 encoded content
-    pub content_base64: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct GetAttachmentParams {
-    /// Project slug
-    pub project_slug: String,
-    /// Attachment ID
-    pub attachment_id: String,
-    /// Filename
-    pub filename: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListToolMetricsParams {
-    /// Optional project ID filter
-    pub project_id: Option<i64>,
-    /// Maximum number of results
-    pub limit: Option<i64>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListActivityParams {
-    /// Project ID
-    pub project_id: i64,
-    /// Maximum number of results
-    pub limit: Option<i64>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-pub struct ListPendingReviewsParams {
-    /// Filter by project slug (optional)
-    pub project_slug: Option<String>,
-    /// Filter by sender agent name (optional, requires project_slug)
-    pub sender_name: Option<String>,
-    /// Maximum results (default: 5, max: 50)
-    pub limit: Option<i64>,
 }
 
 // ============================================================================
@@ -4106,6 +3491,528 @@ impl AgentMailService {
         Ok(CallToolResult::success(vec![Content::text(msg)]))
     }
 
+    // ========================================================================
+    // Macro Convenience Tools (Session/Workflow Helpers)
+    // ========================================================================
+
+    /// Boot a project session: ensure project, register agent, optionally reserve files, fetch inbox
+    #[tool(
+        description = "Boot a project session in one call: ensure project, register agent, optionally reserve file paths, and fetch inbox snapshot."
+    )]
+    async fn macro_start_session(
+        &self,
+        params: Parameters<MacroStartSessionParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::agent::{AgentBmc, AgentForCreate};
+        use lib_core::model::file_reservation::{FileReservationBmc, FileReservationForCreate};
+        use lib_core::model::message::MessageBmc;
+        use lib_core::model::project::ProjectBmc;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        // Ensure project exists
+        let project = match ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.human_key).await {
+            Ok(proj) => proj,
+            Err(_) => {
+                // Create project with human_key as both slug and human_key
+                let slug = p
+                    .human_key
+                    .to_lowercase()
+                    .replace(|c: char| !c.is_alphanumeric() && c != '-', "-");
+                ProjectBmc::create(&ctx, &self.mm, &slug, &p.human_key)
+                    .await
+                    .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+                ProjectBmc::get_by_identifier(&ctx, &self.mm, &slug)
+                    .await
+                    .map_err(|e| McpError::internal_error(e.to_string(), None))?
+            }
+        };
+
+        // Get or create agent
+        let agent_name = p
+            .agent_name
+            .unwrap_or_else(|| format!("{}-{}", p.program, &p.model.replace(".", "-")));
+        let agent = match AgentBmc::get_by_name(&ctx, &self.mm, project.id, &agent_name).await {
+            Ok(a) => a,
+            Err(_) => {
+                let agent_c = AgentForCreate {
+                    project_id: project.id,
+                    name: agent_name.clone(),
+                    program: p.program.clone(),
+                    model: p.model.clone(),
+                    task_description: p.task_description.clone(),
+                };
+                let id = AgentBmc::create(&ctx, &self.mm, agent_c)
+                    .await
+                    .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+                AgentBmc::get(&ctx, &self.mm, id)
+                    .await
+                    .map_err(|e| McpError::internal_error(e.to_string(), None))?
+            }
+        };
+
+        // Reserve files if requested
+        let mut granted_reservations = Vec::new();
+        let mut reservation_conflicts = Vec::new();
+        if let Some(paths) = p.file_reservation_paths {
+            let now = chrono::Utc::now().naive_utc();
+            let expires_ts = now + chrono::Duration::seconds(p.file_reservation_ttl_seconds);
+
+            let active_reservations =
+                FileReservationBmc::list_active_for_project(&ctx, &self.mm, project.id)
+                    .await
+                    .unwrap_or_default();
+
+            for path in paths {
+                // Check for conflicts
+                for res in &active_reservations {
+                    if res.agent_id != agent.id
+                        && res.exclusive
+                        && lib_core::utils::pathspec::paths_conflict(&res.path_pattern, &path)
+                    {
+                        reservation_conflicts.push(format!(
+                            "{} conflicts with {} (agent ID {})",
+                            path, res.path_pattern, res.agent_id
+                        ));
+                    }
+                }
+
+                // Grant reservation (advisory model)
+                let fr_c = FileReservationForCreate {
+                    project_id: project.id,
+                    agent_id: agent.id,
+                    path_pattern: path.clone(),
+                    exclusive: true,
+                    reason: p.file_reservation_reason.clone(),
+                    expires_ts,
+                };
+                if let Ok(id) = FileReservationBmc::create(&ctx, &self.mm, fr_c).await {
+                    granted_reservations.push(serde_json::json!({
+                        "path": path,
+                        "id": id,
+                        "expires_ts": expires_ts.to_string()
+                    }));
+                }
+            }
+        }
+
+        // Fetch inbox
+        let inbox_messages =
+            MessageBmc::list_inbox_for_agent(&ctx, &self.mm, project.id, agent.id, p.inbox_limit)
+                .await
+                .unwrap_or_default();
+
+        let inbox_items: Vec<serde_json::Value> = inbox_messages
+            .iter()
+            .map(|m| {
+                serde_json::json!({
+                    "id": m.id,
+                    "subject": m.subject,
+                    "sender_name": m.sender_name,
+                    "created_ts": m.created_ts.to_string(),
+                    "importance": m.importance,
+                    "thread_id": m.thread_id,
+                })
+            })
+            .collect();
+
+        let result = serde_json::json!({
+            "project": {
+                "id": project.id,
+                "slug": project.slug,
+                "human_key": project.human_key,
+            },
+            "agent": {
+                "id": agent.id,
+                "name": agent.name,
+                "program": agent.program,
+                "model": agent.model,
+            },
+            "file_reservations": {
+                "granted": granted_reservations,
+                "conflicts": reservation_conflicts,
+            },
+            "inbox": inbox_items,
+        });
+
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
+        )]))
+    }
+
+    /// Prepare an agent for an existing thread
+    #[tool(
+        description = "Align an agent with an existing thread: ensure registration, summarize thread, fetch inbox context."
+    )]
+    async fn macro_prepare_thread(
+        &self,
+        params: Parameters<MacroPrepareThreadParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::agent::{AgentBmc, AgentForCreate};
+        use lib_core::model::message::MessageBmc;
+        use lib_core::model::project::ProjectBmc;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_key)
+            .await
+            .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
+
+        // Get or create agent
+        let agent_name = p
+            .agent_name
+            .unwrap_or_else(|| format!("{}-{}", p.program, &p.model.replace(".", "-")));
+        let agent = if p.register_if_missing {
+            match AgentBmc::get_by_name(&ctx, &self.mm, project.id, &agent_name).await {
+                Ok(a) => a,
+                Err(_) => {
+                    let agent_c = AgentForCreate {
+                        project_id: project.id,
+                        name: agent_name.clone(),
+                        program: p.program.clone(),
+                        model: p.model.clone(),
+                        task_description: p.task_description.clone(),
+                    };
+                    let id = AgentBmc::create(&ctx, &self.mm, agent_c)
+                        .await
+                        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+                    AgentBmc::get(&ctx, &self.mm, id)
+                        .await
+                        .map_err(|e| McpError::internal_error(e.to_string(), None))?
+                }
+            }
+        } else {
+            AgentBmc::get_by_name(&ctx, &self.mm, project.id, &agent_name)
+                .await
+                .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?
+        };
+
+        // Get thread messages
+        let thread_messages = MessageBmc::list_by_thread(&ctx, &self.mm, project.id, &p.thread_id)
+            .await
+            .unwrap_or_default();
+
+        // Compute thread summary
+        let total_messages = thread_messages.len();
+        let participants: std::collections::HashSet<String> = thread_messages
+            .iter()
+            .map(|m| m.sender_name.clone())
+            .collect();
+        let first_subject = thread_messages.first().map(|m| m.subject.clone());
+        let last_activity = thread_messages.last().map(|m| m.created_ts.to_string());
+
+        let examples: Vec<serde_json::Value> = if p.include_examples {
+            thread_messages
+                .iter()
+                .take(3)
+                .map(|m| {
+                    serde_json::json!({
+                        "sender": m.sender_name,
+                        "subject": m.subject,
+                        "body_preview": m.body_md.chars().take(100).collect::<String>(),
+                        "created_ts": m.created_ts,
+                    })
+                })
+                .collect()
+        } else {
+            vec![]
+        };
+
+        // Fetch inbox
+        let inbox_messages =
+            MessageBmc::list_inbox_for_agent(&ctx, &self.mm, project.id, agent.id, p.inbox_limit)
+                .await
+                .unwrap_or_default();
+
+        let inbox_items: Vec<serde_json::Value> = inbox_messages
+            .iter()
+            .map(|m| {
+                let mut item = serde_json::json!({
+                    "id": m.id,
+                    "subject": m.subject,
+                    "sender_name": m.sender_name,
+                    "created_ts": m.created_ts.to_string(),
+                    "importance": m.importance,
+                    "thread_id": m.thread_id,
+                });
+                if p.include_inbox_bodies {
+                    item["body_md"] = serde_json::json!(m.body_md);
+                }
+                item
+            })
+            .collect();
+
+        let result = serde_json::json!({
+            "project": {
+                "id": project.id,
+                "slug": project.slug,
+                "human_key": project.human_key,
+            },
+            "agent": {
+                "id": agent.id,
+                "name": agent.name,
+                "program": agent.program,
+                "model": agent.model,
+            },
+            "thread": {
+                "thread_id": p.thread_id,
+                "total_messages": total_messages,
+                "participants": participants.into_iter().collect::<Vec<_>>(),
+                "subject": first_subject,
+                "last_activity": last_activity,
+                "examples": examples,
+            },
+            "inbox": inbox_items,
+        });
+
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
+        )]))
+    }
+
+    /// Reserve files with optional auto-release
+    #[tool(
+        description = "Reserve file paths for exclusive editing with optional immediate auto-release (for testing workflows)."
+    )]
+    async fn macro_file_reservation_cycle(
+        &self,
+        params: Parameters<MacroFileReservationCycleParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::agent::AgentBmc;
+        use lib_core::model::file_reservation::{FileReservationBmc, FileReservationForCreate};
+        use lib_core::model::project::ProjectBmc;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_key)
+            .await
+            .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
+
+        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
+            .await
+            .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
+
+        let now = chrono::Utc::now().naive_utc();
+        let expires_ts = now + chrono::Duration::seconds(p.ttl_seconds);
+
+        let active_reservations =
+            FileReservationBmc::list_active_for_project(&ctx, &self.mm, project.id)
+                .await
+                .unwrap_or_default();
+
+        let mut granted = Vec::new();
+        let mut conflicts = Vec::new();
+        let mut reservation_ids = Vec::new();
+
+        for path in &p.paths {
+            // Check for conflicts
+            for res in &active_reservations {
+                if res.agent_id != agent.id
+                    && (res.exclusive || p.exclusive)
+                    && lib_core::utils::pathspec::paths_conflict(&res.path_pattern, path)
+                {
+                    conflicts.push(serde_json::json!({
+                        "path": path,
+                        "conflicts_with": res.path_pattern,
+                        "held_by_agent_id": res.agent_id,
+                        "expires": res.expires_ts.to_string(),
+                    }));
+                }
+            }
+
+            // Grant reservation
+            let fr_c = FileReservationForCreate {
+                project_id: project.id,
+                agent_id: agent.id,
+                path_pattern: path.clone(),
+                exclusive: p.exclusive,
+                reason: p.reason.clone(),
+                expires_ts,
+            };
+            match FileReservationBmc::create(&ctx, &self.mm, fr_c).await {
+                Ok(id) => {
+                    reservation_ids.push(id);
+                    granted.push(serde_json::json!({
+                        "path": path,
+                        "id": id,
+                        "expires_ts": expires_ts.to_string(),
+                    }));
+                }
+                Err(e) => {
+                    conflicts.push(serde_json::json!({
+                        "path": path,
+                        "error": e.to_string(),
+                    }));
+                }
+            }
+        }
+
+        // Auto-release if requested
+        let mut released = Vec::new();
+        if p.auto_release {
+            for id in reservation_ids {
+                if FileReservationBmc::release(&ctx, &self.mm, id)
+                    .await
+                    .is_ok()
+                {
+                    released.push(id);
+                }
+            }
+        }
+
+        let result = serde_json::json!({
+            "file_reservations": {
+                "granted": granted,
+                "conflicts": conflicts,
+            },
+            "released": if p.auto_release { Some(released) } else { None },
+        });
+
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
+        )]))
+    }
+
+    /// Contact permission workflow with optional auto-accept and welcome message
+    #[tool(
+        description = "Request contact permission with optional auto-accept and welcome message for streamlined agent handshakes."
+    )]
+    async fn macro_contact_handshake(
+        &self,
+        params: Parameters<MacroContactHandshakeParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::agent::{AgentBmc, AgentForCreate};
+        use lib_core::model::agent_link::{AgentLinkBmc, AgentLinkForCreate};
+        use lib_core::model::message::{MessageBmc, MessageForCreate};
+        use lib_core::model::project::ProjectBmc;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        // Resolve aliases
+        let requester_name = p.requester.or(p.agent_name).ok_or_else(|| {
+            McpError::invalid_params("requester or agent_name is required".to_string(), None)
+        })?;
+        let target_name = p.target.or(p.to_agent).ok_or_else(|| {
+            McpError::invalid_params("target or to_agent is required".to_string(), None)
+        })?;
+
+        let project = ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.project_key)
+            .await
+            .map_err(|e| McpError::invalid_params(format!("Project not found: {}", e), None))?;
+
+        // Get or create requester agent
+        let requester = if p.register_if_missing {
+            match AgentBmc::get_by_name(&ctx, &self.mm, project.id, &requester_name).await {
+                Ok(a) => a,
+                Err(_) => {
+                    let program = p.program.clone().unwrap_or_else(|| "unknown".to_string());
+                    let model = p.model.clone().unwrap_or_else(|| "unknown".to_string());
+                    let agent_c = AgentForCreate {
+                        project_id: project.id,
+                        name: requester_name.clone(),
+                        program,
+                        model,
+                        task_description: String::new(),
+                    };
+                    let id = AgentBmc::create(&ctx, &self.mm, agent_c)
+                        .await
+                        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+                    AgentBmc::get(&ctx, &self.mm, id)
+                        .await
+                        .map_err(|e| McpError::internal_error(e.to_string(), None))?
+                }
+            }
+        } else {
+            AgentBmc::get_by_name(&ctx, &self.mm, project.id, &requester_name)
+                .await
+                .map_err(|e| {
+                    McpError::invalid_params(format!("Requester not found: {}", e), None)
+                })?
+        };
+
+        // Get target agent (must exist)
+        let target = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &target_name)
+            .await
+            .map_err(|e| {
+                McpError::invalid_params(format!("Target agent not found: {}", e), None)
+            })?;
+
+        // Create contact request using AgentLinkBmc
+        let link_c = AgentLinkForCreate {
+            a_project_id: project.id,
+            a_agent_id: requester.id,
+            b_project_id: project.id,
+            b_agent_id: target.id,
+            reason: p.reason.clone(),
+        };
+        let link_id = AgentLinkBmc::request_contact(&ctx, &self.mm, link_c)
+            .await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        let request_result = serde_json::json!({
+            "link_id": link_id,
+            "from_agent": requester.name,
+            "to_agent": target.name,
+            "status": "pending",
+        });
+
+        // Auto-accept if requested
+        let response_result = if p.auto_accept {
+            AgentLinkBmc::respond_contact(&ctx, &self.mm, link_id, true)
+                .await
+                .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+            Some(serde_json::json!({
+                "link_id": link_id,
+                "status": "accepted",
+            }))
+        } else {
+            None
+        };
+
+        // Send welcome message if provided
+        let welcome_result =
+            if let (Some(subject), Some(body)) = (p.welcome_subject, p.welcome_body) {
+                let msg_c = MessageForCreate {
+                    project_id: project.id,
+                    sender_id: requester.id,
+                    recipient_ids: vec![target.id],
+                    cc_ids: None,
+                    bcc_ids: None,
+                    subject,
+                    body_md: body,
+                    thread_id: p.thread_id,
+                    importance: Some("normal".to_string()),
+                    ack_required: false,
+                };
+                match MessageBmc::create(&ctx, &self.mm, msg_c).await {
+                    Ok(msg_id) => Some(serde_json::json!({
+                        "message_id": msg_id,
+                        "sent": true,
+                    })),
+                    Err(e) => Some(serde_json::json!({
+                        "sent": false,
+                        "error": e.to_string(),
+                    })),
+                }
+            } else {
+                None
+            };
+
+        let result = serde_json::json!({
+            "request": request_result,
+            "response": response_result,
+            "welcome_message": welcome_result,
+        });
+
+        Ok(CallToolResult::success(vec![Content::text(
+            serde_json::to_string_pretty(&result).unwrap_or_else(|_| "{}".to_string()),
+        )]))
+    }
+
     #[tool(
         description = "Summarize one or more conversation threads. Accepts single thread_id (string) or multiple (array). Partial failures are returned in errors array."
     )]
@@ -5250,13 +5157,13 @@ mod tests {
         let conn = db.connect().unwrap();
         let _ = conn.execute("PRAGMA journal_mode=WAL;", ()).await;
 
-        let schema1 = include_str!("../../../../migrations/001_initial_schema.sql");
+        let schema1 = include_str!("../../../../../migrations/001_initial_schema.sql");
         conn.execute_batch(schema1).await.unwrap();
-        let schema2 = include_str!("../../../../migrations/002_agent_capabilities.sql");
+        let schema2 = include_str!("../../../../../migrations/002_agent_capabilities.sql");
         conn.execute_batch(schema2).await.unwrap();
-        let schema3 = include_str!("../../../../migrations/003_tool_metrics.sql");
+        let schema3 = include_str!("../../../../../migrations/003_tool_metrics.sql");
         conn.execute_batch(schema3).await.unwrap();
-        let schema4 = include_str!("../../../../migrations/004_attachments.sql");
+        let schema4 = include_str!("../../../../../migrations/004_attachments.sql");
         conn.execute_batch(schema4).await.unwrap();
 
         let mm = ModelManager::new_for_test(conn, archive_root);
