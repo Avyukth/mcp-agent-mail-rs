@@ -3,7 +3,7 @@
 //! Provides search, filter dropdowns, view controls, and message count.
 //! Responsive design with mobile bottom sheet support.
 
-use super::{Button, ButtonVariant, Input, Select, SelectOption};
+use super::{Badge, BadgeVariant, Button, ButtonVariant, Input, Select, SelectOption};
 use leptos::prelude::*;
 use leptos_router::params::ParamsMap;
 use leptos_use::use_debounce_fn;
@@ -365,9 +365,15 @@ pub fn FilterBar(
                     }}
                 </div>
 
-                // Message Count Badge
-                <div class="text-sm text-muted-foreground whitespace-nowrap">
-                    {move || format!("{} messages", message_count.get())}
+                // Message Count Badge - shadcn Badge with tabular-nums
+                <div class="flex items-center gap-2">
+                    <Badge
+                        variant=BadgeVariant::Secondary
+                        class="h-6 min-w-[3rem] rounded-full font-mono tabular-nums px-2.5".to_string()
+                    >
+                        {move || message_count.get()}
+                    </Badge>
+                    <span class="text-sm text-muted-foreground">"messages"</span>
                 </div>
             </div>
 
@@ -409,9 +415,15 @@ pub fn FilterBar(
                         }}
                     </Button>
 
-                    <span class="text-sm text-muted-foreground">
-                        {move || format!("{} messages", message_count.get())}
-                    </span>
+                    <div class="flex items-center gap-1.5">
+                        <Badge
+                            variant=BadgeVariant::Secondary
+                            class="h-5 min-w-[2.5rem] rounded-full font-mono tabular-nums text-xs px-2".to_string()
+                        >
+                            {move || message_count.get()}
+                        </Badge>
+                        <span class="text-xs text-muted-foreground">"msgs"</span>
+                    </div>
                 </div>
             </div>
 

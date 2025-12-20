@@ -9,9 +9,9 @@
 
 use crate::api::client::{self, Agent, UnifiedInboxMessage};
 use crate::components::{
-    Alert, AlertDescription, AlertTitle, AlertVariant, Button, ButtonVariant, FilterBar,
-    FilterState, InlineMessageDetail, MessageListItem, OverseerComposeProps, OverseerComposer,
-    SplitViewLayout,
+    Alert, AlertDescription, AlertTitle, AlertVariant, Badge, BadgeVariant, Button, ButtonSize,
+    ButtonVariant, FilterBar, FilterState, InlineMessageDetail, MessageListItem,
+    OverseerComposeProps, OverseerComposer, SplitViewLayout,
 };
 use leptos::prelude::*;
 use leptos_router::hooks::use_query_map;
@@ -281,24 +281,25 @@ pub fn UnifiedInbox() -> impl IntoView {
                         </div>
                     </div>
                     <div class="flex items-center gap-3">
-                        // Message counter badge
-                        {move || {
-                            let count = message_count.get();
-                            view! {
-                                <div class="hidden sm:flex items-center gap-2 px-4 py-2 rounded-full glass-pro">
-                                    <i data-lucide="mail" class="h-4 w-4 text-muted-foreground"></i>
-                                    <span class="text-sm font-semibold tabular-nums counter-animated">{count}</span>
-                                    <span class="text-xs text-muted-foreground">"messages"</span>
-                                </div>
-                            }
-                        }}
+                        // Message counter badge - shadcn Badge pattern with tabular-nums
+                        <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary/50 border border-border">
+                            <i data-lucide="mail" class="h-4 w-4 text-muted-foreground"></i>
+                            <Badge
+                                variant=BadgeVariant::Default
+                                class="h-6 min-w-[2.5rem] rounded-full font-mono tabular-nums px-2".to_string()
+                            >
+                                {move || message_count.get()}
+                            </Badge>
+                            <span class="text-xs text-muted-foreground font-medium">"messages"</span>
+                        </div>
+                        // Overseer button - shadcn Button with icon pattern
                         <Button
                             variant=ButtonVariant::Destructive
-                            class="btn-press glow-hover"
+                            size=ButtonSize::Default
                             on_click=Callback::new(open_overseer)
                         >
-                            <i data-lucide="shield-alert" class="h-4 w-4 mr-2"></i>
-                            "Overseer Mode"
+                            <i data-lucide="shield-alert" class="h-4 w-4"></i>
+                            <span>"Overseer Mode"</span>
                         </Button>
                     </div>
                 </div>
