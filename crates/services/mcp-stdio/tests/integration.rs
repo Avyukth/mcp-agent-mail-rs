@@ -472,7 +472,7 @@ mod tools_tests {
     async fn test_export_mailbox() {
         use lib_core::Ctx;
         use lib_core::model::agent::{AgentBmc, AgentForCreate};
-        use lib_core::model::export::{ExportBmc, ExportFormat};
+        use lib_core::model::export::{ExportBmc, ExportFormat, ScrubMode};
         use lib_core::model::message::{MessageBmc, MessageForCreate};
         use lib_core::model::project::ProjectBmc;
 
@@ -518,28 +518,46 @@ mod tools_tests {
         MessageBmc::create(&ctx, &mm, msg_c).await.unwrap();
 
         // Export as JSON
-        let json_export =
-            ExportBmc::export_mailbox(&ctx, &mm, "export-test", ExportFormat::Json, false)
-                .await
-                .expect("JSON export should succeed");
+        let json_export = ExportBmc::export_mailbox(
+            &ctx,
+            &mm,
+            "export-test",
+            ExportFormat::Json,
+            ScrubMode::None,
+            false,
+        )
+        .await
+        .expect("JSON export should succeed");
         assert_eq!(json_export.format, "json");
         assert_eq!(json_export.message_count, 1);
         assert!(json_export.content.contains("Test Export Message"));
 
         // Export as HTML
-        let html_export =
-            ExportBmc::export_mailbox(&ctx, &mm, "export-test", ExportFormat::Html, false)
-                .await
-                .expect("HTML export should succeed");
+        let html_export = ExportBmc::export_mailbox(
+            &ctx,
+            &mm,
+            "export-test",
+            ExportFormat::Html,
+            ScrubMode::None,
+            false,
+        )
+        .await
+        .expect("HTML export should succeed");
         assert_eq!(html_export.format, "html");
         assert!(html_export.content.contains("<html>"));
         assert!(html_export.content.contains("Test Export Message"));
 
         // Export as Markdown
-        let md_export =
-            ExportBmc::export_mailbox(&ctx, &mm, "export-test", ExportFormat::Markdown, false)
-                .await
-                .expect("Markdown export should succeed");
+        let md_export = ExportBmc::export_mailbox(
+            &ctx,
+            &mm,
+            "export-test",
+            ExportFormat::Markdown,
+            ScrubMode::None,
+            false,
+        )
+        .await
+        .expect("Markdown export should succeed");
         assert_eq!(md_export.format, "markdown");
         assert!(md_export.content.contains("# Mailbox Export:"));
         assert!(md_export.content.contains("Test Export Message"));

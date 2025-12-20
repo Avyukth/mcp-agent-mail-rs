@@ -530,7 +530,10 @@ async fn handle_archive_command(cmd: ArchiveCommands) -> Result<()> {
                 let entry = entry?;
                 let path = entry.path();
                 if path.extension().is_some_and(|ext| ext == "zip") {
-                    let filename = path.file_name().unwrap().to_string_lossy().to_string();
+                    let Some(file_name) = path.file_name() else {
+                        continue;
+                    };
+                    let filename = file_name.to_string_lossy().to_string();
                     let metadata = fs::metadata(&path)?;
                     let size = metadata.len();
                     let modified = metadata
@@ -541,22 +544,7 @@ async fn handle_archive_command(cmd: ArchiveCommands) -> Result<()> {
                         .unwrap_or(0);
 
                     // Try to read metadata.json from the archive
-                    let mut archive_metadata = serde_json::json!({});
-                    if let Ok(file) = fs::File::open(&path) {
-                        if let Ok(mut zip) = zip::ZipArchive::new(file) {
-                            if let Ok(mut meta_file) = zip.by_name("metadata.json") {
-                                let mut content = String::new();
-                                use std::io::Read;
-                                if meta_file.read_to_string(&mut content).is_ok() {
-                                    if let Ok(m) =
-                                        serde_json::from_str::<serde_json::Value>(&content)
-                                    {
-                                        archive_metadata = m;
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    let archive_metadata = read_archive_metadata(&path);
 
                     archives.push(serde_json::json!({
                         "filename": filename,
@@ -572,19 +560,17 @@ async fn handle_archive_command(cmd: ArchiveCommands) -> Result<()> {
 
             if json {
                 println!("{}", serde_json::to_string_pretty(&archives)?);
+            } else if archives.is_empty() {
+                println!("No archives found.");
             } else {
-                if archives.is_empty() {
-                    println!("No archives found.");
-                } else {
-                    println!("Available restore points:\n");
-                    for archive in &archives {
-                        let label = archive["label"].as_str().unwrap_or("(unlabeled)");
-                        let filename = archive["filename"].as_str().unwrap_or("?");
-                        let size = archive["size_bytes"].as_u64().unwrap_or(0);
-                        let size_mb = size as f64 / (1024.0 * 1024.0);
-                        println!("  • {} ({})", label, filename);
-                        println!("    Size: {:.2} MB", size_mb);
-                    }
+                println!("Available restore points:\n");
+                for archive in &archives {
+                    let label = archive["label"].as_str().unwrap_or("(unlabeled)");
+                    let filename = archive["filename"].as_str().unwrap_or("?");
+                    let size = archive["size_bytes"].as_u64().unwrap_or(0);
+                    let size_mb = size as f64 / (1024.0 * 1024.0);
+                    println!("  • {} ({})", label, filename);
+                    println!("    Size: {:.2} MB", size_mb);
                 }
             }
         }
@@ -713,7 +699,10 @@ fn add_directory_to_zip<W: Write + std::io::Seek>(
     for entry in fs::read_dir(dir)? {
         let entry = entry?;
         let path = entry.path();
-        let name = format!("{}/{}", prefix, path.file_name().unwrap().to_string_lossy());
+        let Some(file_name) = path.file_name() else {
+            continue;
+        };
+        let name = format!("{}/{}", prefix, file_name.to_string_lossy());
 
         if path.is_dir() {
             add_directory_to_zip(zip, &path, &name, options)?;
@@ -727,4 +716,25 @@ fn add_directory_to_zip<W: Write + std::io::Seek>(
     }
 
     Ok(())
+}
+
+/// Read metadata.json from a zip archive, returning empty JSON object on any error.
+fn read_archive_metadata(path: &std::path::Path) -> serde_json::Value {
+    let Ok(file) = std::fs::File::open(path) else {
+        return serde_json::json!({});
+    };
+    let Ok(mut zip) = zip::ZipArchive::new(file) else {
+        return serde_json::json!({});
+    };
+    let Ok(mut meta_file) = zip.by_name("metadata.json") else {
+        return serde_json::json!({});
+    };
+
+    let mut content = String::new();
+    use std::io::Read as _;
+    if meta_file.read_to_string(&mut content).is_err() {
+        return serde_json::json!({});
+    }
+
+    serde_json::from_str(&content).unwrap_or_else(|_| serde_json::json!({}))
 }

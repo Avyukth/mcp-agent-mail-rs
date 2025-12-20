@@ -195,6 +195,7 @@ impl ToasterContext {
 
 /// Hook to access the toaster context.
 /// Panics if used outside of a Toaster provider.
+#[allow(clippy::expect_used)]
 pub fn use_toaster() -> ToasterContext {
     use_context::<ToasterContext>().expect("use_toaster must be used within a Toaster component")
 }

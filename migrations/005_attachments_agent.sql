@@ -1,11 +1,7 @@
--- Add agent association to attachments (idempotent migration)
--- Allows filtering attachments by the agent that created them
+-- Migration 005: Agent association indexes for attachments
+-- Note: Column and indexes are now included in 004_attachments.sql
+-- This file is kept for migration history but is a no-op
 
--- Add agent_id column (nullable FK to agents)
-ALTER TABLE attachments ADD COLUMN agent_id INTEGER REFERENCES agents(id);
-
--- Add index for agent filtering
-CREATE INDEX IF NOT EXISTS idx_attachments_agent ON attachments(agent_id);
-
--- Add composite index for project+agent filtering
-CREATE INDEX IF NOT EXISTS idx_attachments_project_agent ON attachments(project_id, agent_id);
+-- The agent_id column and indexes are created in 004_attachments.sql
+-- This migration exists only for backwards compatibility with migration tracking
+SELECT 1;
