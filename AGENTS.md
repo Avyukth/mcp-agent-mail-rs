@@ -745,10 +745,30 @@ curl -X POST http://localhost:8765/api/project/ensure \
 ```
 
 
-#### Resources
+#### MCP Resources (resource:// URIs)
 
-- `resource://inbox/{Agent}?project=<path>&limit=20`
-- `resource://thread/{id}?project=<path>&include_bodies=true`
+The `resource://` scheme provides read-only access to data. Supports lazy loading via `include_bodies` parameter.
+
+| Resource URI | Description | Query Params |
+|--------------|-------------|--------------|
+| `resource://inbox/{agent}?project={slug}` | Agent's inbox messages | `limit`, `include_bodies` |
+| `resource://outbox/{agent}?project={slug}` | Agent's sent messages | `limit`, `include_bodies` |
+| `resource://thread/{id}?project={slug}` | Messages in a thread | `include_bodies` |
+| `resource://threads?project={slug}` | List all threads | `limit` |
+| `resource://agent/{name}?project={slug}` | Single agent info | — |
+| `resource://agents?project={slug}` | All agents in project | — |
+| `resource://file_reservations?project={slug}` | Active file reservations | — |
+| `resource://product/{uid}` | Product info (no project needed) | — |
+| `resource://identity/{path}` | Repository identity (no project needed) | — |
+
+**Query Parameters:**
+- `project` — Project slug (required for most resources)
+- `limit` — Max results (default: 20)
+- `include_bodies` — Include message bodies (`true`/`false`, default: `false`)
+
+**Lazy Loading:** By default, inbox/outbox/thread resources omit `body_md` for token efficiency. Set `include_bodies=true` to include full message bodies.
+
+**Legacy Scheme:** `agent-mail://{project}/{resource}/{id}` still supported for backwards compatibility.
 
 **Tip**: Set `AGENT_NAME` env var for pre-commit guard to block conflicting commits.
 
