@@ -252,7 +252,7 @@ fn read_marker_file(git_dir: &Path, marker_name: &str) -> Option<String> {
         let mut current = git_dir;
         loop {
             let parent = current.parent()?;
-            if parent.file_name().map_or(false, |n| n == ".git") {
+            if parent.file_name().is_some_and(|n| n == ".git") {
                 // Found .git, parent of that is repo root
                 break parent.parent()?;
             }

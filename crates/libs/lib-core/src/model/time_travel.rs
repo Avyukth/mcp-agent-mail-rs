@@ -280,6 +280,7 @@ impl TimeTravelBmc {
 #[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
+    use chrono::{Datelike, Timelike};
 
     #[test]
     fn test_parse_timestamp_rfc3339() {

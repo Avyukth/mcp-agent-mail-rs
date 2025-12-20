@@ -1615,6 +1615,22 @@ impl AgentMailService {
             meta: None,
         })
     }
+
+    /// Public impl method for testing search_messages_product
+    pub async fn search_messages_product_impl(
+        &self,
+        params: Parameters<SearchMessagesProductParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.search_messages_product(params).await
+    }
+
+    /// Public impl method for testing summarize_thread_product
+    pub async fn summarize_thread_product_impl(
+        &self,
+        params: Parameters<SummarizeThreadProductParams>,
+    ) -> Result<CallToolResult, McpError> {
+        self.summarize_thread_product(params).await
+    }
 }
 
 #[allow(clippy::manual_async_fn)]
@@ -2202,6 +2218,24 @@ pub struct ProductInboxParams {
     pub product_uid: String,
     /// Maximum messages per project
     pub limit: Option<i64>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SearchMessagesProductParams {
+    /// Product UID to search across
+    pub product_uid: String,
+    /// Search query (full-text search)
+    pub query: String,
+    /// Maximum results per project
+    pub limit: Option<i64>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+pub struct SummarizeThreadProductParams {
+    /// Product UID
+    pub product_uid: String,
+    /// Thread ID(s) to summarize
+    pub thread_id: ThreadIdInput,
 }
 
 #[derive(Debug, Deserialize, JsonSchema)]
@@ -4369,6 +4403,167 @@ impl AgentMailService {
         }
 
         Ok(CallToolResult::success(vec![Content::text(output)]))
+    }
+
+    /// Search messages across all projects linked to a product
+    #[tool(
+        description = "Full-text search across ALL projects linked to a product. Returns aggregated results."
+    )]
+    async fn search_messages_product(
+        &self,
+        params: Parameters<SearchMessagesProductParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::message::MessageBmc;
+        use lib_core::model::product::ProductBmc;
+        use lib_core::model::project::ProjectBmc;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        let product = ProductBmc::get_by_uid(&ctx, &self.mm, &p.product_uid)
+            .await
+            .map_err(|e| McpError::invalid_params(format!("Product not found: {}", e), None))?;
+
+        let project_ids = ProductBmc::get_linked_projects(&ctx, &self.mm, product.id)
+            .await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        let limit = p.limit.unwrap_or(10);
+        let mut output = format!(
+            "Search results for '{}' across product '{}' ({} projects):\n\n",
+            p.query,
+            product.name,
+            project_ids.len()
+        );
+
+        let mut total_matches = 0;
+        for project_id in project_ids {
+            let project = ProjectBmc::get(&ctx, &self.mm, project_id)
+                .await
+                .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+            let messages = MessageBmc::search(&ctx, &self.mm, project_id, &p.query, limit)
+                .await
+                .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+            if !messages.is_empty() {
+                output.push_str(&format!(
+                    "\n## Project: {} ({}) - {} matches\n",
+                    project.human_key,
+                    project.slug,
+                    messages.len()
+                ));
+                for m in &messages {
+                    output.push_str(&format!(
+                        "  - [{}] {} (from: {}, thread: {:?})\n",
+                        m.id, m.subject, m.sender_name, m.thread_id
+                    ));
+                }
+                total_matches += messages.len();
+            }
+        }
+
+        if total_matches == 0 {
+            output.push_str("No matches found.\n");
+        } else {
+            output.push_str(&format!("\nTotal: {} matches\n", total_matches));
+        }
+
+        Ok(CallToolResult::success(vec![Content::text(output)]))
+    }
+
+    /// Summarize thread(s) across all projects linked to a product
+    #[tool(
+        description = "Summarize thread(s) across ALL projects linked to a product. Aggregates thread messages from multiple projects."
+    )]
+    async fn summarize_thread_product(
+        &self,
+        params: Parameters<SummarizeThreadProductParams>,
+    ) -> Result<CallToolResult, McpError> {
+        use lib_core::model::message::MessageBmc;
+        use lib_core::model::product::ProductBmc;
+        use lib_core::model::project::ProjectBmc;
+
+        let ctx = self.ctx();
+        let p = params.0;
+
+        let product = ProductBmc::get_by_uid(&ctx, &self.mm, &p.product_uid)
+            .await
+            .map_err(|e| McpError::invalid_params(format!("Product not found: {}", e), None))?;
+
+        let project_ids = ProductBmc::get_linked_projects(&ctx, &self.mm, product.id)
+            .await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        let thread_ids: Vec<String> = p.thread_id.into();
+        let mut summaries = Vec::new();
+        let mut errors = Vec::new();
+
+        for thread_id in &thread_ids {
+            let mut aggregated_messages = Vec::new();
+            let mut project_sources = Vec::new();
+
+            // Collect messages from all projects
+            for &project_id in &project_ids {
+                let project = ProjectBmc::get(&ctx, &self.mm, project_id)
+                    .await
+                    .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+                match MessageBmc::list_by_thread(&ctx, &self.mm, project_id, thread_id).await {
+                    Ok(messages) if !messages.is_empty() => {
+                        project_sources.push(project.slug.clone());
+                        aggregated_messages.extend(messages);
+                    }
+                    Ok(_) => {} // Empty, skip
+                    Err(e) => {
+                        errors.push(ThreadSummaryError {
+                            thread_id: thread_id.clone(),
+                            error: format!("Error in project {}: {}", project.slug, e),
+                        });
+                    }
+                }
+            }
+
+            if !aggregated_messages.is_empty() {
+                // Sort by created_ts
+                aggregated_messages.sort_by(|a, b| a.created_ts.cmp(&b.created_ts));
+
+                let mut participants: Vec<String> = aggregated_messages
+                    .iter()
+                    .map(|m| m.sender_name.clone())
+                    .collect();
+                participants.sort();
+                participants.dedup();
+
+                let subject = aggregated_messages
+                    .first()
+                    .map(|m| m.subject.clone())
+                    .unwrap_or_default();
+                let last_snippet = aggregated_messages
+                    .last()
+                    .map(|m| m.body_md.chars().take(100).collect::<String>())
+                    .unwrap_or_default();
+
+                summaries.push(ThreadSummaryItem {
+                    thread_id: thread_id.clone(),
+                    subject: format!("{} (from: {})", subject, project_sources.join(", ")),
+                    message_count: aggregated_messages.len(),
+                    participants,
+                    last_snippet,
+                });
+            } else if errors.iter().all(|e| e.thread_id != *thread_id) {
+                errors.push(ThreadSummaryError {
+                    thread_id: thread_id.clone(),
+                    error: "Thread not found in any linked project".to_string(),
+                });
+            }
+        }
+
+        let result = SummarizeResult { summaries, errors };
+        let json = serde_json::to_string_pretty(&result)
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        Ok(CallToolResult::success(vec![Content::text(json)]))
     }
 
     /// Export mailbox to static bundle
