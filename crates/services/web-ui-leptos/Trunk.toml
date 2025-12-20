@@ -6,3 +6,9 @@ dist = "dist"
 stage = "pre_build"
 command = "sh"
 command_arguments = ["-c", "npx tailwindcss -i ./style/tailwind.css -o ./style/output.css --minify"]
+
+# Proxy API requests to backend server
+[[proxy]]
+rewrite = "/api/"
+backend = "http://127.0.0.1:8080/api/"
+insecure = true

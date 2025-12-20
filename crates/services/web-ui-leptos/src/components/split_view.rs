@@ -55,25 +55,27 @@ pub fn MessageListItemView(
     let unread = item.unread;
     let importance = item.importance.clone();
 
-    // shadcn list item pattern with proper focus/selection states
+    // 2025 Magic UI list item with enhanced hover and selection states
     view! {
         <button
             class={move || format!(
-                "w-full text-left p-4 border-b border-border \
-                 hover:bg-accent transition-colors \
+                "w-full text-left p-4 border-b border-border/50 \
+                 message-item transition-all duration-200 \
                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring \
                  {} {}",
                 if selected.get() {
-                    "bg-accent border-l-4 border-l-primary"
+                    "selected selected-glow"
                 } else {
-                    "border-l-4 border-l-transparent"
+                    ""
                 },
-                if unread { "font-semibold" } else { "" }
+                if unread { "font-semibold bg-primary/5" } else { "" }
             )}
             on:click=move |_| on_click.run(id)
         >
             <div class="flex items-start gap-3">
-                <AgentAvatar name={sender.clone()} size=AvatarSize::Sm />
+                <div class="avatar-ring">
+                    <AgentAvatar name={sender.clone()} size=AvatarSize::Sm />
+                </div>
 
                 <div class="flex-1 min-w-0">
                     <div class="flex items-center justify-between gap-2">
@@ -90,7 +92,7 @@ pub fn MessageListItemView(
                             </span>
                             {if importance == "high" {
                                 Some(view! {
-                                    <i data-lucide="alert-circle" class="h-3 w-3 text-destructive flex-shrink-0" title="High Importance"></i>
+                                    <i data-lucide="alert-circle" class="h-3 w-3 text-destructive flex-shrink-0 importance-high" title="High Importance"></i>
                                 })
                             } else {
                                 None

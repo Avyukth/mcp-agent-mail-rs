@@ -79,6 +79,7 @@ module.exports = {
             animation: {
                 'fade-in': 'fade-in 0.3s ease-out',
                 'slide-up': 'slide-up 0.4s ease-out',
+                'slide-down': 'slide-down 0.4s ease-out',
                 'pulse-gentle': 'pulse-gentle 2s ease-in-out infinite',
                 // Magic UI animations
                 'gradient-x': 'gradient-x 3s ease infinite',
@@ -95,6 +96,19 @@ module.exports = {
                 'grid-pulse': 'grid-pulse 2s ease-in-out infinite',
                 'typing': 'typing 3s steps(30) forwards',
                 'progress-indeterminate': 'progress-indeterminate 1.5s ease-in-out infinite',
+                // 2025 Magic UI Enhancements
+                'border-beam': 'border-beam 4s linear infinite',
+                'float': 'float 3s ease-in-out infinite',
+                'scale-in': 'scale-in 0.2s ease-out',
+                'glow-pulse': 'glow-pulse 2s ease-in-out infinite',
+                'marquee': 'marquee 25s linear infinite',
+                'marquee-reverse': 'marquee-reverse 25s linear infinite',
+                'spin-slow': 'spin 3s linear infinite',
+                'bounce-subtle': 'bounce-subtle 1s ease-in-out infinite',
+                'accordion-down': 'accordion-down 0.2s ease-out',
+                'accordion-up': 'accordion-up 0.2s ease-out',
+                'text-gradient': 'text-gradient 3s ease infinite',
+                'card-hover': 'card-hover 0.3s ease-out forwards',
             },
             keyframes: {
                 'fade-in': {
@@ -165,6 +179,55 @@ module.exports = {
                 'progress-indeterminate': {
                     '0%': { transform: 'translateX(-100%)' },
                     '100%': { transform: 'translateX(400%)' },
+                },
+                // 2025 Magic UI keyframes
+                'slide-down': {
+                    '0%': { opacity: '0', transform: 'translateY(-10px)' },
+                    '100%': { opacity: '1', transform: 'translateY(0)' },
+                },
+                'border-beam': {
+                    '0%': { transform: 'translateX(-100%)' },
+                    '100%': { transform: 'translateX(100%)' },
+                },
+                'float': {
+                    '0%, 100%': { transform: 'translateY(0)' },
+                    '50%': { transform: 'translateY(-5px)' },
+                },
+                'scale-in': {
+                    '0%': { opacity: '0', transform: 'scale(0.95)' },
+                    '100%': { opacity: '1', transform: 'scale(1)' },
+                },
+                'glow-pulse': {
+                    '0%, 100%': { boxShadow: '0 0 5px var(--color-primary), 0 0 10px var(--color-primary)' },
+                    '50%': { boxShadow: '0 0 20px var(--color-primary), 0 0 30px var(--color-primary)' },
+                },
+                'marquee': {
+                    '0%': { transform: 'translateX(0%)' },
+                    '100%': { transform: 'translateX(-100%)' },
+                },
+                'marquee-reverse': {
+                    '0%': { transform: 'translateX(-100%)' },
+                    '100%': { transform: 'translateX(0%)' },
+                },
+                'bounce-subtle': {
+                    '0%, 100%': { transform: 'translateY(0)' },
+                    '50%': { transform: 'translateY(-3px)' },
+                },
+                'accordion-down': {
+                    '0%': { height: '0' },
+                    '100%': { height: 'var(--radix-accordion-content-height)' },
+                },
+                'accordion-up': {
+                    '0%': { height: 'var(--radix-accordion-content-height)' },
+                    '100%': { height: '0' },
+                },
+                'text-gradient': {
+                    '0%, 100%': { backgroundPosition: '0% 50%' },
+                    '50%': { backgroundPosition: '100% 50%' },
+                },
+                'card-hover': {
+                    '0%': { transform: 'translateY(0)', boxShadow: 'var(--shadow-sm)' },
+                    '100%': { transform: 'translateY(-4px)', boxShadow: 'var(--shadow-lg)' },
                 },
             },
             backdropBlur: {

@@ -4,7 +4,7 @@ use gloo_net::http::Request;
 use serde::{Deserialize, Serialize};
 
 /// API base URL - defaults to localhost for development.
-pub const API_BASE_URL: &str = "http://127.0.0.1:8765";
+pub const API_BASE_URL: &str = "http://127.0.0.1:8080";
 
 /// API error type.
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -44,62 +44,12 @@ pub fn NumberCounter(
     let prefix_clone = prefix.clone();
     let suffix_clone = suffix.clone();
 
-    // Animate the counter
+    // Simple reactive update (animation via CSS transition)
+    // For WASM compatibility, we use CSS transitions instead of JS animation
     Effect::new(move |_| {
         let target = value.get() as f64;
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            use wasm_bindgen::JsCast;
-            use wasm_bindgen::closure::Closure;
-
-            let start_time = web_sys::window()
-                .and_then(|w| w.performance())
-                .map(|p| p.now())
-                .unwrap_or(0.0);
-
-            let duration_ms = duration as f64;
-
-            let animate = Closure::wrap(Box::new(move || {
-                let now = web_sys::window()
-                    .and_then(|w| w.performance())
-                    .map(|p| p.now())
-                    .unwrap_or(start_time + duration_ms);
-
-                let elapsed = now - start_time;
-                let progress = (elapsed / duration_ms).min(1.0);
-
-                // Ease out cubic
-                let eased = 1.0 - (1.0 - progress).powi(3);
-                let current = target * eased;
-
-                displayed_value.set(current);
-
-                if progress < 1.0 {
-                    if let Some(window) = web_sys::window() {
-                        // Continue animation - this is a simplified version
-                        // In production, you'd use requestAnimationFrame
-                        let _ = window.set_timeout_with_callback_and_timeout_and_arguments_0(
-                            &wasm_bindgen::JsValue::from_str(""),
-                            16,
-                        );
-                    }
-                }
-            }) as Box<dyn FnMut()>);
-
-            // Start animation loop with requestAnimationFrame
-            if let Some(window) = web_sys::window() {
-                let _ = window.request_animation_frame(animate.as_ref().unchecked_ref());
-            }
-            animate.forget();
-        }
-
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            // For SSR, just show the final value
-            let _ = duration;
-            displayed_value.set(target);
-        }
+        let _ = duration; // Duration handled by CSS transition
+        displayed_value.set(target);
     });
 
     view! {

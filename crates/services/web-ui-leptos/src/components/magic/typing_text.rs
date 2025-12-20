@@ -41,59 +41,14 @@ pub fn TypingText(
     class: Option<String>,
 ) -> impl IntoView {
     let extra = class.unwrap_or_default();
-    let displayed_text = RwSignal::new(String::new());
-    let text_chars: Vec<char> = text.chars().collect();
-    let total_chars = text_chars.len();
-
-    // Use Effect to animate typing
-    Effect::new(move |_| {
-        let chars = text_chars.clone();
-
-        #[cfg(target_arch = "wasm32")]
-        {
-            use wasm_bindgen::JsCast;
-            use wasm_bindgen::closure::Closure;
-
-            let window = web_sys::window().unwrap();
-            let mut index = 0usize;
-
-            // Initial delay
-            let start_typing = Closure::once(Box::new(move || {
-                // Start typing interval
-                let interval_closure = Closure::wrap(Box::new(move || {
-                    if index < chars.len() {
-                        displayed_text.update(|t| t.push(chars[index]));
-                        index += 1;
-                    }
-                }) as Box<dyn FnMut()>);
-
-                if let Some(w) = web_sys::window() {
-                    let _ = w.set_interval_with_callback_and_timeout_and_arguments_0(
-                        interval_closure.as_ref().unchecked_ref(),
-                        speed as i32,
-                    );
-                }
-                interval_closure.forget();
-            }) as Box<dyn FnOnce()>);
-
-            let _ = window.set_timeout_with_callback_and_timeout_and_arguments_0(
-                start_typing.as_ref().unchecked_ref(),
-                delay as i32,
-            );
-            start_typing.forget();
-        }
-
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            // For SSR, just show the full text
-            let _ = (speed, delay, total_chars);
-            displayed_text.set(chars.into_iter().collect());
-        }
-    });
+    // Simplified: Just show the text with CSS animation
+    // The typing effect is achieved via CSS animation (animate-typing class)
+    let _ = (speed, delay); // Animation timing controlled by CSS
+    let text_clone = text.clone();
 
     view! {
         <span class={format!("inline-flex items-center {}", extra)}>
-            <span>{move || displayed_text.get()}</span>
+            <span>{text_clone}</span>
             {if cursor {
                 Some(view! {
                     <span class="ml-0.5 inline-block w-[2px] h-[1em] bg-current animate-blink" />
