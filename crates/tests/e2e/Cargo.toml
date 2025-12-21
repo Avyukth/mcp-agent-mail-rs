@@ -43,5 +43,9 @@ path = "tests/walkthrough.rs"
 name = "cli_tests"
 path = "tests/cli_tests.rs"
 
+[[test]]
+name = "mail_viewer"
+path = "tests/mail_viewer.rs"
+
 [lints]
 workspace = true
