@@ -1294,6 +1294,20 @@ Key variables (see `.env.example` for all 35+):
 
 ### MANDATORY: Parallel Agent Workflow (ULTRA Pattern)
 
+```
+╔══════════════════════════════════════════════════════════════════════════════╗
+║  🚨 CRITICAL: AGENTS NEVER WORK ON MAIN BRANCH 🚨                            ║
+║                                                                              ║
+║  ❌ FORBIDDEN: git checkout main && <do work>                                ║
+║  ❌ FORBIDDEN: git commit on main                                            ║
+║  ❌ FORBIDDEN: git push origin main (from agent)                             ║
+║                                                                              ║
+║  ✅ REQUIRED: Work ONLY on beads-sync or feature branches                    ║
+║  ✅ REQUIRED: Use worktrees for isolation (.sandboxes/agent-<id>/)           ║
+║  ✅ REQUIRED: Coordinator (human) merges beads-sync → main                   ║
+╚══════════════════════════════════════════════════════════════════════════════╝
+```
+
 All agents MUST follow this workflow. No exceptions. Failure to follow causes merge conflicts and coordination failures.
 
 ```
