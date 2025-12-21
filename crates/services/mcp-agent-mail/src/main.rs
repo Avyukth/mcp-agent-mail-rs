@@ -1202,62 +1202,6 @@ async fn handle_summarize(args: SummarizeArgs) -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn handle_products_link(product_uid: String, project: String) -> anyhow::Result<()> {
-    let url =
-        std::env::var("MCP_AGENT_MAIL_URL").unwrap_or_else(|_| "http://localhost:8765".into());
-    let client = reqwest::Client::new();
-
-    #[derive(serde::Serialize)]
-    struct McpRequest {
-        jsonrpc: String,
-        id: i32,
-        method: String,
-        params: serde_json::Value,
-    }
-
-    let params = serde_json::json!({
-        "product_uid": product_uid,
-        "project_slug": project
-    });
-
-    let req = McpRequest {
-        jsonrpc: "2.0".to_string(),
-        id: 1,
-        method: "tools/call".to_string(),
-        params: serde_json::json!({
-            "name": "link_project_to_product",
-            "arguments": params
-        }),
-    };
-
-    match client.post(format!("{}/mcp", url)).json(&req).send().await {
-        Ok(resp) if resp.status().is_success() => match resp.json::<serde_json::Value>().await {
-            Ok(json) => {
-                if let Some(result) = json.get("result") {
-                    if let Some(content) = result.get("content") {
-                        if let Some(content_array) = content.as_array() {
-                            if let Some(first) = content_array.first() {
-                                if let Some(text) = first.get("text") {
-                                    println!("{}", text.as_str().unwrap_or("Success"));
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            Err(e) => println!("Error parsing response: {}", e),
-        },
-        Ok(resp) => {
-            let status = resp.status();
-            let body = resp.text().await.unwrap_or_default();
-            println!("HTTP {}: {}", status, body);
-        }
-        Err(e) => println!("Request failed: {}", e),
-    }
-
-    Ok(())
-}
-
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Install panic hook FIRST, before anything else
