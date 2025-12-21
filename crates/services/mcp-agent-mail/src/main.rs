@@ -1116,7 +1116,12 @@ fn handle_robot_examples(format: &str, args: &[String]) -> u8 {
             matching_examples.extend(entry.examples.clone());
         }
     } else {
-        target_type = if target.starts_with("--") { "flag" } else { "command" }.to_string();
+        target_type = if target.starts_with("--") {
+            "flag"
+        } else {
+            "command"
+        }
+        .to_string();
 
         // Look up the target in the HashMap
         if let Some(entry) = EXAMPLE_REGISTRY.get(target.as_str()) {

@@ -174,6 +174,28 @@ pub fn routes() -> Router<AppState> {
         .route("/api/unregister_macro", post(tools::unregister_macro)) // Python alias
         .route("/api/macros/invoke", post(tools::invoke_macro))
         .route("/api/invoke_macro", post(tools::invoke_macro)) // Python alias
+        // Convenience Macros
+        .route(
+            "/api/macros/start_session",
+            post(tools::macro_start_session),
+        )
+        .route("/api/macro_start_session", post(tools::macro_start_session)) // Python alias
+        .route(
+            "/api/macros/file_reservation_cycle",
+            post(tools::macro_file_reservation_cycle),
+        )
+        .route(
+            "/api/macro_file_reservation_cycle",
+            post(tools::macro_file_reservation_cycle),
+        ) // Python alias
+        .route(
+            "/api/macros/contact_handshake",
+            post(tools::macro_contact_handshake),
+        )
+        .route(
+            "/api/macro_contact_handshake",
+            post(tools::macro_contact_handshake),
+        ) // Python alias
         // Thread Summaries
         .route("/api/thread/summarize", post(tools::summarize_thread))
         .route("/api/summarize_thread", post(tools::summarize_thread)) // Python alias
