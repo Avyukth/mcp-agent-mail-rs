@@ -37,6 +37,14 @@ struct Cli {
         help = "Output format for robot flags"
     )]
     format: String,
+
+    /// Output system health status in machine-readable format
+    #[arg(
+        long,
+        global = true,
+        help = "Output system health status in machine-readable format"
+    )]
+    robot_status: bool,
 }
 
 #[derive(Subcommand)]
@@ -819,6 +827,88 @@ fn handle_robot_help(format: &str) {
     println!("{}", output);
 }
 
+fn handle_robot_status(format: &str) -> u8 {
+    use lib_common::robot::ROBOT_HELP_SCHEMA_VERSION;
+    use robot_help::{CheckResult, RobotStatusOutput};
+    use std::collections::HashMap;
+
+    let mut checks = HashMap::new();
+    let mut exit_code = 0;
+
+    // 1. Database Check
+    let db_path = std::path::Path::new("data/mcp_agent_mail.db");
+    checks.insert(
+        "database".to_string(),
+        CheckResult {
+            status: if db_path.exists() {
+                "ok".to_string()
+            } else {
+                "missing".to_string()
+            },
+            path: Some(db_path.to_string_lossy().to_string()),
+            port: None,
+            details: None,
+        },
+    );
+
+    // 2. Git Archive Check
+    let archive_path = std::path::Path::new("data/archive");
+    checks.insert(
+        "git_archive".to_string(),
+        CheckResult {
+            status: if archive_path.exists() {
+                "ok".to_string()
+            } else {
+                "missing".to_string()
+            },
+            path: Some(archive_path.to_string_lossy().to_string()),
+            port: None,
+            details: None,
+        },
+    );
+
+    // 3. Config Check
+    let config = load_config();
+    checks.insert(
+        "config".to_string(),
+        CheckResult {
+            status: "ok".to_string(),
+            path: None,
+            port: Some(config.server.port),
+            details: None,
+        },
+    );
+
+    // Determine overall status
+    // For now, missing DB is not critical for startup (it gets created), so we can say healthy
+    // But let's be strict: if checks fail, maybe status is "degraded"
+    let status = if checks.values().any(|c| c.status != "ok") {
+        exit_code = 1;
+        "degraded".to_string()
+    } else {
+        "healthy".to_string()
+    };
+
+    let output = RobotStatusOutput {
+        schema_version: ROBOT_HELP_SCHEMA_VERSION.to_string(),
+        tool: "mcp-agent-mail".to_string(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
+        timestamp: chrono::Utc::now().to_rfc3339(),
+        status,
+        checks,
+        exit_code,
+    };
+
+    let json = if format.eq_ignore_ascii_case("yaml") {
+        serde_yaml::to_string(&output).expect("Failed to serialize robot status to YAML")
+    } else {
+        serde_json::to_string_pretty(&output).expect("Failed to serialize robot status to JSON")
+    };
+
+    println!("{}", json);
+    exit_code
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Install panic hook FIRST, before anything else
@@ -829,6 +919,14 @@ async fn main() -> anyhow::Result<()> {
 
     if cli.robot_help {
         handle_robot_help(&cli.format);
+        return Ok(());
+    }
+
+    if cli.robot_status {
+        let code = handle_robot_status(&cli.format);
+        if code != 0 {
+            std::process::exit(code as i32);
+        }
         return Ok(());
     }
 

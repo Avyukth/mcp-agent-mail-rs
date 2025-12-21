@@ -3,6 +3,30 @@ use lib_common::robot::{
     RobotHelpOutput,
 };
 use once_cell::sync::Lazy;
+use serde::Serialize;
+use std::collections::HashMap;
+
+#[derive(Debug, Clone, Serialize)]
+pub struct RobotStatusOutput {
+    pub schema_version: String,
+    pub tool: String,
+    pub version: String,
+    pub timestamp: String,
+    pub status: String,
+    pub checks: HashMap<String, CheckResult>,
+    pub exit_code: u8,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct CheckResult {
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub port: Option<u16>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<String>,
+}
 
 pub static EXAMPLE_REGISTRY: Lazy<RobotHelpOutput> = Lazy::new(|| RobotHelpOutput {
     schema_version: ROBOT_HELP_SCHEMA_VERSION.to_string(),
