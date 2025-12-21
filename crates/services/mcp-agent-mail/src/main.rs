@@ -104,6 +104,9 @@ enum Commands {
 
     /// Product management
     Products(ProductsArgs),
+
+    /// Pre-commit guard management
+    Guard(GuardArgs),
 }
 
 #[derive(Args)]
@@ -281,6 +284,12 @@ struct ArchiveArgs {
 }
 
 #[derive(Args)]
+struct GuardArgs {
+    #[command(subcommand)]
+    command: GuardCommands,
+}
+
+#[derive(Args)]
 struct SummarizeArgs {
     /// Project slug or path
     #[arg(short, long)]
@@ -340,6 +349,12 @@ enum ArchiveCommands {
         #[arg(long)]
         yes: bool,
     },
+}
+
+#[derive(Subcommand)]
+enum GuardCommands {
+    /// Show guard status information
+    Status,
 }
 
 #[derive(Args)]
@@ -1145,7 +1160,7 @@ async fn handle_summarize(args: SummarizeArgs) -> anyhow::Result<()> {
     for tid in &thread_ids {
         let req = SummarizeRequest {
             project_slug: args.project.clone(),
-            thread_id: tid.to_string(),
+            thread_id: (*tid).to_string(),
             per_thread_limit: Some(args.per_thread_limit),
             no_llm: Some(args.no_llm),
         };
@@ -1200,6 +1215,71 @@ async fn handle_summarize(args: SummarizeArgs) -> anyhow::Result<()> {
     }
 
     Ok(())
+}
+
+async fn handle_guard_status() -> anyhow::Result<()> {
+    println!("Pre-commit Guard Status");
+    println!("=======================");
+
+    // WORKTREES_ENABLED
+    let worktrees_enabled = std::env::var("WORKTREES_ENABLED")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+    println!(
+        "WORKTREES_ENABLED: {}",
+        if worktrees_enabled { "true" } else { "false" }
+    );
+
+    // AGENT_MAIL_GUARD_MODE
+    let guard_mode =
+        std::env::var("AGENT_MAIL_GUARD_MODE").unwrap_or_else(|_| "enforce".to_string());
+    println!("AGENT_MAIL_GUARD_MODE: {}", guard_mode);
+
+    // PROJECT_IDENTITY_MODE
+    let identity_mode = std::env::var("PROJECT_IDENTITY_MODE")
+        .map(|v| v == "1" || v.eq_ignore_ascii_case("true"))
+        .unwrap_or(false);
+    println!(
+        "PROJECT_IDENTITY_MODE: {}",
+        if identity_mode { "true" } else { "false" }
+    );
+
+    // hooks_dir location
+    let hooks_dir = std::path::Path::new(".git/hooks");
+    if hooks_dir.exists() {
+        println!("hooks_dir: {}", hooks_dir.display());
+    } else {
+        println!("hooks_dir: .git/hooks (directory not found)");
+    }
+
+    // pre-commit/pre-push hook presence
+    let pre_commit_hook = hooks_dir.join("pre-commit");
+    let pre_push_hook = hooks_dir.join("pre-push");
+
+    println!(
+        "pre-commit hook: {}",
+        if pre_commit_hook.exists() {
+            "present"
+        } else {
+            "missing"
+        }
+    );
+    println!(
+        "pre-push hook: {}",
+        if pre_push_hook.exists() {
+            "present"
+        } else {
+            "missing"
+        }
+    );
+
+    Ok(())
+}
+
+async fn handle_guard(args: GuardArgs) -> anyhow::Result<()> {
+    match args.command {
+        GuardCommands::Status => handle_guard_status().await,
+    }
 }
 
 #[tokio::main]
@@ -1275,6 +1355,7 @@ async fn main() -> anyhow::Result<()> {
         Some(Commands::Archive(args)) => handle_archive_command(args.command).await?,
         Some(Commands::Summarize(args)) => handle_summarize(args).await?,
         Some(Commands::Products(args)) => handle_products(args).await?,
+        Some(Commands::Guard(args)) => handle_guard(args).await?,
         Some(Commands::Version) => println!("mcp-agent-mail v{}", env!("CARGO_PKG_VERSION")),
         None => {
             Cli::command().print_help()?;

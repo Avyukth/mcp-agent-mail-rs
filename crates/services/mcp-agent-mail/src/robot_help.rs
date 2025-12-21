@@ -885,5 +885,23 @@ pub static EXAMPLE_REGISTRY: Lazy<RobotHelpOutput> = Lazy::new(|| RobotHelpOutpu
                 },
             ],
         },
+        CommandSchema {
+            name: "guard".to_string(),
+            description: "Pre-commit guard management".to_string(),
+            examples: vec![Example {
+                invocation: "mcp-agent-mail guard status".to_string(),
+                description: "Show guard status information".to_string(),
+            }],
+            parameters: vec![],
+            exit_codes: Default::default(),
+            subcommands: vec![CommandSchema {
+                name: "status".to_string(),
+                description: "Show guard status information".to_string(),
+                examples: vec![],
+                parameters: vec![],
+                exit_codes: Default::default(),
+                subcommands: vec![],
+            }],
+        },
     ],
 });
