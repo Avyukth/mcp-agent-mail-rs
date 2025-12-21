@@ -189,8 +189,35 @@ This document compares the MCP (Model Context Protocol) tool implementations bet
 
 3. **New in Rust:**
    - `list_*` operations for better discoverability
-   - `export_mailbox` for data portability
+   - `export_mailbox` for data portability with scrubbing
    - Programmable macro system
+   - Ed25519 signed exports with manifest verification
+   - Age encryption for secure sharing
+
+## Export Scrubbing Modes
+
+The Rust `export_mailbox` tool supports three privacy protection levels:
+
+| Mode | Description | Scrubs |
+|------|-------------|--------|
+| `none` | Lossless export | Nothing |
+| `standard` | Production-safe | Emails, phones, API keys (GitHub, Slack, OpenAI, AWS), Bearer tokens, JWTs, generic hex tokens |
+| `aggressive` | Maximum privacy | All standard + credit cards, SSN, agent names replaced with `[REDACTED-NAME]` |
+
+**Note:** Agent names (e.g., "BlueMountain", "GreenCastle") are pseudonyms by design and preserved in `standard` mode for readability. Only `aggressive` mode redacts them.
+
+### Secret Patterns Detected
+
+| Pattern | Replacement | Example |
+|---------|-------------|---------|
+| `ghp_[A-Za-z0-9]{36,}` | `[GITHUB-TOKEN]` | GitHub classic PAT |
+| `github_pat_[A-Za-z0-9_]{20+}` | `[GITHUB-PAT]` | GitHub fine-grained PAT |
+| `xox[baprs]-*` | `[SLACK-TOKEN]` | Slack bot/app tokens |
+| `sk-[a-zA-Z0-9]{20+}` | `[OPENAI-KEY]` | OpenAI API keys |
+| `AKIA[A-Z0-9]{16}` | `[AWS-KEY]` | AWS access keys |
+| `Bearer [token]` | `[BEARER-TOKEN]` | Bearer auth tokens |
+| `eyJ*.eyJ*.* ` | `[JWT]` | JSON Web Tokens |
+| `[a-f0-9]{32,64}` | `[TOKEN]` | Generic hex tokens |
 
 ---
 

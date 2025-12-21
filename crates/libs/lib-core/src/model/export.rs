@@ -84,28 +84,63 @@ impl Scrubber {
         let mut cleaned = text.to_string();
 
         lazy_static! {
+            // Personal information patterns
             static ref EMAIL_RE: Regex =
                 Regex::new(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")
                     .expect("valid email regex");
             static ref PHONE_RE: Regex =
-                Regex::new(r"\b\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b").expect("valid phone regex");
+                Regex::new(r"\b\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b")
+                    .expect("valid phone regex");
+
+            // API keys and tokens (aligned with Python SECRET_PATTERNS)
+            static ref GITHUB_TOKEN_RE: Regex =
+                Regex::new(r"(?i)\bghp_[A-Za-z0-9]{36,}\b")
+                    .expect("valid github token regex");
+            static ref GITHUB_PAT_RE: Regex =
+                Regex::new(r"(?i)\bgithub_pat_[A-Za-z0-9_]{20,}\b")
+                    .expect("valid github pat regex");
+            static ref SLACK_TOKEN_RE: Regex =
+                Regex::new(r"(?i)\bxox[baprs]-[A-Za-z0-9-]{10,}\b")
+                    .expect("valid slack token regex");
             static ref OPENAI_KEY_RE: Regex =
-                Regex::new(r"\bsk-[a-zA-Z0-9]{20,}\b").expect("valid openai key regex");
+                Regex::new(r"(?i)\bsk-[a-zA-Z0-9]{20,}\b")
+                    .expect("valid openai key regex");
             static ref AWS_KEY_RE: Regex =
-                Regex::new(r"\bAKIA[A-Z0-9]{16}\b").expect("valid aws key regex");
+                Regex::new(r"\bAKIA[A-Z0-9]{16}\b")
+                    .expect("valid aws key regex");
             static ref BEARER_RE: Regex =
-                Regex::new(r"(?i)bearer\s+[a-zA-Z0-9._-]{20,}").expect("valid bearer regex");
+                Regex::new(r"(?i)bearer\s+[a-zA-Z0-9._-]{20,}")
+                    .expect("valid bearer regex");
+            static ref JWT_RE: Regex =
+                Regex::new(r"\beyJ[0-9A-Za-z_-]+\.[0-9A-Za-z_-]+\.[0-9A-Za-z_-]+\b")
+                    .expect("valid jwt regex");
             static ref GENERIC_TOKEN_RE: Regex =
-                Regex::new(r"\b[a-f0-9]{32,64}\b").expect("valid token regex");
+                Regex::new(r"\b[a-f0-9]{32,64}\b")
+                    .expect("valid token regex");
         }
 
+        // Personal information
         cleaned = EMAIL_RE.replace_all(&cleaned, "[EMAIL]").to_string();
         cleaned = PHONE_RE.replace_all(&cleaned, "[PHONE]").to_string();
-        cleaned = OPENAI_KEY_RE.replace_all(&cleaned, "[API-KEY]").to_string();
+
+        // API keys and tokens - order matters for specificity
+        cleaned = GITHUB_TOKEN_RE
+            .replace_all(&cleaned, "[GITHUB-TOKEN]")
+            .to_string();
+        cleaned = GITHUB_PAT_RE
+            .replace_all(&cleaned, "[GITHUB-PAT]")
+            .to_string();
+        cleaned = SLACK_TOKEN_RE
+            .replace_all(&cleaned, "[SLACK-TOKEN]")
+            .to_string();
+        cleaned = OPENAI_KEY_RE
+            .replace_all(&cleaned, "[OPENAI-KEY]")
+            .to_string();
         cleaned = AWS_KEY_RE.replace_all(&cleaned, "[AWS-KEY]").to_string();
         cleaned = BEARER_RE
             .replace_all(&cleaned, "[BEARER-TOKEN]")
             .to_string();
+        cleaned = JWT_RE.replace_all(&cleaned, "[JWT]").to_string();
         cleaned = GENERIC_TOKEN_RE
             .replace_all(&cleaned, "[TOKEN]")
             .to_string();
