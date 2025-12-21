@@ -7,6 +7,7 @@
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
+use lib_common::config::AppConfig;
 use lib_mcp::tools::AgentMailService;
 use serde_json::json;
 use std::sync::Arc;
@@ -243,7 +244,8 @@ async fn test_jwt_without_kid_in_header() {
 
     let db = libsql::Builder::new_local(db_path).build().await.unwrap();
     let conn = db.connect().unwrap();
-    let mm = lib_server::ModelManager::new_for_test(conn, repo_root);
+    let app_config = Arc::new(AppConfig::default());
+    let mm = lib_server::ModelManager::new_for_test(conn, repo_root, app_config);
 
     let jwks_url = format!("{}/.well-known/jwks.json", mock_server.uri());
     let auth_config = AuthConfig {
@@ -369,7 +371,8 @@ async fn test_jwt_with_wrong_issuer() {
 
     let db = libsql::Builder::new_local(db_path).build().await.unwrap();
     let conn = db.connect().unwrap();
-    let mm = lib_server::ModelManager::new_for_test(conn, repo_root);
+    let app_config = Arc::new(AppConfig::default());
+    let mm = lib_server::ModelManager::new_for_test(conn, repo_root, app_config);
 
     let jwks_url = format!("{}/.well-known/jwks.json", mock_server.uri());
     let auth_config = AuthConfig {
@@ -433,7 +436,8 @@ async fn test_jwt_empty_authorization_header() {
 
     let db = libsql::Builder::new_local(db_path).build().await.unwrap();
     let conn = db.connect().unwrap();
-    let mm = lib_server::ModelManager::new_for_test(conn, repo_root);
+    let app_config = Arc::new(AppConfig::default());
+    let mm = lib_server::ModelManager::new_for_test(conn, repo_root, app_config);
 
     let auth_config = AuthConfig {
         mode: AuthMode::Bearer,
@@ -507,7 +511,8 @@ async fn test_jwt_wrong_algorithm() {
 
     let db = libsql::Builder::new_local(db_path).build().await.unwrap();
     let conn = db.connect().unwrap();
-    let mm = lib_server::ModelManager::new_for_test(conn, repo_root);
+    let app_config = Arc::new(AppConfig::default());
+    let mm = lib_server::ModelManager::new_for_test(conn, repo_root, app_config);
 
     let jwks_url = format!("{}/.well-known/jwks.json", mock_server.uri());
     let auth_config = AuthConfig {

@@ -4403,6 +4403,7 @@ exit 0
 #[cfg(test)]
 mod tests {
     use super::*;
+    use lib_common::config::AppConfig;
     use lib_core::model::agent::{AgentBmc, AgentForCreate};
     use lib_core::model::agent_capabilities::{AgentCapabilityBmc, AgentCapabilityForCreate};
     use lib_core::model::project::ProjectBmc;
@@ -4429,7 +4430,8 @@ mod tests {
         let schema4 = include_str!("../../../../../migrations/004_attachments.sql");
         conn.execute_batch(schema4).await.unwrap();
 
-        let mm = ModelManager::new_for_test(conn, archive_root);
+        let app_config = Arc::new(AppConfig::default());
+        let mm = ModelManager::new_for_test(conn, archive_root, app_config);
         (Arc::new(mm), temp_dir)
     }
 

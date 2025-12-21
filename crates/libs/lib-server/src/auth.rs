@@ -481,8 +481,10 @@ mod tests {
     };
     use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
     use jsonwebtoken::{Algorithm, EncodingKey, Header, encode};
+    use lib_common::config::AppConfig;
     use rand::rngs::OsRng;
     use rsa::{RsaPrivateKey, pkcs1::EncodeRsaPrivateKey, traits::PublicKeyParts};
+    use std::sync::Arc;
     use tower::util::ServiceExt; // for oneshot
     use wiremock::{Mock, MockServer, ResponseTemplate, matchers::path};
 
@@ -551,7 +553,8 @@ mod tests {
 
         let db = libsql::Builder::new_local(db_path).build().await.unwrap();
         let conn = db.connect().unwrap();
-        let mm = crate::ModelManager::new_for_test(conn, repo_root);
+        let app_config = Arc::new(AppConfig::default());
+        let mm = crate::ModelManager::new_for_test(conn, repo_root, app_config);
 
         let auth_config = AuthConfig {
             mode: AuthMode::None,
@@ -591,7 +594,8 @@ mod tests {
 
         let db = libsql::Builder::new_local(db_path).build().await.unwrap();
         let conn = db.connect().unwrap();
-        let mm = crate::ModelManager::new_for_test(conn, repo_root);
+        let app_config = Arc::new(AppConfig::default());
+        let mm = crate::ModelManager::new_for_test(conn, repo_root, app_config);
 
         let auth_config = AuthConfig {
             mode: AuthMode::Bearer,
@@ -637,7 +641,8 @@ mod tests {
 
         let db = libsql::Builder::new_local(db_path).build().await.unwrap();
         let conn = db.connect().unwrap();
-        let mm = crate::ModelManager::new_for_test(conn, repo_root);
+        let app_config = Arc::new(AppConfig::default());
+        let mm = crate::ModelManager::new_for_test(conn, repo_root, app_config);
 
         let auth_config = AuthConfig {
             mode: AuthMode::Bearer,
@@ -709,7 +714,8 @@ mod tests {
 
         let db = libsql::Builder::new_local(db_path).build().await.unwrap();
         let conn = db.connect().unwrap();
-        let mm = crate::ModelManager::new_for_test(conn, repo_root);
+        let app_config = Arc::new(AppConfig::default());
+        let mm = crate::ModelManager::new_for_test(conn, repo_root, app_config);
 
         let jwks_url = format!("{}/.well-known/jwks.json", mock_server.uri());
         let auth_config = AuthConfig {
@@ -775,7 +781,8 @@ mod tests {
 
         let db = libsql::Builder::new_local(db_path).build().await.unwrap();
         let conn = db.connect().unwrap();
-        let mm = crate::ModelManager::new_for_test(conn, repo_root);
+        let app_config = Arc::new(AppConfig::default());
+        let mm = crate::ModelManager::new_for_test(conn, repo_root, app_config);
 
         let jwks_url = format!("{}/.well-known/jwks.json", mock_server.uri());
         let auth_config = AuthConfig {
@@ -840,7 +847,8 @@ mod tests {
 
         let db = libsql::Builder::new_local(db_path).build().await.unwrap();
         let conn = db.connect().unwrap();
-        let mm = crate::ModelManager::new_for_test(conn, repo_root);
+        let app_config = Arc::new(AppConfig::default());
+        let mm = crate::ModelManager::new_for_test(conn, repo_root, app_config);
 
         let jwks_url = format!("{}/.well-known/jwks.json", mock_server.uri());
         let auth_config = AuthConfig {
@@ -912,7 +920,8 @@ mod tests {
 
         let db = libsql::Builder::new_local(db_path).build().await.unwrap();
         let conn = db.connect().unwrap();
-        let mm = crate::ModelManager::new_for_test(conn, repo_root);
+        let app_config = Arc::new(AppConfig::default());
+        let mm = crate::ModelManager::new_for_test(conn, repo_root, app_config);
 
         let jwks_url = format!("{}/.well-known/jwks.json", mock_server.uri());
         let auth_config = AuthConfig {
@@ -984,7 +993,8 @@ mod tests {
 
         let db = libsql::Builder::new_local(db_path).build().await.unwrap();
         let conn = db.connect().unwrap();
-        let mm = crate::ModelManager::new_for_test(conn, repo_root);
+        let app_config = Arc::new(AppConfig::default());
+        let mm = crate::ModelManager::new_for_test(conn, repo_root, app_config);
 
         let jwks_url = format!("{}/.well-known/jwks.json", mock_server.uri());
         let auth_config = AuthConfig {
@@ -1056,7 +1066,8 @@ mod tests {
 
         let db = libsql::Builder::new_local(db_path).build().await.unwrap();
         let conn = db.connect().unwrap();
-        let mm = crate::ModelManager::new_for_test(conn, repo_root);
+        let app_config = Arc::new(AppConfig::default());
+        let mm = crate::ModelManager::new_for_test(conn, repo_root, app_config);
 
         let jwks_url = format!("{}/.well-known/jwks.json", mock_server.uri());
         let auth_config = AuthConfig {
@@ -1114,7 +1125,8 @@ mod tests {
 
         let db = libsql::Builder::new_local(db_path).build().await.unwrap();
         let conn = db.connect().unwrap();
-        let mm = crate::ModelManager::new_for_test(conn, repo_root);
+        let app_config = Arc::new(AppConfig::default());
+        let mm = crate::ModelManager::new_for_test(conn, repo_root, app_config);
 
         let jwks_url = format!("{}/.well-known/jwks.json", mock_server.uri());
         let auth_config = AuthConfig {
@@ -1164,7 +1176,8 @@ mod tests {
 
         let db = libsql::Builder::new_local(db_path).build().await.unwrap();
         let conn = db.connect().unwrap();
-        let mm = crate::ModelManager::new_for_test(conn, repo_root);
+        let app_config = Arc::new(AppConfig::default());
+        let mm = crate::ModelManager::new_for_test(conn, repo_root, app_config);
 
         // Auth enabled but localhost bypass also enabled
         let auth_config = AuthConfig {
@@ -1225,7 +1238,8 @@ mod tests {
 
         let db = libsql::Builder::new_local(db_path).build().await.unwrap();
         let conn = db.connect().unwrap();
-        let mm = crate::ModelManager::new_for_test(conn, repo_root);
+        let app_config = Arc::new(AppConfig::default());
+        let mm = crate::ModelManager::new_for_test(conn, repo_root, app_config);
 
         // Auth enabled, localhost bypass disabled
         let auth_config = AuthConfig {

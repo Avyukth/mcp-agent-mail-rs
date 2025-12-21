@@ -2,6 +2,7 @@
 //!
 //! Phase 4 of tools.rs refactoring - adding tests for domain module impl functions.
 
+use lib_common::config::AppConfig;
 use lib_core::ctx::Ctx;
 use lib_core::model::{
     ModelManager,
@@ -57,7 +58,8 @@ async fn create_test_mm() -> (Arc<ModelManager>, TempDir) {
     let schema4 = include_str!("../../../../migrations/004_attachments.sql");
     conn.execute_batch(schema4).await.unwrap();
 
-    let mm = ModelManager::new_for_test(conn, archive_root);
+    let app_config = Arc::new(AppConfig::default());
+    let mm = ModelManager::new_for_test(conn, archive_root, app_config);
     (Arc::new(mm), temp_dir)
 }
 

@@ -45,6 +45,10 @@ struct Cli {
         help = "Output system health status in machine-readable format"
     )]
     robot_status: bool,
+
+    /// Show examples for a flag or subcommand
+    #[arg(long, global = true, num_args = 0.., allow_hyphen_values = true)]
+    robot_examples: Option<Vec<String>>,
 }
 
 #[derive(Subcommand)]
@@ -827,6 +831,7 @@ fn handle_robot_help(format: &str) {
     println!("{}", output);
 }
 
+#[allow(clippy::expect_used)]
 fn handle_robot_status(format: &str) -> u8 {
     use lib_common::robot::ROBOT_HELP_SCHEMA_VERSION;
     use robot_help::{CheckResult, RobotStatusOutput};
@@ -909,6 +914,115 @@ fn handle_robot_status(format: &str) -> u8 {
     exit_code
 }
 
+#[allow(clippy::expect_used)]
+fn handle_robot_examples(format: &str, args: &[String]) -> u8 {
+    use lib_common::robot::{CommandSchema, Example, ROBOT_HELP_SCHEMA_VERSION};
+    use robot_help::{EXAMPLE_REGISTRY, RobotExamplesOutput};
+
+    let target = args.join(" ");
+    let mut matching_examples = Vec::new();
+    let target_type;
+
+    if args.is_empty() {
+        target_type = "all".to_string();
+        // Collect ALL examples
+        for flag in &EXAMPLE_REGISTRY.robot_flags {
+            matching_examples.extend(flag.examples.clone());
+        }
+        fn collect_command_examples(cmd: &CommandSchema, list: &mut Vec<Example>) {
+            list.extend(cmd.examples.clone());
+            for sub in &cmd.subcommands {
+                collect_command_examples(sub, list);
+            }
+        }
+        for cmd in &EXAMPLE_REGISTRY.commands {
+            collect_command_examples(cmd, &mut matching_examples);
+        }
+    } else if target.starts_with("--") {
+        target_type = "flag".to_string();
+        // search robot flags
+        if let Some(flag) = EXAMPLE_REGISTRY
+            .robot_flags
+            .iter()
+            .find(|f| f.name == target.trim_start_matches("--"))
+        {
+            matching_examples.extend(flag.examples.clone());
+        } else {
+            // search ALL examples for the flag string
+            fn search_examples(cmd: &CommandSchema, target: &str, list: &mut Vec<Example>) {
+                for ex in &cmd.examples {
+                    if ex.invocation.contains(target) {
+                        list.push(ex.clone());
+                    }
+                }
+                for sub in &cmd.subcommands {
+                    search_examples(sub, target, list);
+                }
+            }
+            for cmd in &EXAMPLE_REGISTRY.commands {
+                search_examples(cmd, &target, &mut matching_examples);
+            }
+            for flag in &EXAMPLE_REGISTRY.robot_flags {
+                for ex in &flag.examples {
+                    if ex.invocation.contains(&target) {
+                        matching_examples.push(ex.clone());
+                    }
+                }
+            }
+        }
+    } else {
+        target_type = "subcommand".to_string();
+        // search commands
+        // exact match path traversal? or just find by name?
+        // "serve http" -> ["serve", "http"]
+        let mut current_level = &EXAMPLE_REGISTRY.commands;
+        let mut found_cmd: Option<&CommandSchema> = None;
+
+        let parts: Vec<&str> = target.split_whitespace().collect();
+        // Simple traversal
+        'outer: for (i, part) in parts.iter().enumerate() {
+            if let Some(cmd) = current_level.iter().find(|c| c.name == *part) {
+                if i == parts.len() - 1 {
+                    found_cmd = Some(cmd);
+                } else {
+                    current_level = &cmd.subcommands;
+                }
+            } else {
+                break 'outer;
+            }
+        }
+
+        if let Some(cmd) = found_cmd {
+            matching_examples.extend(cmd.examples.clone());
+        }
+    }
+
+    if matching_examples.is_empty() && !args.is_empty() {
+        eprintln!("No examples found for target: {}", target);
+        return 1;
+    }
+
+    let output = RobotExamplesOutput {
+        schema_version: ROBOT_HELP_SCHEMA_VERSION.to_string(),
+        target: if target.is_empty() {
+            "all".to_string()
+        } else {
+            target
+        },
+        target_type,
+        examples: matching_examples,
+    };
+
+    let json = if format.eq_ignore_ascii_case("yaml") {
+        serde_yaml::to_string(&output).expect("Failed to serialize robot examples to YAML")
+    } else {
+        serde_json::to_string_pretty(&output).expect("Failed to serialize robot examples to JSON")
+    };
+
+    println!("{}", json);
+    0
+}
+
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
     // Install panic hook FIRST, before anything else
@@ -924,6 +1038,16 @@ async fn main() -> anyhow::Result<()> {
 
     if cli.robot_status {
         let code = handle_robot_status(&cli.format);
+        if code != 0 {
+            std::process::exit(code as i32);
+        }
+        return Ok(());
+    }
+
+    if let Some(ref args) = cli.robot_examples {
+        // If args is empty (but Some), it means flag was present but no values
+        // If flag not present, it is None.
+        let code = handle_robot_examples(&cli.format, args);
         if code != 0 {
             std::process::exit(code as i32);
         }

@@ -1,5 +1,6 @@
 #[cfg(test)]
 mod tests {
+    use lib_common::config::AppConfig;
     use lib_core::ctx::Ctx;
     use lib_core::model::ModelManager;
     use lib_core::model::activity::ActivityBmc;
@@ -32,7 +33,8 @@ mod tests {
         let schema4 = include_str!("../../../../migrations/004_attachments.sql");
         conn.execute_batch(schema4).await.unwrap();
 
-        let mm = ModelManager::new_for_test(conn, archive_root);
+        let app_config = Arc::new(AppConfig::default());
+        let mm = ModelManager::new_for_test(conn, archive_root, app_config);
         (Arc::new(mm), temp_dir)
     }
 

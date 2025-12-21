@@ -95,6 +95,7 @@ fn test_robot_help_output_with_commands() {
             }],
             exit_codes: exit_codes.clone(),
             subcommands: vec![],
+            examples: vec![],
         }],
         robot_flags: vec![],
     };
@@ -280,6 +281,7 @@ fn test_command_schema_nested_subcommands() {
                 }],
                 exit_codes: HashMap::new(),
                 subcommands: vec![],
+                examples: vec![],
             },
             CommandSchema {
                 name: "restore".to_string(),
@@ -287,8 +289,10 @@ fn test_command_schema_nested_subcommands() {
                 parameters: vec![],
                 exit_codes: HashMap::new(),
                 subcommands: vec![],
+                examples: vec![],
             },
         ],
+        examples: vec![],
     };
 
     let json = serde_json::to_value(&cmd).expect("serialization should succeed");

@@ -3,6 +3,7 @@
 //! These tests verify end-to-end functionality of the MCP tools
 //! by testing the lib-core models directly.
 
+use lib_common::config::AppConfig;
 use lib_core::ModelManager;
 use std::sync::Arc;
 use tempfile::TempDir;
@@ -34,7 +35,8 @@ mod tools_tests {
         let schema4 = include_str!("../../../../migrations/004_attachments.sql");
         conn.execute_batch(schema4).await.unwrap();
 
-        let mm = ModelManager::new_for_test(conn, archive_root);
+        let app_config = Arc::new(AppConfig::default());
+        let mm = ModelManager::new_for_test(conn, archive_root, app_config);
         (Arc::new(mm), temp_dir)
     }
 

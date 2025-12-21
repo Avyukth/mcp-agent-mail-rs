@@ -28,24 +28,84 @@ pub struct CheckResult {
     pub details: Option<String>,
 }
 
+#[derive(Debug, Clone, Serialize)]
+pub struct RobotExamplesOutput {
+    pub schema_version: String,
+    pub target: String,
+    pub target_type: String, // "flag" | "subcommand"
+    pub examples: Vec<Example>,
+}
+
 pub static EXAMPLE_REGISTRY: Lazy<RobotHelpOutput> = Lazy::new(|| RobotHelpOutput {
     schema_version: ROBOT_HELP_SCHEMA_VERSION.to_string(),
     tool: "mcp-agent-mail".to_string(),
     version: env!("CARGO_PKG_VERSION").to_string(),
     description: "Unified Server/CLI for Agent Mail".to_string(),
-    robot_flags: vec![RobotFlagSchema {
-        name: "robot-help".to_string(),
-        description: "Output help in machine-readable JSON format".to_string(),
-        output_format: "json".to_string(),
-        examples: vec![Example {
-            invocation: "mcp-agent-mail --robot-help".to_string(),
-            description: "Get full CLI documentation in JSON".to_string(),
-        }],
-    }],
+    robot_flags: vec![
+        RobotFlagSchema {
+            name: "robot-help".to_string(),
+            description: "Output help in machine-readable JSON format".to_string(),
+            output_format: "json".to_string(),
+            examples: vec![
+                Example {
+                    invocation: "mcp-agent-mail --robot-help".to_string(),
+                    description: "Get full CLI documentation in JSON".to_string(),
+                },
+                Example {
+                    invocation: "mcp-agent-mail --robot-help --format yaml".to_string(),
+                    description: "Get documentation in YAML format".to_string(),
+                },
+            ],
+        },
+        RobotFlagSchema {
+            name: "robot-examples".to_string(),
+            description: "Show usage examples for flags/subcommands".to_string(),
+            output_format: "json".to_string(),
+            examples: vec![
+                Example {
+                    invocation: "mcp-agent-mail --robot-examples --port".to_string(),
+                    description: "Examples for --port flag".to_string(),
+                },
+                Example {
+                    invocation: "mcp-agent-mail --robot-examples serve http".to_string(),
+                    description: "Examples for serve http subcommand".to_string(),
+                },
+                Example {
+                    invocation: "mcp-agent-mail --robot-examples --robot-examples".to_string(),
+                    description: "Self-documenting examples".to_string(),
+                },
+            ],
+        },
+        RobotFlagSchema {
+            name: "robot-status".to_string(),
+            description: "Output system health status in machine-readable format".to_string(),
+            output_format: "json".to_string(),
+            examples: vec![
+                Example {
+                    invocation: "mcp-agent-mail --robot-status".to_string(),
+                    description: "Check system health (JSON)".to_string(),
+                },
+                Example {
+                    invocation: "mcp-agent-mail --robot-status --format yaml".to_string(),
+                    description: "Check system health (YAML)".to_string(),
+                },
+            ],
+        },
+    ],
     commands: vec![
         CommandSchema {
             name: "serve".to_string(),
             description: "Start a server (HTTP or MCP)".to_string(),
+            examples: vec![
+                Example {
+                    invocation: "mcp-agent-mail serve http".to_string(),
+                    description: "Start HTTP server with default settings".to_string(),
+                },
+                Example {
+                    invocation: "mcp-agent-mail serve mcp".to_string(),
+                    description: "Start MCP server on stdio".to_string(),
+                },
+            ],
             parameters: vec![
                 ParameterSchema {
                     name: "port".to_string(),
@@ -75,6 +135,16 @@ pub static EXAMPLE_REGISTRY: Lazy<RobotHelpOutput> = Lazy::new(|| RobotHelpOutpu
                 CommandSchema {
                     name: "http".to_string(),
                     description: "Start Standard HTTP Server (SSE)".to_string(),
+                    examples: vec![
+                        Example {
+                            invocation: "mcp-agent-mail serve http --port 9000".to_string(),
+                            description: "Start HTTP server on port 9000".to_string(),
+                        },
+                        Example {
+                            invocation: "mcp-agent-mail serve http --no-ui".to_string(),
+                            description: "Start headless HTTP server".to_string(),
+                        },
+                    ],
                     parameters: vec![ParameterSchema {
                         name: "no_ui".to_string(),
                         long: Some("--no-ui".to_string()),
@@ -92,6 +162,10 @@ pub static EXAMPLE_REGISTRY: Lazy<RobotHelpOutput> = Lazy::new(|| RobotHelpOutpu
                 CommandSchema {
                     name: "mcp".to_string(),
                     description: "Start MCP Server (Stdio)".to_string(),
+                    examples: vec![Example {
+                        invocation: "mcp-agent-mail serve mcp".to_string(),
+                        description: "Start standard MCP server".to_string(),
+                    }],
                     parameters: vec![],
                     exit_codes: Default::default(),
                     subcommands: vec![],
@@ -101,6 +175,7 @@ pub static EXAMPLE_REGISTRY: Lazy<RobotHelpOutput> = Lazy::new(|| RobotHelpOutpu
         CommandSchema {
             name: "health".to_string(),
             description: "Check server health".to_string(),
+            examples: vec![],
             parameters: vec![ParameterSchema {
                 name: "url".to_string(),
                 long: Some("--url".to_string()),
@@ -118,12 +193,14 @@ pub static EXAMPLE_REGISTRY: Lazy<RobotHelpOutput> = Lazy::new(|| RobotHelpOutpu
         CommandSchema {
             name: "config".to_string(),
             description: "Manage configuration".to_string(),
+            examples: vec![],
             parameters: vec![],
             exit_codes: Default::default(),
             subcommands: vec![
                 CommandSchema {
                     name: "set-port".to_string(),
                     description: "Set the default binding port".to_string(),
+                    examples: vec![],
                     parameters: vec![ParameterSchema {
                         name: "port".to_string(),
                         long: None,
@@ -141,6 +218,7 @@ pub static EXAMPLE_REGISTRY: Lazy<RobotHelpOutput> = Lazy::new(|| RobotHelpOutpu
                 CommandSchema {
                     name: "show-port".to_string(),
                     description: "Show the current binding port".to_string(),
+                    examples: vec![],
                     parameters: vec![],
                     exit_codes: Default::default(),
                     subcommands: vec![],
@@ -150,6 +228,7 @@ pub static EXAMPLE_REGISTRY: Lazy<RobotHelpOutput> = Lazy::new(|| RobotHelpOutpu
         CommandSchema {
             name: "schema".to_string(),
             description: "Export JSON schemas for all tools".to_string(),
+            examples: vec![],
             parameters: vec![
                 ParameterSchema {
                     name: "format".to_string(),
@@ -180,6 +259,7 @@ pub static EXAMPLE_REGISTRY: Lazy<RobotHelpOutput> = Lazy::new(|| RobotHelpOutpu
         CommandSchema {
             name: "tools".to_string(),
             description: "List all available tools".to_string(),
+            examples: vec![],
             parameters: vec![],
             exit_codes: Default::default(),
             subcommands: vec![],
@@ -187,11 +267,13 @@ pub static EXAMPLE_REGISTRY: Lazy<RobotHelpOutput> = Lazy::new(|| RobotHelpOutpu
         CommandSchema {
             name: "install".to_string(),
             description: "Install shell alias and configuration".to_string(),
+            examples: vec![],
             parameters: vec![],
             exit_codes: Default::default(),
             subcommands: vec![CommandSchema {
                 name: "alias".to_string(),
                 description: "Add 'am' shell alias".to_string(),
+                examples: vec![],
                 parameters: vec![ParameterSchema {
                     name: "force".to_string(),
                     long: Some("--force".to_string()),
@@ -210,12 +292,14 @@ pub static EXAMPLE_REGISTRY: Lazy<RobotHelpOutput> = Lazy::new(|| RobotHelpOutpu
         CommandSchema {
             name: "service".to_string(),
             description: "Manage the background service".to_string(),
+            examples: vec![],
             parameters: vec![],
             exit_codes: Default::default(),
             subcommands: vec![
                 CommandSchema {
                     name: "stop".to_string(),
                     description: "Stop the running server".to_string(),
+                    examples: vec![],
                     parameters: vec![ParameterSchema {
                         name: "port".to_string(),
                         long: Some("--port".to_string()),
@@ -233,6 +317,7 @@ pub static EXAMPLE_REGISTRY: Lazy<RobotHelpOutput> = Lazy::new(|| RobotHelpOutpu
                 CommandSchema {
                     name: "status".to_string(),
                     description: "Check if server is running".to_string(),
+                    examples: vec![],
                     parameters: vec![ParameterSchema {
                         name: "port".to_string(),
                         long: Some("--port".to_string()),
@@ -250,6 +335,7 @@ pub static EXAMPLE_REGISTRY: Lazy<RobotHelpOutput> = Lazy::new(|| RobotHelpOutpu
                 CommandSchema {
                     name: "restart".to_string(),
                     description: "Restart the server".to_string(),
+                    examples: vec![],
                     parameters: vec![ParameterSchema {
                         name: "port".to_string(),
                         long: Some("--port".to_string()),
@@ -269,12 +355,14 @@ pub static EXAMPLE_REGISTRY: Lazy<RobotHelpOutput> = Lazy::new(|| RobotHelpOutpu
         CommandSchema {
             name: "share".to_string(),
             description: "Export sharing utilities".to_string(),
+            examples: vec![],
             parameters: vec![],
             exit_codes: Default::default(),
             subcommands: vec![
                 CommandSchema {
                     name: "keypair".to_string(),
                     description: "Generate Ed25519 signing keypair".to_string(),
+                    examples: vec![],
                     parameters: vec![ParameterSchema {
                         name: "output".to_string(),
                         long: Some("--output".to_string()),
@@ -292,6 +380,7 @@ pub static EXAMPLE_REGISTRY: Lazy<RobotHelpOutput> = Lazy::new(|| RobotHelpOutpu
                 CommandSchema {
                     name: "verify".to_string(),
                     description: "Verify export manifest signature".to_string(),
+                    examples: vec![],
                     parameters: vec![
                         ParameterSchema {
                             name: "manifest".to_string(),
@@ -324,12 +413,14 @@ pub static EXAMPLE_REGISTRY: Lazy<RobotHelpOutput> = Lazy::new(|| RobotHelpOutpu
         CommandSchema {
             name: "archive".to_string(),
             description: "Archive management (disaster recovery)".to_string(),
+            examples: vec![],
             parameters: vec![],
             exit_codes: Default::default(),
             subcommands: vec![
                 CommandSchema {
                     name: "save".to_string(),
                     description: "Create a restorable snapshot archive".to_string(),
+                    examples: vec![],
                     parameters: vec![
                         ParameterSchema {
                             name: "label".to_string(),
@@ -360,6 +451,7 @@ pub static EXAMPLE_REGISTRY: Lazy<RobotHelpOutput> = Lazy::new(|| RobotHelpOutpu
                 CommandSchema {
                     name: "list".to_string(),
                     description: "List available restore points".to_string(),
+                    examples: vec![],
                     parameters: vec![ParameterSchema {
                         name: "json".to_string(),
                         long: Some("--json".to_string()),
@@ -377,6 +469,7 @@ pub static EXAMPLE_REGISTRY: Lazy<RobotHelpOutput> = Lazy::new(|| RobotHelpOutpu
                 CommandSchema {
                     name: "restore".to_string(),
                     description: "Restore from a backup archive".to_string(),
+                    examples: vec![],
                     parameters: vec![
                         ParameterSchema {
                             name: "file".to_string(),
@@ -407,6 +500,7 @@ pub static EXAMPLE_REGISTRY: Lazy<RobotHelpOutput> = Lazy::new(|| RobotHelpOutpu
                 CommandSchema {
                     name: "clear-and-reset".to_string(),
                     description: "Wipe all state with optional archive".to_string(),
+                    examples: vec![],
                     parameters: vec![
                         ParameterSchema {
                             name: "archive".to_string(),
@@ -450,6 +544,7 @@ pub static EXAMPLE_REGISTRY: Lazy<RobotHelpOutput> = Lazy::new(|| RobotHelpOutpu
         CommandSchema {
             name: "version".to_string(),
             description: "Show version info".to_string(),
+            examples: vec![],
             parameters: vec![],
             exit_codes: Default::default(),
             subcommands: vec![],

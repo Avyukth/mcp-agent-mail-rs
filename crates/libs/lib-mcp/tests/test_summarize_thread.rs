@@ -2,11 +2,12 @@
 //!
 //! Acceptance Criteria from PORT-1.1:
 //! - Single tool accepts both String and Vec<String>
-//! - JSON schema validates both input types  
+//! - JSON schema validates both input types
 //! - Partial failures return errors array, don't panic
 //! - Backward compatible
 //! - Tests: test_summarize_single, test_summarize_multiple, test_partial_failure
 
+use lib_common::config::AppConfig;
 use lib_core::ctx::Ctx;
 use lib_core::model::{
     ModelManager,
@@ -37,7 +38,8 @@ async fn create_test_mm() -> (Arc<ModelManager>, TempDir) {
     let schema4 = include_str!("../../../../migrations/004_attachments.sql");
     conn.execute_batch(schema4).await.unwrap();
 
-    let mm = ModelManager::new_for_test(conn, archive_root);
+    let app_config = Arc::new(AppConfig::default());
+    let mm = ModelManager::new_for_test(conn, archive_root, app_config);
     (Arc::new(mm), temp_dir)
 }
 

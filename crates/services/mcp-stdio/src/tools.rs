@@ -2546,6 +2546,7 @@ impl AgentMailService {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use lib_common::config::AppConfig;
     use lib_core::model::agent::{AgentForCreate, AgentBmc};
     use lib_core::model::project::ProjectBmc;
     use lib_core::model::agent_capabilities::{AgentCapabilityBmc, AgentCapabilityForCreate};
@@ -2562,7 +2563,7 @@ mod tests {
         let db = Builder::new_local(&db_path).build().await.unwrap();
         let conn = db.connect().unwrap();
         let _ = conn.execute("PRAGMA journal_mode=WAL;", ()).await;
-        
+
         let schema1 = include_str!("../../../../migrations/001_initial_schema.sql");
         conn.execute_batch(schema1).await.unwrap();
         let schema2 = include_str!("../../../../migrations/002_agent_capabilities.sql");
@@ -2572,7 +2573,8 @@ mod tests {
         let schema4 = include_str!("../../../../migrations/004_add_recipient_type.sql");
         conn.execute_batch(schema4).await.unwrap();
 
-        let mm = ModelManager::new_for_test(conn, archive_root);
+        let app_config = Arc::new(AppConfig::default());
+        let mm = ModelManager::new_for_test(conn, archive_root, app_config);
         (Arc::new(mm), temp_dir)
     }
 

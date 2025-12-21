@@ -57,6 +57,8 @@ pub struct CommandSchema {
     pub exit_codes: HashMap<i32, String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub subcommands: Vec<CommandSchema>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub examples: Vec<Example>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
