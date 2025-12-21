@@ -233,10 +233,10 @@ pub fn routes() -> Router<AppState> {
         .route("/api/commit_archive", post(tools::commit_archive)) // Python alias
         // Archive Browser
         .route("/api/archive/commits", get(tools::list_archive_commits))
-        .route("/api/archive/commits/:sha", get(tools::get_archive_commit))
-        .route("/api/archive/files/:sha", get(tools::list_archive_files))
+        .route("/api/archive/commits/{sha}", get(tools::get_archive_commit))
+        .route("/api/archive/files/{sha}", get(tools::list_archive_files))
         .route(
-            "/api/archive/file/:sha",
+            "/api/archive/file/{sha}",
             get(tools::get_archive_file_content),
         )
         .route("/api/archive/activity", get(tools::get_archive_activity))
