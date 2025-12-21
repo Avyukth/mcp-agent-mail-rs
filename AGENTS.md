@@ -2551,6 +2551,25 @@ bd sync                 # Commit any new beads changes
 git push                # Push to remote
 ```
 
+### Configuration
+
+**Sync Branch Setup** (required for `bd sync` to work):
+
+Beads uses git worktrees for syncing. If `sync.branch` equals your current branch (e.g., both are `main`), git cannot create a worktree and `bd sync` fails with:
+```
+fatal: 'main' is already used by worktree at '/path/to/repo'
+```
+
+**Fix**: Use a dedicated sync branch:
+```bash
+bd config set sync.branch beads-metadata
+bd daemon --stop && bd daemon --start
+```
+
+This creates a separate `beads-metadata` branch for issue commits, avoiding conflicts with your working branch.
+
+See: [Beads Protected Branches Docs](https://github.com/steveyegge/beads/blob/main/docs/PROTECTED_BRANCHES.md)
+
 ### Best Practices
 
 - Check `bd ready` at session start to find available work
