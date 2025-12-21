@@ -441,7 +441,7 @@ mod tests {
     #[test]
     fn test_button_has_transition() {
         assert!(BUTTON_BASE.contains("transition-all"));
-        assert!(BUTTON_BASE.contains("duration-200"));
+        assert!(BUTTON_BASE.contains("duration-300"));
     }
 
     // === Badge CVA Tests ===
