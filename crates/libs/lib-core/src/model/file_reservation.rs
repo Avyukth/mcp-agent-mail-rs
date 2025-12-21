@@ -196,6 +196,38 @@ impl FileReservationBmc {
         Ok(reservations)
     }
 
+    /// Lists all active file reservations across all projects.
+    ///
+    /// Used by the `/mail/api/locks` endpoint and web UI dashboard.
+    ///
+    /// # Arguments
+    /// * `_ctx` - Request context
+    /// * `mm` - ModelManager
+    ///
+    /// # Returns
+    /// All active (not released) reservations across all projects
+    pub async fn list_all_active(
+        _ctx: &crate::Ctx,
+        mm: &ModelManager,
+    ) -> Result<Vec<FileReservation>> {
+        let db = mm.db();
+        let stmt = db.prepare(
+            r#"
+            SELECT id, project_id, agent_id, path_pattern, exclusive, reason, created_ts, expires_ts, released_ts
+            FROM file_reservations 
+            WHERE released_ts IS NULL
+            ORDER BY created_ts DESC
+            "#
+        ).await?;
+        let mut rows = stmt.query(()).await?;
+
+        let mut reservations = Vec::new();
+        while let Some(row) = rows.next().await? {
+            reservations.push(Self::from_row(row)?);
+        }
+        Ok(reservations)
+    }
+
     /// Retrieves a reservation by its database ID.
     ///
     /// # Arguments

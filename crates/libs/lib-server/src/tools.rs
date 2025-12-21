@@ -857,6 +857,66 @@ pub async fn list_file_reservations(
     Ok(Json(responses).into_response())
 }
 
+// --- list_all_locks ---
+// Returns all active file reservations across all projects (for web UI dashboard)
+#[derive(Serialize)]
+pub struct LockResponse {
+    pub id: i64,
+    pub project_id: i64,
+    pub project_slug: String,
+    pub agent_id: i64,
+    pub agent_name: String,
+    pub path_pattern: String,
+    pub exclusive: bool,
+    pub reason: String,
+    pub created_ts: String,
+    pub expires_ts: String,
+    pub is_expired: bool,
+}
+
+pub async fn list_all_locks(State(app_state): State<AppState>) -> crate::error::Result<Response> {
+    let ctx = Ctx::root_ctx();
+    let mm = &app_state.mm;
+
+    let reservations = FileReservationBmc::list_all_active(&ctx, mm).await?;
+    let now = chrono::Utc::now().naive_utc();
+    let mut responses = Vec::new();
+
+    for res in reservations {
+        // Get project slug
+        let project = lib_core::model::project::ProjectBmc::get(&ctx, mm, res.project_id)
+            .await
+            .ok();
+        let project_slug = project
+            .map(|p| p.slug)
+            .unwrap_or_else(|| "unknown".to_string());
+
+        // Get agent name
+        let agent = lib_core::model::agent::AgentBmc::get(&ctx, mm, res.agent_id)
+            .await
+            .ok();
+        let agent_name = agent
+            .map(|a| a.name)
+            .unwrap_or_else(|| "unknown".to_string());
+
+        responses.push(LockResponse {
+            id: res.id,
+            project_id: res.project_id,
+            project_slug,
+            agent_id: res.agent_id,
+            agent_name,
+            path_pattern: res.path_pattern,
+            exclusive: res.exclusive,
+            reason: res.reason,
+            created_ts: res.created_ts.format("%Y-%m-%dT%H:%M:%S").to_string(),
+            expires_ts: res.expires_ts.format("%Y-%m-%dT%H:%M:%S").to_string(),
+            is_expired: res.expires_ts < now,
+        });
+    }
+
+    Ok(Json(responses).into_response())
+}
+
 // --- release_file_reservation ---
 #[derive(Deserialize)]
 pub struct ReleaseFileReservationPayload {

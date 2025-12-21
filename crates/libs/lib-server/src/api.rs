@@ -91,6 +91,9 @@ pub fn routes() -> Router<AppState> {
             post(tools::list_file_reservations),
         ) // Python alias
         .route("/api/reservations", post(tools::list_file_reservations)) // Python alias (short)
+        // File Locks API (cross-project view for web UI dashboard)
+        .route("/mail/api/locks", get(tools::list_all_locks))
+        .route("/api/locks", get(tools::list_all_locks)) // Alias without /mail prefix
         .route(
             "/api/file_reservations/release",
             post(tools::release_file_reservation),

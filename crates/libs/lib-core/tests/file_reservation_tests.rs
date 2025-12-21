@@ -378,6 +378,100 @@ async fn test_file_reservation_not_found() {
     );
 }
 
+/// Test listing all active reservations across all projects
+#[tokio::test]
+async fn test_list_all_active() {
+    let tc = TestContext::new()
+        .await
+        .expect("Failed to create test context");
+
+    // Create first project with reservations
+    let human_key1 = "/test/project1";
+    let slug1 = slugify(human_key1);
+    let project1_id = ProjectBmc::create(&tc.ctx, &tc.mm, &slug1, human_key1)
+        .await
+        .expect("Failed to create project 1");
+
+    let agent1 = AgentForCreate {
+        project_id: project1_id,
+        name: "agent-one".to_string(),
+        program: "claude".to_string(),
+        model: "claude-3".to_string(),
+        task_description: "Agent one".to_string(),
+    };
+    let agent1_id = AgentBmc::create(&tc.ctx, &tc.mm, agent1)
+        .await
+        .expect("Failed to create agent 1");
+
+    // Create second project with reservations
+    let human_key2 = "/test/project2";
+    let slug2 = slugify(human_key2);
+    let project2_id = ProjectBmc::create(&tc.ctx, &tc.mm, &slug2, human_key2)
+        .await
+        .expect("Failed to create project 2");
+
+    let agent2 = AgentForCreate {
+        project_id: project2_id,
+        name: "agent-two".to_string(),
+        program: "claude".to_string(),
+        model: "claude-3".to_string(),
+        task_description: "Agent two".to_string(),
+    };
+    let agent2_id = AgentBmc::create(&tc.ctx, &tc.mm, agent2)
+        .await
+        .expect("Failed to create agent 2");
+
+    let expires_ts = Utc::now().naive_utc() + Duration::hours(1);
+
+    // Create reservations in project 1
+    let fr1 = FileReservationForCreate {
+        project_id: project1_id,
+        agent_id: agent1_id,
+        path_pattern: "src/*.rs".to_string(),
+        exclusive: true,
+        reason: "Project 1 work".to_string(),
+        expires_ts,
+    };
+    FileReservationBmc::create(&tc.ctx, &tc.mm, fr1)
+        .await
+        .expect("Failed to create reservation 1");
+
+    // Create reservations in project 2
+    let fr2 = FileReservationForCreate {
+        project_id: project2_id,
+        agent_id: agent2_id,
+        path_pattern: "lib/*.rs".to_string(),
+        exclusive: true,
+        reason: "Project 2 work".to_string(),
+        expires_ts,
+    };
+    FileReservationBmc::create(&tc.ctx, &tc.mm, fr2)
+        .await
+        .expect("Failed to create reservation 2");
+
+    // List all active across all projects
+    let all_active = FileReservationBmc::list_all_active(&tc.ctx, &tc.mm)
+        .await
+        .expect("Failed to list all active reservations");
+
+    assert_eq!(
+        all_active.len(),
+        2,
+        "Should have 2 active reservations across projects"
+    );
+
+    // Verify they are from different projects
+    let project_ids: Vec<i64> = all_active.iter().map(|r| r.project_id).collect();
+    assert!(
+        project_ids.contains(&project1_id),
+        "Should include project 1"
+    );
+    assert!(
+        project_ids.contains(&project2_id),
+        "Should include project 2"
+    );
+}
+
 // ============================================================================
 // PRECOMMIT GUARD CONFLICT DETECTION TESTS
 // ============================================================================
