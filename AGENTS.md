@@ -2538,37 +2538,87 @@ bd sync               # Commit and push changes
 - **Types**: task, bug, feature, epic, question, docs
 - **Blocking**: `bd dep add <issue> <depends-on>` to add dependencies
 
-### Session Protocol
+### Branching Strategy
 
-**Before ending any session, run this checklist:**
+This project uses the **sync-branch workflow** (same as [NTM](https://github.com/Dicklesworthstone/ntm)).
+
+```
+main (protected/stable)
+  │
+  └── beads-sync (working branch + beads commits)
+        │
+        ├── feature/task-xxx (agent work)
+        └── feature/task-yyy (agent work)
+```
+
+**Setup (one-time):**
 
 ```bash
-git status              # Check what changed
-git add <files>         # Stage code changes
-bd sync                 # Commit beads changes
-git commit -m "..."     # Commit code
-bd sync                 # Commit any new beads changes
-git push                # Push to remote
+# Configure sync branch
+bd config set sync.branch beads-sync
+
+# Create the sync branch if it doesn't exist
+git checkout -b beads-sync main
+git push -u origin beads-sync
+git checkout main
 ```
 
-### Configuration
+**Agent Workflow:**
 
-**Sync Branch Setup** (required for `bd sync` to work):
-
-Beads uses git worktrees for syncing. If `sync.branch` equals your current branch (e.g., both are `main`), git cannot create a worktree and `bd sync` fails with:
-```
-fatal: 'main' is already used by worktree at '/path/to/repo'
-```
-
-**Fix**: Use a dedicated sync branch:
 ```bash
-bd config set sync.branch beads-metadata
-bd daemon --stop && bd daemon --start
+# 1. Start from beads-sync (keep it updated from main)
+git checkout beads-sync
+git pull origin beads-sync
+git merge main --no-edit          # Get latest code from main
+
+# 2. Create feature branch
+git checkout -b feature/task-xxx
+
+# 3. Find and claim work
+bd ready
+bd update <task-id> --status=in_progress
+
+# 4. Implement (code + beads in same commits)
+# ... write code ...
+git add -A
+git commit -m "feat: implement xxx"
+
+# 5. Complete task
+bd close <task-id>
+git add .beads/
+git commit -m "chore(beads): close task-xxx"
+
+# 6. Merge back to beads-sync
+git checkout beads-sync
+git merge feature/task-xxx --no-edit
+git push origin beads-sync
+
+# 7. Periodically: merge beads-sync → main (or PR)
+git checkout main
+git merge beads-sync --no-edit
+git push origin main
 ```
 
-This creates a separate `beads-metadata` branch for issue commits, avoiding conflicts with your working branch.
+**Why this approach?**
+- `main` stays clean (only merged, complete work)
+- `beads-sync` is the integration point (code + issue state)
+- Feature branches isolate work-in-progress
+- `bd sync` works (never conflicts with current branch)
+- Hash-based IDs prevent multi-agent collisions
 
 See: [Beads Protected Branches Docs](https://github.com/steveyegge/beads/blob/main/docs/PROTECTED_BRANCHES.md)
+
+### Session Protocol
+
+**Before ending any session:**
+
+```bash
+git status                              # Check changes
+git add -A && git commit -m "..."       # Commit code + beads
+git checkout beads-sync
+git merge <your-branch> --no-edit
+git push origin beads-sync              # Push to sync branch
+```
 
 ### Best Practices
 
