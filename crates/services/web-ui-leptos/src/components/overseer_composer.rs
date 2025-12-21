@@ -137,47 +137,50 @@ pub fn OverseerComposer(
     };
 
     view! {
-        // Dialog Content - shadcn anatomy with destructive theme
-        <div class="flex flex-col h-full max-h-[90vh] rounded-lg border border-destructive/50 bg-background shadow-lg overflow-hidden">
-            // DialogHeader - shadcn pattern
-            <div class="flex flex-col space-y-1.5 p-6 bg-destructive/10 border-b border-destructive/20">
-                <div class="flex items-center justify-between">
-                    <div class="flex items-center gap-3">
-                        <div class="flex h-10 w-10 items-center justify-center rounded-lg bg-destructive/20">
-                            <i data-lucide="shield-alert" class="h-5 w-5 text-destructive"></i>
-                        </div>
-                        <div class="flex flex-col space-y-1">
-                            <h2 class="text-lg font-semibold leading-none tracking-tight text-destructive">
-                                "Overseer Intervention"
-                            </h2>
-                            <p class="text-sm text-muted-foreground">
-                                "Issuing authoritative commands as 'Overseer'"
-                            </p>
-                        </div>
+        <div class="flex flex-col max-h-[85vh] rounded-lg border border-border bg-background shadow-2xl">
+            // DialogHeader - professional overseer styling with proper dark mode
+            <div class="flex items-center justify-between p-6 border-b border-border/50 bg-gradient-to-r from-amber-500/5 to-orange-500/5">
+                <div class="flex items-center gap-4">
+                    <div class="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/20 border border-amber-500/30">
+                        <svg class="h-4 w-4 text-amber-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path>
+                            <path d="M12 8v4"></path>
+                            <path d="M12 16h.01"></path>
+                        </svg>
                     </div>
-                    <Button
-                        variant=ButtonVariant::Ghost
-                        size=ButtonSize::Icon
-                        on_click=Callback::new(move |_| on_close.run(()))
-                        class="rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2".to_string()
-                    >
-                        <i data-lucide="x" class="h-4 w-4"></i>
-                        <span class="sr-only">"Close"</span>
-                    </Button>
+                    <div class="flex flex-col space-y-1">
+                        <h2 class="text-base font-semibold leading-none tracking-tight text-foreground">
+                            "Overseer Intervention"
+                        </h2>
+                        <p class="text-sm text-muted-foreground">
+                            "Issuing authoritative commands as 'Overseer'"
+                        </p>
+                    </div>
                 </div>
+                <Button
+                    variant=ButtonVariant::Ghost
+                    size=ButtonSize::Icon
+                    on_click=Callback::new(move |_| on_close.run(()))
+                    class="rounded-md opacity-70 ring-offset-background transition-opacity hover:opacity-100 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2".to_string()
+                >
+                    <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M18 6L6 18"></path>
+                        <path d="M6 6l12 12"></path>
+                    </svg>
+                    <span class="sr-only">"Close"</span>
+                </Button>
             </div>
 
-            // DialogContent - Form area
-            <div class="flex-1 overflow-y-auto p-6 space-y-6">
-                // Target Agent Selection
-                <div class="space-y-3">
+            <div class="flex-1 min-h-0 overflow-y-auto p-6 space-y-6 max-h-[60vh]">
+                // Target Agent Selection - improved spacing and alignment
+                <div class="space-y-4">
                     <div class="flex items-center justify-between">
-                        <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                        <label class="text-sm font-medium leading-none text-foreground">
                             "Target Agents"
                         </label>
                         <button
                             type="button"
-                            class="text-sm text-destructive hover:underline underline-offset-4 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
+                            class="text-sm text-amber-500 hover:text-amber-400 hover:underline underline-offset-4 font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm px-2 py-1"
                             on:click=toggle_all
                         >
                             {
@@ -202,19 +205,26 @@ pub fn OverseerComposer(
                                             type="button"
                                             on:click=move |_| toggle(name.clone())
                                             class=move || {
-                                                // Base classes from shadcn Button
-                                                let base = "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-3";
+                                                // Enhanced button styling with better contrast
+                                                let base = "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 h-9 px-3 min-w-[120px]";
                                                 if recipients.get().contains(&name_display) {
-                                                    // Selected: destructive variant
-                                                    format!("{} bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-sm", base)
+                                                    // Selected: amber accent for overseer theme
+                                                    format!("{} bg-amber-500 text-white hover:bg-amber-600 shadow-sm border-0", base)
                                                 } else {
-                                                    // Unselected: outline variant
-                                                    format!("{} border border-input bg-background hover:bg-accent hover:text-accent-foreground", base)
+                                                    // Unselected: subtle dark variant
+                                                    format!("{} border border-border/50 bg-muted/30 hover:bg-muted/50 hover:border-border text-foreground", base)
                                                 }
                                             }
                                         >
-                                            <i data-lucide="bot" class="h-4 w-4 shrink-0"></i>
-                                            <span class="truncate max-w-[100px]">{name_display.clone()}</span>
+                                            <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                                <path d="M12 8V4H8"></path>
+                                                <rect width="16" height="12" x="4" y="8" rx="2"></rect>
+                                                <path d="M2 14h2"></path>
+                                                <path d="M20 14h2"></path>
+                                                <path d="M15 13v2"></path>
+                                                <path d="M9 13v2"></path>
+                                            </svg>
+                                            <span class="truncate">{name_display.clone()}</span>
                                         </button>
                                     }
                                 }).collect::<Vec<_>>()}
@@ -223,9 +233,9 @@ pub fn OverseerComposer(
                     }}
                 </div>
 
-                // Subject / Directive - shadcn Input pattern
+                // Subject / Directive - improved label styling
                 <div class="space-y-2">
-                    <label for="subject" class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    <label for="subject" class="text-sm font-medium text-foreground">
                         "Directive / Subject"
                     </label>
                     <Input
@@ -238,7 +248,7 @@ pub fn OverseerComposer(
                 // Metadata Details - Grid layout
                 <div class="grid grid-cols-2 gap-4">
                     <div class="space-y-2">
-                        <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                        <label class="text-sm font-medium text-foreground">
                             "Importance"
                         </label>
                         <Select
@@ -253,7 +263,7 @@ pub fn OverseerComposer(
                         />
                     </div>
                     <div class="space-y-2">
-                        <label class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                        <label class="text-sm font-medium text-foreground">
                             "Thread Context"
                         </label>
                         <Input
@@ -264,9 +274,9 @@ pub fn OverseerComposer(
                     </div>
                 </div>
 
-                // Instructions - Textarea with explicit dark mode support
+                // Instructions - improved textarea styling
                 <div class="space-y-2">
-                    <label for="body" class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                    <label for="body" class="text-sm font-medium text-foreground">
                         "Instructions"
                     </label>
                     <textarea
@@ -275,7 +285,7 @@ pub fn OverseerComposer(
                         on:input=move |ev| body.set(event_target_value(&ev))
                         rows="6"
                         placeholder="Detailed instructions for the agents..."
-                        class="flex min-h-[120px] w-full rounded-md border border-input bg-white dark:bg-zinc-900 text-foreground px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none font-mono"
+                        class="flex min-h-[120px] w-full rounded-md border border-input bg-background text-foreground px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none font-mono"
                     ></textarea>
                 </div>
 
@@ -289,23 +299,25 @@ pub fn OverseerComposer(
                         class=move || {
                             let base = "peer h-5 w-5 shrink-0 rounded-sm border ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
                             if ack_required.get() {
-                                format!("{} border-amber-600 bg-amber-600 text-white", base)
+                                format!("{} border-amber-500 bg-amber-500 text-white", base)
                             } else {
-                                format!("{} border-amber-600 bg-white dark:bg-zinc-900", base)
+                                format!("{} border-amber-500 bg-background", base)
                             }
                         }
                     >
                         {move || ack_required.get().then(|| view! {
                             <span class="flex items-center justify-center text-current">
-                                <i data-lucide="check" class="h-4 w-4"></i>
+                                <svg class="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M20 6L9 17l-5-5"></path>
+                                </svg>
                             </span>
                         })}
                     </button>
                     <div class="grid gap-1.5 leading-none">
-                        <label class="text-sm font-semibold leading-none text-amber-900 dark:text-amber-100">
+                        <label class="text-sm font-semibold leading-none text-foreground">
                             "Require Explicit Acknowledgment"
                         </label>
-                        <p class="text-sm text-amber-700 dark:text-amber-300">
+                        <p class="text-sm text-muted-foreground">
                             "Agents must confirm receipt of this directive."
                         </p>
                     </div>
@@ -326,8 +338,7 @@ pub fn OverseerComposer(
                 }}
             </div>
 
-            // DialogFooter - fixed layout to prevent button cutoff
-            <div class="p-6 border-t border-border bg-muted/50">
+            <div class="flex shrink-0 justify-end gap-3 p-6 border-t border-border bg-muted/50">
                 <div class="flex items-center justify-end gap-3">
                     <Button
                         variant=ButtonVariant::Outline

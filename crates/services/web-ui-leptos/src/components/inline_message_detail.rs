@@ -170,7 +170,7 @@ pub fn InlineMessageDetail(
                                         href={format!("/inbox/{}?project={}", msg_id, project)}
                                         class="text-sm text-primary underline-offset-4 hover:underline flex items-center gap-1"
                                     >
-                                        <i data-lucide="external-link" class="h-3 w-3"></i>
+                                        <i data-lucide="external-link" class="h-4 w-4"></i>
                                         "Open in full view"
                                     </a>
                                 </div>

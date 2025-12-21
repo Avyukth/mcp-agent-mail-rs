@@ -4,7 +4,7 @@
 use crate::api::client::{self, Agent, InboxMessage, Project};
 use crate::components::{
     AgentAvatar, Alert, AlertDescription, AlertVariant, AvatarSize, Badge, BadgeVariant, Button,
-    ButtonVariant, Select, SelectOption, Spinner, SpinnerSize,
+    ButtonVariant, Select, SelectIcon, SelectOption, Spinner, SpinnerSize,
 };
 use leptos::prelude::*;
 use leptos_router::hooks::use_query_map;
@@ -253,7 +253,7 @@ pub fn Inbox() -> impl IntoView {
                                     value=selected_project
                                     placeholder="Select a project...".to_string()
                                     disabled=false
-                                    icon="folder"
+                                    icon=SelectIcon::Folder
                                 />
                             }
                         }}
@@ -278,7 +278,7 @@ pub fn Inbox() -> impl IntoView {
                                     value=selected_agent
                                     placeholder="Select an agent...".to_string()
                                     disabled=is_disabled
-                                    icon="bot"
+                                    icon=SelectIcon::Bot
                                 />
                             }
                         }}

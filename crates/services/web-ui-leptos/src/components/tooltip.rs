@@ -69,7 +69,7 @@ pub fn Tooltip(
     let position_class = side.position_class();
 
     let is_visible = RwSignal::new(false);
-    let timeout_handle = StoredValue::new(None::<i32>);
+    let _timeout_handle = StoredValue::new(None::<i32>);
 
     let show = move || {
         // Set a timeout to show the tooltip
@@ -90,7 +90,7 @@ pub fn Tooltip(
                 )
                 .unwrap();
 
-            timeout_handle.set_value(Some(id));
+            _timeout_handle.set_value(Some(id));
             closure.forget();
         }
 
@@ -105,12 +105,12 @@ pub fn Tooltip(
         // Clear any pending timeout
         #[cfg(target_arch = "wasm32")]
         {
-            if let Some(id) = timeout_handle.get_value() {
+            if let Some(id) = _timeout_handle.get_value() {
                 if let Some(window) = web_sys::window() {
                     window.clear_timeout_with_handle(id);
                 }
             }
-            timeout_handle.set_value(None);
+            _timeout_handle.set_value(None);
         }
 
         is_visible.set(false);

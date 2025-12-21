@@ -132,6 +132,7 @@ pub fn UnifiedInbox() -> impl IntoView {
             .collect();
         senders.sort();
         senders.dedup();
+        leptos::logging::log!("UnifiedInbox: Found {} unique senders", senders.len());
         senders
     });
 
@@ -144,6 +145,7 @@ pub fn UnifiedInbox() -> impl IntoView {
             .collect();
         projects.sort();
         projects.dedup();
+        leptos::logging::log!("UnifiedInbox: Found {} unique projects", projects.len());
         projects
     });
 
@@ -222,32 +224,41 @@ pub fn UnifiedInbox() -> impl IntoView {
 
     view! {
         <div class="space-y-6">
-            // Overseer Composer Modal - shadcn Dialog pattern
+            // Overseer Composer Modal - shadcn Dialog pattern with proper z-index layering
             {move || {
                 if show_overseer.get() {
                     let agents = overseer_agents.get();
                     let project = overseer_project.get();
                     Some(view! {
-                        <div class="fixed inset-0 z-50 flex items-center justify-center p-4">
+                        // Dialog portal container - modal layer
+                        <div
+                            class="fixed inset-0 z-[1050]"
+                            role="dialog"
+                            aria-modal="true"
+                            aria-labelledby="overseer-dialog-title"
+                        >
+                            // Backdrop overlay - completely opaque to block all page content
                             <div
-                                class="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+                                class="fixed inset-0 z-[1050] bg-black/95 backdrop-blur-sm animate-fade-in"
                                 on:click=move |_| show_overseer.set(false)
+                                aria-hidden="true"
                             ></div>
-                            <div class="relative z-50 w-full max-w-2xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
+                            // Dialog content container - centered with proper positioning
+                            <div class="fixed inset-0 z-[1100] flex items-center justify-center p-4 p-6 overflow-y-auto">
                                 <OverseerComposer
-                                    props=OverseerComposeProps {
-                                        project_slug: project,
-                                        agents,
-                                        reply_to_thread_id: None,
-                                        reply_to_recipient: None,
-                                        reply_subject: None,
-                                    }
-                                    on_close=Callback::new(move |_| show_overseer.set(false))
-                                    on_sent=Callback::new(move |_| {
-                                        show_overseer.set(false);
-                                        refresh_messages();
-                                    })
-                                />
+                                props=OverseerComposeProps {
+                                    project_slug: project,
+                                    agents,
+                                    reply_to_thread_id: None,
+                                    reply_to_recipient: None,
+                                    reply_subject: None,
+                                }
+                                on_close=Callback::new(move |_| show_overseer.set(false))
+                                on_sent=Callback::new(move |_| {
+                                    show_overseer.set(false);
+                                    refresh_messages();
+                                })
+                            />
                             </div>
                         </div>
                     })
@@ -260,16 +271,19 @@ pub fn UnifiedInbox() -> impl IntoView {
             <div class="inbox-header-gradient rounded-xl p-6 mb-4 animate-fade-in">
                 <div class="flex items-center justify-between">
                     <div class="flex items-center gap-4">
-                        // Animated icon container
+                        // Animated icon container - properly scaled
                         <div class="relative">
-                            <div class="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary/20 to-violet-500/20 flex items-center justify-center animate-float">
-                                <i data-lucide="inbox" class="h-7 w-7 text-primary"></i>
+                            <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary/20 to-violet-500/20 flex items-center justify-center animate-float">
+                                <svg class="h-4 w-4 text-primary" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"></polyline>
+                                    <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"></path>
+                                </svg>
                             </div>
-                            // Glow ring effect
-                            <div class="absolute inset-0 rounded-2xl bg-primary/10 blur-xl -z-10"></div>
+                            // Subtle glow effect
+                            <div class="absolute inset-0 rounded-lg bg-primary/10 blur-md -z-10"></div>
                         </div>
                         <div>
-                            <h1 class="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
+                            <h1 class="text-2xl font-bold tracking-tight text-foreground">
                                 <span class="text-gradient-animated">"Unified Inbox"</span>
                             </h1>
                             <p class="text-sm text-muted-foreground mt-1 flex items-center gap-2">
@@ -280,10 +294,13 @@ pub fn UnifiedInbox() -> impl IntoView {
                             </p>
                         </div>
                     </div>
-                    <div class="flex items-center gap-3">
-                        // Message counter badge - shadcn Badge pattern with tabular-nums
+                    <div class="flex items-center gap-6">
+                        // Message counter badge - properly scaled with inline SVG
                         <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary/50 border border-border">
-                            <i data-lucide="mail" class="h-4 w-4 text-muted-foreground"></i>
+                            <svg class="h-3 w-3 text-muted-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"></path>
+                                <rect x="2" y="4" width="20" height="16" rx="2"></rect>
+                            </svg>
                             <Badge
                                 variant=BadgeVariant::Default
                                 class="h-6 min-w-[2.5rem] rounded-full font-mono tabular-nums px-2".to_string()
@@ -292,13 +309,18 @@ pub fn UnifiedInbox() -> impl IntoView {
                             </Badge>
                             <span class="text-xs text-muted-foreground font-medium">"messages"</span>
                         </div>
-                        // Overseer button - shadcn Button with icon pattern
+                        // Overseer button - professional amber styling with proper padding
                         <Button
-                            variant=ButtonVariant::Destructive
+                            variant=ButtonVariant::Secondary
                             size=ButtonSize::Default
                             on_click=Callback::new(open_overseer)
+                            class="bg-amber-500 hover:bg-amber-600 text-white border-0 shadow-md hover:shadow-lg font-medium px-4".to_string()
                         >
-                            <i data-lucide="shield-alert" class="h-4 w-4"></i>
+                            <svg class="h-4 w-4 mr-2" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path>
+                                <path d="M12 8v4"></path>
+                                <path d="M12 16h.01"></path>
+                            </svg>
                             <span>"Overseer Mode"</span>
                         </Button>
                     </div>
@@ -335,7 +357,7 @@ pub fn UnifiedInbox() -> impl IntoView {
                     Some(view! {
                         <div class="space-y-4 animate-fade-in">
                             // Shimmer loading skeletons
-                            <div class="flex flex-col lg:flex-row gap-4 h-[calc(100vh-16rem)] rounded-xl border bg-card overflow-hidden">
+                            <div class="flex flex-col lg:flex-row gap-6 h-[calc(100vh-18rem)] rounded-xl border bg-card overflow-hidden">
                                 // Message list skeleton
                                 <div class="flex-none w-full lg:w-[35%] border-r border-border p-4 space-y-3">
                                     {(0..8).map(|i| view! {

@@ -240,4 +240,67 @@ module.exports = {
         },
     },
     plugins: [],
+    safelist: [
+        // Button variants and sizes - standardized spacing
+        'bg-primary', 'text-primary-foreground', 'hover:bg-primary/90', 'shadow-lg', 'hover:shadow-xl', 'hover:-translate-y-0.5', 'active:translate-y-0',
+        'bg-destructive', 'text-destructive-foreground', 'hover:bg-destructive/90',
+        'border', 'border-input', 'bg-background', 'hover:bg-accent', 'hover:text-accent-foreground',
+        'bg-secondary', 'text-secondary-foreground', 'hover:bg-secondary/80',
+        'hover:bg-accent', 'text-primary', 'underline-offset-4', 'hover:underline', 'p-0', 'h-auto',
+        'h-8', 'px-3', 'text-xs', 'h-9', 'px-4', 'py-2', 'h-10', 'px-6', 'text-base', 'h-11', 'px-8', 'h-12', 'px-10',
+
+        // Input classes - standardized padding
+        'flex', 'h-10', 'w-full', 'rounded-md', 'border', 'border-input', 'bg-background', 'px-3', 'py-2', 'text-sm',
+        'ring-offset-background', 'focus-visible:outline-none', 'focus-visible:ring-2', 'focus-visible:ring-ring',
+        'focus-visible:ring-offset-2', 'disabled:cursor-not-allowed', 'disabled:opacity-50',
+        'placeholder:text-muted-foreground', 'pl-12',
+
+        // Badge classes
+        'inline-flex', 'items-center', 'rounded-full', 'border', 'px-2.5', 'py-0.5', 'text-xs', 'font-semibold',
+        'bg-primary', 'text-primary-foreground', 'bg-secondary', 'text-secondary-foreground',
+        'bg-destructive', 'text-destructive-foreground', 'bg-success', 'text-success-foreground',
+        'bg-warning', 'text-warning-foreground', 'min-w-[3rem]',
+
+        // Card classes - standardized padding
+        'rounded-lg', 'border', 'bg-card', 'text-card-foreground', 'shadow-sm',
+        'p-4', 'p-6', 'space-y-4', 'space-y-6', 'space-y-2',
+
+        // Dialog/Modal classes - improved z-index hierarchy
+        'fixed', 'inset-0', 'z-[1000]', 'z-[1050]', 'z-[1100]', 'bg-black/95', 'backdrop-blur-sm', 'flex', 'items-center', 'justify-center',
+        'p-4', 'p-6', 'overflow-y-auto', 'w-full', 'max-w-2xl', 'bg-background', 'shadow-2xl',
+        'border', 'border-border', 'animate-slide-up',
+
+        // Layout and spacing - 4px base scale
+        'container', 'mx-auto', 'max-w-7xl', 'px-4', 'px-6', 'sm:px-6', 'lg:px-8',
+        'grid', 'grid-cols-1', 'md:grid-cols-2', 'lg:grid-cols-3', 'gap-4', 'gap-6', 'gap-8',
+        'flex', 'flex-col', 'flex-row', 'items-center', 'justify-between', 'gap-2', 'gap-4', 'gap-6',
+
+        // Typography - consistent line heights
+        'text-foreground', 'text-muted-foreground', 'text-primary', 'text-destructive',
+        'text-xs', 'text-sm', 'text-base', 'text-lg', 'text-xl', 'text-2xl', 'text-3xl', 'font-bold', 'font-semibold', 'font-medium',
+
+        // Icons and positioning - consistent spacing
+        'relative', 'absolute', 'left-3', 'top-1/2', '-translate-y-1/2', 'h-4', 'w-4', 'pointer-events-none',
+        'h-5', 'w-5', 'h-6', 'w-6', 'h-7', 'w-7', 'h-8', 'w-8',
+
+        // Responsive utilities
+        'hidden', 'md:flex', 'md:hidden', 'block', 'inline-flex',
+
+        // Interactive states - enhanced focus
+        'hover:bg-muted', 'hover:text-muted-foreground', 'focus:ring-2', 'focus:ring-ring', 'focus:ring-4',
+        'transition-colors', 'transition-all', 'duration-200', 'duration-300',
+
+        // Background and borders
+        'bg-muted', 'bg-muted/50', 'border-border', 'border-t', 'border-b',
+
+        // Animations - refined
+        'animate-fade-in', 'animate-slide-up', 'animate-float',
+
+        // Utility classes
+        'shrink-0', 'min-h-0', 'overflow-y-auto', 'cursor-pointer', 'select-none',
+
+        // Icon positioning and visibility
+        'absolute', 'left-3', 'top-1/2', '-translate-y-1/2', 'pointer-events-none',
+        'text-muted-foreground', 'z-10'
+    ]
 };

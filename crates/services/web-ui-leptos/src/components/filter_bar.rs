@@ -3,7 +3,7 @@
 //! Provides search, filter dropdowns, view controls, and message count.
 //! Responsive design with mobile bottom sheet support.
 
-use super::{Badge, BadgeVariant, Button, ButtonVariant, Input, Select, SelectOption};
+use super::{Badge, BadgeVariant, Button, ButtonVariant, Input, Select, SelectIcon, SelectOption};
 use leptos::prelude::*;
 use leptos_router::params::ParamsMap;
 use leptos_use::use_debounce_fn;
@@ -263,38 +263,48 @@ pub fn FilterBar(
         )
         .collect();
 
+    // Debug: Log filter options
+    leptos::logging::log!(
+        "FilterBar: {} projects, {} senders",
+        project_options.len(),
+        sender_options.len()
+    );
+
     let importance_options: Vec<SelectOption> = IMPORTANCE_OPTIONS
         .iter()
         .map(|(v, l)| SelectOption::new(*v, *l))
         .collect();
 
     view! {
-        <div class="flex flex-col gap-3">
-            // Desktop: Single row layout - shadcn Card muted pattern
-            <div class="hidden md:flex items-center gap-3 p-3 bg-muted/50 rounded-lg border border-border">
-                // Search Input with icon
+        <div class="flex flex-col gap-4">
+            // Desktop: Single row layout - improved spacing and padding
+            <div class="hidden md:flex items-center gap-4 p-4 bg-muted/50 rounded-lg border border-border">
+                // Search Input with icon - using inline SVG for reliability
                 <div class="relative flex-1">
-                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10"></i>
+                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <path d="m21 21-4.35-4.35"></path>
+                    </svg>
                     <Input
-                        id="filterSearch".to_string()
-                        value=search_value
-                        placeholder="Search messages... (⌘K)".to_string()
-                        aria_label="Search messages".to_string()
-                        class="pl-10".to_string()
-                        on_input=Callback::new(move |v: String| {
-                            search_value.set(v);
-                        })
-                    />
+                         id="filterSearch".to_string()
+                         value=search_value
+                         placeholder="Search messages... (⌘K)".to_string()
+                         aria_label="Search messages".to_string()
+                         class="pl-10".to_string()
+                         on_input=Callback::new(move |v: String| {
+                             search_value.set(v);
+                         })
+                     />
                 </div>
 
-                // Filter Dropdowns using Select component
+                // Filter Dropdowns using Select component - shadcn style with proper icons
                 <div class="w-44">
                     <Select
                         id="projectFilter".to_string()
                         options=project_options.clone()
                         value=project_value
                         placeholder="All Projects".to_string()
-                        icon="folder"
+                        icon=SelectIcon::Folder
                     />
                 </div>
 
@@ -304,7 +314,7 @@ pub fn FilterBar(
                         options=sender_options.clone()
                         value=sender_value
                         placeholder="All Senders".to_string()
-                        icon="user"
+                        icon=SelectIcon::User
                     />
                 </div>
 
@@ -314,7 +324,7 @@ pub fn FilterBar(
                         options=importance_options.clone()
                         value=importance_value
                         placeholder="Importance".to_string()
-                        icon="alert-circle"
+                        icon=SelectIcon::AlertCircle
                     />
                 </div>
 
@@ -366,7 +376,7 @@ pub fn FilterBar(
                 </div>
 
                 // Message Count Badge - shadcn Badge with tabular-nums
-                <div class="flex items-center gap-2">
+                <div class="flex items-center gap-4">
                     <Badge
                         variant=BadgeVariant::Secondary
                         class="h-6 min-w-[3rem] rounded-full font-mono tabular-nums px-2.5".to_string()
@@ -377,22 +387,25 @@ pub fn FilterBar(
                 </div>
             </div>
 
-            // Mobile: Compact layout
-            <div class="md:hidden space-y-2">
-                // Search (full width) with icon
-                <div class="relative">
-                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground z-10"></i>
-                    <Input
-                        id="filterSearchMobile".to_string()
-                        value=search_value
-                        placeholder="Search...".to_string()
-                        aria_label="Search messages".to_string()
-                        class="pl-10".to_string()
-                        on_input=Callback::new(move |v: String| {
-                            search_value.set(v);
-                        })
-                    />
-                </div>
+                // Mobile: Compact layout with proper spacing
+                <div class="md:hidden space-y-3">
+                    // Search (full width) with icon - using inline SVG
+                    <div class="relative">
+                        <svg class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none z-10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="11" cy="11" r="8"></circle>
+                            <path d="m21 21-4.34-4.34"></path>
+                        </svg>
+                        <Input
+                             id="filterSearchMobile".to_string()
+                             value=search_value
+                             placeholder="Search...".to_string()
+                             aria_label="Search messages".to_string()
+                             class="pl-10".to_string()
+                             on_input=Callback::new(move |v: String| {
+                                 search_value.set(v);
+                             })
+                         />
+                    </div>
 
                 // Filters button + count
                 <div class="flex items-center justify-between">
@@ -451,27 +464,27 @@ pub fn FilterBar(
                                 </div>
 
                                 <div class="space-y-3">
-                                    <Select
-                                        id="projectFilterMobile".to_string()
-                                        options=project_options.clone()
-                                        value=project_value
-                                        placeholder="All Projects".to_string()
-                                        icon="folder"
-                                    />
-                                    <Select
-                                        id="senderFilterMobile".to_string()
-                                        options=sender_options.clone()
-                                        value=sender_value
-                                        placeholder="All Senders".to_string()
-                                        icon="user"
-                                    />
-                                    <Select
-                                        id="importanceFilterMobile".to_string()
-                                        options=importance_options.clone()
-                                        value=importance_value
-                                        placeholder="Importance".to_string()
-                                        icon="alert-circle"
-                                    />
+                                     <Select
+                                         id="projectFilterMobile".to_string()
+                                         options=project_options.clone()
+                                         value=project_value
+                                         placeholder="All Projects".to_string()
+                                         icon=SelectIcon::Folder
+                                     />
+                                     <Select
+                                         id="senderFilterMobile".to_string()
+                                         options=sender_options.clone()
+                                         value=sender_value
+                                         placeholder="All Senders".to_string()
+                                         icon=SelectIcon::User
+                                     />
+                                     <Select
+                                         id="importanceFilterMobile".to_string()
+                                         options=importance_options.clone()
+                                         value=importance_value
+                                         placeholder="Importance".to_string()
+                                         icon=SelectIcon::AlertCircle
+                                     />
                                 </div>
 
                                 <Button

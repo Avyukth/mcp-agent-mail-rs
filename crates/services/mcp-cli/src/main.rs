@@ -78,6 +78,11 @@ enum Commands {
         #[command(subcommand)]
         command: ArchiveCommands,
     },
+    /// Share exported bundles
+    Share {
+        #[command(subcommand)]
+        command: ShareCommands,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -86,6 +91,22 @@ enum GuardCommands {
     Install,
     /// Check hook status
     Status,
+}
+
+#[derive(Subcommand, Debug)]
+enum ShareCommands {
+    /// Serve exported bundle locally for preview
+    Preview {
+        /// Directory containing exported files
+        #[arg(default_value = ".")]
+        dir: String,
+        /// Port to serve on
+        #[arg(short, long, default_value_t = 9000)]
+        port: u16,
+        /// Open browser automatically
+        #[arg(long)]
+        open: bool,
+    },
 }
 
 #[derive(Subcommand, Debug)]
@@ -451,6 +472,9 @@ async fn main() -> Result<()> {
         Commands::Archive { command } => {
             handle_archive_command(command).await?;
         }
+        Commands::Share { command } => {
+            handle_share_command(command).await?;
+        }
     }
 
     Ok(())
@@ -741,4 +765,126 @@ fn read_archive_metadata(path: &std::path::Path) -> serde_json::Value {
     }
 
     serde_json::from_str(&content).unwrap_or_else(|_| serde_json::json!({}))
+}
+
+async fn handle_share_command(cmd: ShareCommands) -> Result<()> {
+    match cmd {
+        ShareCommands::Preview { dir, port, open } => {
+            use std::net::SocketAddr;
+            use std::path::PathBuf;
+            use tokio::net::TcpListener;
+
+            let dir_path = PathBuf::from(&dir)
+                .canonicalize()
+                .map_err(|e| anyhow::anyhow!("Directory not found: {} ({})", dir, e))?;
+
+            if !dir_path.is_dir() {
+                anyhow::bail!("Not a directory: {}", dir_path.display());
+            }
+
+            let addr: SocketAddr = format!("127.0.0.1:{}", port).parse()?;
+            println!("Serving {} on http://{}", dir_path.display(), addr);
+
+            if open {
+                let url = format!("http://127.0.0.1:{}", port);
+                if let Err(e) = open_browser(&url) {
+                    eprintln!("Failed to open browser: {}", e);
+                }
+            }
+
+            println!("Press Ctrl+C to stop");
+
+            let listener = TcpListener::bind(addr).await?;
+
+            loop {
+                let (stream, _) = listener.accept().await?;
+                let dir_clone = dir_path.clone();
+
+                tokio::spawn(async move {
+                    if let Err(e) = handle_http_request(stream, &dir_clone).await {
+                        eprintln!("Request error: {}", e);
+                    }
+                });
+            }
+        }
+    }
+}
+
+fn open_browser(url: &str) -> Result<()> {
+    #[cfg(target_os = "macos")]
+    std::process::Command::new("open").arg(url).spawn()?;
+
+    #[cfg(target_os = "linux")]
+    std::process::Command::new("xdg-open").arg(url).spawn()?;
+
+    #[cfg(target_os = "windows")]
+    std::process::Command::new("cmd")
+        .args(["/C", "start", url])
+        .spawn()?;
+
+    Ok(())
+}
+
+async fn handle_http_request(
+    mut stream: tokio::net::TcpStream,
+    base_dir: &std::path::Path,
+) -> Result<()> {
+    use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
+
+    let mut reader = BufReader::new(&mut stream);
+    let mut request_line = String::new();
+    reader.read_line(&mut request_line).await?;
+
+    let path = request_line
+        .split_whitespace()
+        .nth(1)
+        .unwrap_or("/")
+        .trim_start_matches('/');
+
+    let file_path = if path.is_empty() || path == "/" {
+        base_dir.join("index.html")
+    } else {
+        base_dir.join(path)
+    };
+
+    let file_path = file_path.canonicalize().unwrap_or(file_path);
+    if !file_path.starts_with(base_dir) {
+        let response = "HTTP/1.1 403 Forbidden\r\nContent-Length: 9\r\n\r\nForbidden";
+        stream.write_all(response.as_bytes()).await?;
+        return Ok(());
+    }
+
+    if file_path.is_file() {
+        let content = tokio::fs::read(&file_path).await?;
+        let content_type = mime_type(&file_path);
+        let response = format!(
+            "HTTP/1.1 200 OK\r\nContent-Type: {}\r\nContent-Length: {}\r\n\r\n",
+            content_type,
+            content.len()
+        );
+        stream.write_all(response.as_bytes()).await?;
+        stream.write_all(&content).await?;
+    } else {
+        let response = "HTTP/1.1 404 Not Found\r\nContent-Length: 9\r\n\r\nNot Found";
+        stream.write_all(response.as_bytes()).await?;
+    }
+
+    Ok(())
+}
+
+fn mime_type(path: &std::path::Path) -> &'static str {
+    match path.extension().and_then(|e| e.to_str()) {
+        Some("html") | Some("htm") => "text/html; charset=utf-8",
+        Some("css") => "text/css; charset=utf-8",
+        Some("js") => "application/javascript; charset=utf-8",
+        Some("json") => "application/json; charset=utf-8",
+        Some("png") => "image/png",
+        Some("jpg") | Some("jpeg") => "image/jpeg",
+        Some("gif") => "image/gif",
+        Some("svg") => "image/svg+xml",
+        Some("ico") => "image/x-icon",
+        Some("md") => "text/markdown; charset=utf-8",
+        Some("txt") => "text/plain; charset=utf-8",
+        _ => "application/octet-stream",
+    }
 }

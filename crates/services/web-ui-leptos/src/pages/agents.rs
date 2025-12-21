@@ -2,7 +2,7 @@
 //! Digital Correspondence design with Lucide icons.
 
 use crate::api::client::{self, Agent, Project};
-use crate::components::{AgentAvatar, AvatarSize, Input, Select, SelectOption};
+use crate::components::{AgentAvatar, AvatarSize, Input, Select, SelectIcon, SelectOption};
 use leptos::prelude::*;
 
 /// Agent with project slug for display.
@@ -136,7 +136,7 @@ pub fn Agents() -> impl IntoView {
                                     value=selected_project
                                     placeholder="Filter by project".to_string()
                                     disabled=false
-                                    icon="folder"
+                                    icon=SelectIcon::Folder
                                 />
                             }
                         }}

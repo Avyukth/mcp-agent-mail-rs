@@ -1,9 +1,15 @@
-//! Shadcn-style Select component.
-//! Custom dropdown with button trigger and floating options panel.
+//! Shadcn/MagicUI-style Select component.
+//!
+//! A refined dropdown with:
+//! - Smooth animations (fade, zoom, slide)
+//! - Full keyboard navigation (Arrow, Home, End, Tab, Escape, type-ahead)
+//! - Accessible ARIA attributes (combobox pattern)
+//! - Consistent theming with shadcn design tokens
+//! - Lucide icons support
 
 use leptos::prelude::*;
 
-/// Option for the Select component.
+/// Option for the Select component - shadcn/ui style.
 #[derive(Clone, PartialEq)]
 pub struct SelectOption {
     pub value: String,
@@ -19,12 +25,54 @@ impl SelectOption {
     }
 }
 
-/// Shadcn-style Select component with full keyboard navigation.
+/// Icon variant for Select trigger - shadcn style.
+#[derive(Clone, Copy, PartialEq, Default)]
+pub enum SelectIcon {
+    #[default]
+    Folder,
+    User,
+    AlertCircle,
+    Bot,
+    Mail,
+    Settings,
+    Filter,
+    Search,
+    Calendar,
+    Tag,
+    Inbox,
+    Send,
+    Archive,
+    Star,
+}
+
+impl SelectIcon {
+    pub fn class(&self) -> &'static str {
+        match self {
+            Self::Folder => "folder",
+            Self::User => "user",
+            Self::AlertCircle => "alert-circle",
+            Self::Bot => "bot",
+            Self::Mail => "mail",
+            Self::Settings => "settings",
+            Self::Filter => "filter",
+            Self::Search => "search",
+            Self::Calendar => "calendar",
+            Self::Tag => "tag",
+            Self::Inbox => "inbox",
+            Self::Send => "send",
+            Self::Archive => "archive",
+            Self::Star => "star",
+        }
+    }
+}
+
+/// Shadcn/MagicUI-style Select component with enhanced styling and animations.
+/// Features: keyboard navigation, proper theming, MagicUI-inspired transitions.
 #[component]
 pub fn Select(
     /// Unique ID for the select.
     id: String,
-    /// Available options.
+    /// Available options - should contain simple filter options, not message data.
     options: Vec<SelectOption>,
     /// Current selected value signal.
     value: RwSignal<String>,
@@ -33,9 +81,9 @@ pub fn Select(
     /// Whether the select is disabled.
     #[prop(default = false)]
     disabled: bool,
-    /// Optional icon name (lucide).
-    #[prop(optional)]
-    icon: Option<&'static str>,
+    /// Icon variant for trigger button.
+    #[prop(default = SelectIcon::Folder)]
+    icon: SelectIcon,
 ) -> impl IntoView {
     let is_open = RwSignal::new(false);
     let focused_index = RwSignal::new(-1i32);
@@ -134,6 +182,13 @@ pub fn Select(
                         is_open.set(true);
                     }
                 }
+                "Tab" => {
+                    // Close dropdown on Tab (accessibility - allow focus to move)
+                    if is_open.get() {
+                        is_open.set(false);
+                        focused_index.set(-1);
+                    }
+                }
                 _ => {
                     // Type-ahead: find first option starting with typed character
                     if key.len() == 1 && is_open.get() {
@@ -174,33 +229,31 @@ pub fn Select(
                 on:click=toggle
                 on:keydown=handle_keydown
                 class=move || {
-                    let base = "flex h-10 w-full items-center justify-between gap-2 whitespace-nowrap rounded-lg border bg-white dark:bg-charcoal-800 px-3 py-2 text-sm shadow-sm ring-offset-white transition-colors focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2";
+                    let base = "flex h-10 w-full items-center justify-between gap-2 whitespace-nowrap rounded-lg border border-input bg-background px-3 py-2 text-sm font-medium shadow-sm ring-offset-background transition-all duration-200 ease-out focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 select-none";
                     let state = if disabled {
-                        "cursor-not-allowed opacity-50 border-cream-200 dark:border-charcoal-700"
+                        "cursor-not-allowed opacity-50"
                     } else if is_open.get() {
-                        "border-amber-400 ring-2 ring-amber-400/20"
+                        "border-amber-500 ring-2 ring-amber-500/20 shadow-md bg-accent/5"
                     } else {
-                        "border-cream-200 dark:border-charcoal-700 hover:border-amber-300 dark:hover:border-amber-700"
+                        "hover:border-amber-400 hover:shadow-md hover:bg-accent/5 active:scale-[0.98]"
                     };
                     format!("{} {}", base, state)
                 }
             >
                 <span class=move || {
                     if is_placeholder() {
-                        "text-charcoal-400 dark:text-charcoal-500 flex items-center gap-2"
+                        "text-muted-foreground flex items-center gap-2 truncate"
                     } else {
-                        "text-charcoal-800 dark:text-cream-100 flex items-center gap-2"
+                        "text-foreground flex items-center gap-2 truncate"
                     }
                 }>
-                    {icon.map(|icon| view! {
-                        <i data-lucide=icon class="icon-sm text-charcoal-400"></i>
-                    })}
-                    {get_label}
+                    <i class="icon-sm text-muted-foreground shrink-0" data-lucide=icon.class()></i>
+                    <span class="truncate">{get_label}</span>
                 </span>
                 <i
                     data-lucide="chevron-down"
                     class=move || {
-                        let base = "icon-sm text-charcoal-400 transition-transform duration-200";
+                        let base = "icon-sm text-muted-foreground shrink-0 transition-transform duration-200 ease-out";
                         if is_open.get() {
                             format!("{} rotate-180", base)
                         } else {
@@ -210,7 +263,7 @@ pub fn Select(
                 ></i>
             </button>
 
-            // Dropdown Panel
+            // Dropdown Panel - Enhanced with better positioning and debugging
             {move || {
                 if is_open.get() {
                     let opts = options_for_display.clone();
@@ -225,13 +278,14 @@ pub fn Select(
                             on:click=close_dropdown
                         ></div>
 
-                        // Options Panel
+                        // Options Panel - shadcn style with MagicUI animations
                         <div
                             id=listbox_id
                             role="listbox"
-                            class="absolute z-50 mt-1 w-full min-w-[8rem] overflow-hidden rounded-lg border border-cream-200 dark:border-charcoal-700 bg-white dark:bg-charcoal-800 shadow-lg animate-slide-up"
+                            class="absolute z-[60] top-full left-0 mt-1.5 w-full min-w-[12rem] max-w-[20rem] overflow-hidden rounded-lg border border-border bg-popover text-popover-foreground shadow-xl ring-1 ring-black/5 dark:ring-white/10 animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200 ease-out"
+                            style="max-height: 14rem;"
                         >
-                            <div class="max-h-60 overflow-auto py-1">
+                            <div class="max-h-52 overflow-auto p-1 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
                                 {opts.into_iter().enumerate().map(|(i, opt)| {
                                     let val = opt.value.clone();
                                     let label = opt.label.clone();
@@ -247,22 +301,26 @@ pub fn Select(
                                             id=option_id
                                             role="option"
                                             aria-selected=is_selected
-                                            on:click=move |_| select(val_clone.clone())
+                                            on:click={
+                                                move |_| {
+                                                    select(val_clone.clone());
+                                                }
+                                            }
                                             class=move || {
-                                                let base = "relative flex w-full cursor-pointer items-center px-3 py-2 text-sm outline-none transition-colors";
+                                                let base = "relative flex w-full cursor-pointer items-center gap-2 px-2.5 py-2 text-sm font-medium outline-none transition-all duration-150 ease-out rounded-md select-none";
                                                 if is_selected {
-                                                    format!("{} bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300", base)
+                                                    format!("{} bg-accent text-accent-foreground font-semibold", base)
                                                 } else if is_focused {
-                                                    format!("{} bg-cream-100 dark:bg-charcoal-700 text-charcoal-800 dark:text-cream-100", base)
+                                                    format!("{} bg-accent/60 text-accent-foreground", base)
                                                 } else {
-                                                    format!("{} text-charcoal-700 dark:text-charcoal-300 hover:bg-cream-100 dark:hover:bg-charcoal-700", base)
+                                                    format!("{} text-foreground hover:bg-accent/40 active:bg-accent/60", base)
                                                 }
                                             }
                                         >
-                                            <span class="flex-1 text-left">{label}</span>
+                                            <span class="flex-1 text-left truncate">{label}</span>
                                             {if is_selected {
                                                 Some(view! {
-                                                    <i data-lucide="check" class="icon-sm text-amber-600 dark:text-amber-400 ml-2"></i>
+                                                    <i data-lucide="check" class="icon-sm text-amber-600 dark:text-amber-400 shrink-0"></i>
                                                 })
                                             } else {
                                                 None

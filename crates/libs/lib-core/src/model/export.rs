@@ -50,8 +50,8 @@ use regex::Regex;
 pub enum ScrubMode {
     #[default]
     None,
-    Standard,   // Email, Phone
-    Aggressive, // Email, Phone, Names
+    Standard,
+    Aggressive,
 }
 
 impl std::str::FromStr for ScrubMode {
@@ -60,7 +60,7 @@ impl std::str::FromStr for ScrubMode {
     fn from_str(s: &str) -> std::result::Result<Self, Self::Err> {
         Ok(match s.to_lowercase().as_str() {
             "standard" => Self::Standard,
-            "aggressive" => Self::Aggressive,
+            "aggressive" | "strict" => Self::Aggressive,
             _ => Self::None,
         })
     }
@@ -84,33 +84,48 @@ impl Scrubber {
         let mut cleaned = text.to_string();
 
         lazy_static! {
-            static ref EMAIL_RE: Regex = Regex::new(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b").expect("valid email regex");
-            // Simplified phone: generic patterns like 123-456-7890 or (123) 456 7890
-            static ref PHONE_RE: Regex = Regex::new(r"\b\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b").expect("valid phone regex");
+            static ref EMAIL_RE: Regex =
+                Regex::new(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")
+                    .expect("valid email regex");
+            static ref PHONE_RE: Regex =
+                Regex::new(r"\b\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b").expect("valid phone regex");
+            static ref OPENAI_KEY_RE: Regex =
+                Regex::new(r"\bsk-[a-zA-Z0-9]{20,}\b").expect("valid openai key regex");
+            static ref AWS_KEY_RE: Regex =
+                Regex::new(r"\bAKIA[A-Z0-9]{16}\b").expect("valid aws key regex");
+            static ref BEARER_RE: Regex =
+                Regex::new(r"(?i)bearer\s+[a-zA-Z0-9._-]{20,}").expect("valid bearer regex");
+            static ref GENERIC_TOKEN_RE: Regex =
+                Regex::new(r"\b[a-f0-9]{32,64}\b").expect("valid token regex");
         }
 
-        // Standard Scrubbing
         cleaned = EMAIL_RE.replace_all(&cleaned, "[EMAIL]").to_string();
         cleaned = PHONE_RE.replace_all(&cleaned, "[PHONE]").to_string();
+        cleaned = OPENAI_KEY_RE.replace_all(&cleaned, "[API-KEY]").to_string();
+        cleaned = AWS_KEY_RE.replace_all(&cleaned, "[AWS-KEY]").to_string();
+        cleaned = BEARER_RE
+            .replace_all(&cleaned, "[BEARER-TOKEN]")
+            .to_string();
+        cleaned = GENERIC_TOKEN_RE
+            .replace_all(&cleaned, "[TOKEN]")
+            .to_string();
 
-        // Aggressive Scrubbing
         if self.mode == ScrubMode::Aggressive {
-            // In a real system, we'd use NLP or a dictionary.
-            // Here, we'll assuming specific sender/recipient names passed in are handled separately,
-            // but for body text, aggressive might be too broad.
-            // For this implementation, we will act heavily on Metadata in render_* methods,
-            // but for body text, "Aggressive" will mostly just do the same as Standard + maybe credit cards?
-            // Let's add Credit Cards.
             lazy_static! {
-                static ref CC_RE: Regex = Regex::new(r"\b(?:\d[ -]*?){13,16}\b").expect("valid credit card regex");
-                // SSN: \b\d{3}-\d{2}-\d{4}\b
-                static ref SSN_RE: Regex = Regex::new(r"\b\d{3}-\d{2}-\d{4}\b").expect("valid SSN regex");
+                static ref CC_RE: Regex =
+                    Regex::new(r"\b(?:\d[ -]*?){13,16}\b").expect("valid credit card regex");
+                static ref SSN_RE: Regex =
+                    Regex::new(r"\b\d{3}-\d{2}-\d{4}\b").expect("valid SSN regex");
             }
             cleaned = CC_RE.replace_all(&cleaned, "[CREDIT-CARD]").to_string();
             cleaned = SSN_RE.replace_all(&cleaned, "[SSN]").to_string();
         }
 
         cleaned
+    }
+
+    pub fn scrub_body(&self, body: &str) -> String {
+        self.scrub(body)
     }
 
     pub fn scrub_name(&self, name: &str) -> String {
@@ -195,7 +210,7 @@ body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; pad
 
         for msg in messages {
             let scrubbed_subject = scrubber.scrub(&msg.subject);
-            let scrubbed_body = scrubber.scrub(&msg.body_md);
+            let scrubbed_body = scrubber.scrub_body(&msg.body_md);
             let scrubbed_sender = scrubber.scrub_name(&msg.sender_name);
 
             html.push_str("<div class=\"message\">\n");
@@ -241,7 +256,7 @@ body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; pad
                 if let Some(s) = obj.get("body_md").and_then(|v| v.as_str()) {
                     obj.insert(
                         "body_md".to_string(),
-                        serde_json::Value::String(scrubber.scrub(s)),
+                        serde_json::Value::String(scrubber.scrub_body(s)),
                     );
                 }
                 if let Some(s) = obj.get("sender_name").and_then(|v| v.as_str()) {
@@ -269,7 +284,7 @@ body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; pad
 
         for msg in messages {
             let scrubbed_subject = scrubber.scrub(&msg.subject);
-            let scrubbed_body = scrubber.scrub(&msg.body_md);
+            let scrubbed_body = scrubber.scrub_body(&msg.body_md);
             let scrubbed_sender = scrubber.scrub_name(&msg.sender_name);
 
             md.push_str(&format!("## {}\n\n", scrubbed_subject));
@@ -301,7 +316,7 @@ body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; pad
                 msg.created_ts.format("%Y-%m-%d %H:%M:%S").to_string(),
                 scrubber.scrub_name(&msg.sender_name),
                 scrubber.scrub(&msg.subject),
-                scrubber.scrub(&msg.body_md),
+                scrubber.scrub_body(&msg.body_md),
             ])
             .map_err(|e| crate::Error::InvalidInput(format!("CSV Error: {}", e)))?;
         }

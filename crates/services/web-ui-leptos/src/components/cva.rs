@@ -13,10 +13,10 @@ use tailwind_fuse::tw_merge;
 // BUTTON CVA
 // =============================================================================
 
-/// Base button classes (always applied)
-pub const BUTTON_BASE: &str = "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50";
+/// Base button classes (always applied) - enhanced with proper shadows and states
+pub const BUTTON_BASE: &str = "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]";
 
-/// Button variant styles following shadcn/ui patterns.
+/// Button variant styles following shadcn/ui patterns with enhanced visual hierarchy.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
 pub enum ButtonVariant {
     #[default]
@@ -29,23 +29,27 @@ pub enum ButtonVariant {
 }
 
 impl ButtonVariant {
-    /// Get the tailwind classes for this variant
+    /// Get the tailwind classes for this variant with improved shadows and micro-interactions
     pub fn class(&self) -> &'static str {
         match self {
             Self::Default => {
-                "bg-primary text-primary-foreground shadow-md hover:bg-primary/90 hover:shadow-lg hover:-translate-y-0.5 active:translate-y-0 active:shadow-sm"
+                "bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:shadow-lg focus-visible:ring-4"
             }
             Self::Destructive => {
-                "bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0"
+                "bg-destructive text-destructive-foreground shadow-lg hover:bg-destructive/90 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0 active:shadow-lg focus-visible:ring-4"
             }
             Self::Outline => {
-                "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:-translate-y-0.5 active:translate-y-0"
+                "border border-input bg-background shadow-sm hover:bg-accent hover:text-accent-foreground hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:shadow-sm focus-visible:ring-4"
             }
             Self::Secondary => {
-                "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0"
+                "bg-secondary text-secondary-foreground shadow-sm hover:bg-secondary/80 hover:shadow-md hover:-translate-y-0.5 active:translate-y-0 active:shadow-sm focus-visible:ring-4"
             }
-            Self::Ghost => "hover:bg-accent hover:text-accent-foreground",
-            Self::Link => "text-primary underline-offset-4 hover:underline p-0 h-auto",
+            Self::Ghost => {
+                "hover:bg-accent hover:text-accent-foreground hover:-translate-y-0.5 active:translate-y-0 focus-visible:ring-4"
+            }
+            Self::Link => {
+                "text-primary underline-offset-4 hover:underline p-0 h-auto focus-visible:ring-2"
+            }
         }
     }
 }

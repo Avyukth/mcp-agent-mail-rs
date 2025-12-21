@@ -96,7 +96,7 @@ pub fn MessageListItemView(
                             </span>
                             {if importance == "high" {
                                 Some(view! {
-                                    <i data-lucide="alert-circle" class="h-3 w-3 text-destructive flex-shrink-0 importance-high" title="High Importance"></i>
+                                    <i data-lucide="alert-circle" class="h-3 w-3 text-destructive flex-shrink-0 importance-high ml-1" title="High Importance"></i>
                                 })
                             } else {
                                 None
