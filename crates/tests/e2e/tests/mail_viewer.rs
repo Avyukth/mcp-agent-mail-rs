@@ -100,18 +100,18 @@ fn test_inbox_page_renders_with_selectors() {
     );
     assert!(url_check.passed, "Web UI URL should be configured");
 
-    // Verify locators are properly defined
+    // Verify locators have proper CSS selector format
     assert!(
-        !locators::inbox::PROJECT_SELECT.is_empty(),
-        "Project selector locator defined"
+        locators::inbox::PROJECT_SELECT.starts_with('#'),
+        "Project selector is ID selector"
     );
     assert!(
-        !locators::inbox::AGENT_SELECT.is_empty(),
-        "Agent selector locator defined"
+        locators::inbox::AGENT_SELECT.starts_with('#'),
+        "Agent selector is ID selector"
     );
     assert!(
-        !locators::inbox::MESSAGE_LIST.is_empty(),
-        "Message list locator defined"
+        locators::inbox::MESSAGE_LIST.contains("data-testid"),
+        "Message list uses data-testid"
     );
 
     println!("✓ Inbox page structure validated with selectors");
@@ -202,18 +202,25 @@ fn test_inbox_empty_state_locator() {
 /// Test M-001: Message detail page structure
 #[test]
 fn test_message_detail_page_structure() {
-    // Verify all message detail locators are defined
-    let locators = vec![
-        locators::message_detail::SUBJECT,
-        locators::message_detail::BODY,
-        locators::message_detail::SENDER,
-        locators::message_detail::TIMESTAMP,
-        locators::message_detail::RECIPIENTS,
+    // Verify all message detail locators use data-testid pattern
+    let locator_checks = vec![
+        (locators::message_detail::SUBJECT, "message-subject"),
+        (locators::message_detail::BODY, "message-body"),
+        (locators::message_detail::SENDER, "message-sender"),
+        (locators::message_detail::TIMESTAMP, "message-timestamp"),
+        (locators::message_detail::RECIPIENTS, "message-recipients"),
     ];
 
-    for loc in locators {
-        let check = Assertion::is_true(!loc.is_empty(), "Locator should be defined");
-        assert!(check.passed, "Locator {} should be defined", loc);
+    for (locator, expected) in locator_checks {
+        let check = Assertion::is_true(
+            locator.contains(expected),
+            "Locator contains expected testid",
+        );
+        assert!(
+            check.passed,
+            "Locator {} should contain {}",
+            locator, expected
+        );
     }
 
     println!("✓ Message detail page structure validated");
@@ -338,7 +345,7 @@ fn test_compose_modal_cancel_locator() {
 #[test]
 fn test_message_item_data_binding_fields() {
     // These fields should be visible in message list items
-    let config = get_config();
+    let _config = get_config();
 
     // Create a test message fixture
     let message = TestFixtures::message_payload(
@@ -520,17 +527,21 @@ fn test_compose_modal_structure() {
 /// Test C-002 to C-007: Compose form field locators
 #[test]
 fn test_compose_form_field_locators() {
-    let fields = vec![
-        locators::compose_modal::RECIPIENT_SELECT,
-        locators::compose_modal::SUBJECT_INPUT,
-        locators::compose_modal::BODY_INPUT,
-        locators::compose_modal::IMPORTANCE_SELECT,
-        locators::compose_modal::ACK_CHECKBOX,
+    // Verify all form field locators have proper CSS selector format
+    let field_checks = vec![
+        (locators::compose_modal::RECIPIENT_SELECT, "recipient"),
+        (locators::compose_modal::SUBJECT_INPUT, "compose"),
+        (locators::compose_modal::BODY_INPUT, "compose"),
+        (locators::compose_modal::IMPORTANCE_SELECT, "compose"),
+        (locators::compose_modal::ACK_CHECKBOX, "compose"),
     ];
 
-    for field in fields {
-        let valid = Assertion::is_true(!field.is_empty(), "Form field locator defined");
-        assert!(valid.passed, "Field locator {} should be defined", field);
+    for (field, expected) in field_checks {
+        let valid = Assertion::is_true(
+            field.contains(expected) || field.starts_with('#'),
+            "Form field locator has valid format",
+        );
+        assert!(valid.passed, "Field locator {} should be valid", field);
     }
 
     println!("✓ Compose form field locators validated");
