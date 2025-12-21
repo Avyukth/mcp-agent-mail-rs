@@ -1914,8 +1914,10 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "uuid",
+ "zip 4.6.1",
 ]
 
 [[package]]
@@ -4393,8 +4395,10 @@ dependencies = [
  "lib-core",
  "lib-mcp",
  "lib-server",
+ "once_cell",
  "reqwest",
  "serde_json",
+ "serde_yaml",
  "tokio",
  "toml 0.9.10+spec-1.1.0",
  "tracing",

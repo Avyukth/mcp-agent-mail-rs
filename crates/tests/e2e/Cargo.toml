@@ -26,6 +26,8 @@ uuid = { workspace = true }
 lib-core = { path = "../../libs/lib-core" }
 assert_cmd = "2.0.16"
 predicates = "3.1.2"
+tempfile = "3.14"
+zip = "4.1.0"
 
 [[test]]
 name = "web_ui"
@@ -46,6 +48,18 @@ path = "tests/cli_tests.rs"
 [[test]]
 name = "mail_viewer"
 path = "tests/mail_viewer.rs"
+
+[[test]]
+name = "archive_workflow"
+path = "tests/archive_workflow.rs"
+
+[[test]]
+name = "share_integration"
+path = "tests/share_integration.rs"
+
+[[test]]
+name = "worktrees_e2e"
+path = "tests/worktrees_e2e.rs"
 
 [lints]
 workspace = true

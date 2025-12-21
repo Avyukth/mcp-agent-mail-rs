@@ -1,8 +1,5 @@
 use clap::{Args, CommandFactory, Parser, Subcommand};
-use lib_common::{
-    config::AppConfig,
-    robot::{RobotArg, RobotCommand, RobotHelp},
-};
+use lib_common::config::AppConfig;
 use lib_mcp::{docs::generate_markdown_docs, run_sse, run_stdio, tools::get_tool_schemas};
 use std::io::Write;
 use std::net::TcpListener;
@@ -10,6 +7,7 @@ use std::path::{Path, PathBuf};
 use tracing::info;
 
 mod panic_hook;
+mod robot_help;
 
 #[derive(Parser)]
 #[command(name = "mcp-agent-mail")]
@@ -30,6 +28,15 @@ struct Cli {
         help = "Output help in machine-readable JSON format"
     )]
     robot_help: bool,
+
+    /// Output format for robot flags (json/yaml)
+    #[arg(
+        long,
+        global = true,
+        default_value = "json",
+        help = "Output format for robot flags"
+    )]
+    format: String,
 }
 
 #[derive(Subcommand)]
@@ -155,7 +162,7 @@ enum ShareCommands {
     Decrypt {
         #[arg(short, long)]
         input: String,
-        #[arg(short, long)]
+        #[arg(short = 'k', long)]
         identity: Option<String>,
         #[arg(long)]
         passphrase: Option<String>,
@@ -801,50 +808,15 @@ fn handle_config_command(cmd: ConfigCommands) -> anyhow::Result<()> {
     Ok(())
 }
 
-#[allow(clippy::unwrap_used)] // JSON serialization of RobotHelp is infallible
-fn handle_robot_help() {
-    let cmd = Cli::command();
-    let help = build_robot_help(cmd);
-    println!("{}", serde_json::to_string_pretty(&help).unwrap());
-}
-
-fn build_robot_help(cmd: clap::Command) -> RobotHelp {
-    RobotHelp {
-        program: cmd.get_name().to_string(),
-        version: cmd.get_version().unwrap_or("unknown").to_string(),
-        description: cmd.get_about().unwrap_or_default().to_string(),
-        commands: cmd
-            .get_subcommands()
-            .map(|sub| build_robot_command(sub.clone()))
-            .collect(),
-    }
-}
-
-fn build_robot_command(cmd: clap::Command) -> RobotCommand {
-    RobotCommand {
-        name: cmd.get_name().to_string(),
-        about: cmd.get_about().unwrap_or_default().to_string(),
-        args: cmd.get_arguments().map(build_robot_arg).collect(),
-        subcommands: cmd
-            .get_subcommands()
-            .map(|sub| build_robot_command(sub.clone()))
-            .collect(),
-    }
-}
-
-fn build_robot_arg(arg: &clap::Arg) -> RobotArg {
-    RobotArg {
-        name: arg.get_id().to_string(),
-        long: arg.get_long().map(|s| format!("--{}", s)),
-        short: arg.get_short(),
-        help: arg.get_help().map(|s| s.to_string()).unwrap_or_default(),
-        required: arg.is_required_set(),
-        possible_values: arg
-            .get_possible_values()
-            .iter()
-            .map(|v| v.get_name().to_string())
-            .collect(),
-    }
+#[allow(clippy::unwrap_used)]
+fn handle_robot_help(format: &str) {
+    let registry = &*robot_help::EXAMPLE_REGISTRY;
+    let output = if format.eq_ignore_ascii_case("yaml") {
+        serde_yaml::to_string(registry).unwrap()
+    } else {
+        serde_json::to_string_pretty(registry).unwrap()
+    };
+    println!("{}", output);
 }
 
 #[tokio::main]
@@ -856,7 +828,7 @@ async fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
 
     if cli.robot_help {
-        handle_robot_help();
+        handle_robot_help(&cli.format);
         return Ok(());
     }
 
