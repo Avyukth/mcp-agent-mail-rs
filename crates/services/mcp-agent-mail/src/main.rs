@@ -383,6 +383,10 @@ enum GuardCommands {
         /// Advisory mode (warn instead of fail)
         #[arg(long)]
         advisory: bool,
+
+        /// Project slug (defaults to git repo directory name)
+        #[arg(long, short)]
+        project: Option<String>,
     },
 }
 
@@ -1116,7 +1120,12 @@ fn handle_robot_examples(format: &str, args: &[String]) -> u8 {
             matching_examples.extend(entry.examples.clone());
         }
     } else {
-        target_type = if target.starts_with("--") { "flag" } else { "command" }.to_string();
+        target_type = if target.starts_with("--") {
+            "flag"
+        } else {
+            "command"
+        }
+        .to_string();
 
         // Look up the target in the HashMap
         if let Some(entry) = EXAMPLE_REGISTRY.get(target.as_str()) {
@@ -1209,8 +1218,26 @@ async fn handle_guard_status() -> anyhow::Result<()> {
     Ok(())
 }
 
-async fn handle_guard_check(stdin_nul: bool, advisory: bool) -> anyhow::Result<()> {
+async fn handle_guard_check(
+    stdin_nul: bool,
+    advisory: bool,
+    project: Option<String>,
+) -> anyhow::Result<()> {
     use std::io::{self, Read};
+    use std::time::Duration;
+
+    // Determine project slug: use provided, env var, or detect from git
+    let project_slug = if let Some(p) = project {
+        p
+    } else if let Ok(p) = std::env::var("MCP_PROJECT_SLUG") {
+        p
+    } else {
+        // Try to detect from current directory (git repo name)
+        std::env::current_dir()
+            .ok()
+            .and_then(|p| p.file_name().map(|n| n.to_string_lossy().to_string()))
+            .unwrap_or_else(|| "unknown".to_string())
+    };
 
     // Read paths from stdin
     let mut input = String::new();
@@ -1237,20 +1264,24 @@ async fn handle_guard_check(stdin_nul: bool, advisory: bool) -> anyhow::Result<(
         }
     }
 
-    // Get active file reservations from MCP API
+    // Get active file reservations from MCP API with timeout
     let url =
         std::env::var("MCP_AGENT_MAIL_URL").unwrap_or_else(|_| "http://localhost:8765".into());
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .unwrap_or_else(|_| reqwest::Client::new());
 
     let reservations_result = client
         .post(format!("{}/api/file_reservations/list", url))
         .json(&serde_json::json!({
-            "project_slug": "mcp-agent-mail-rs"
+            "project_slug": project_slug
         }))
         .send()
         .await;
 
-    let mut conflicting_paths = Vec::new();
+    // (path, agent_name, pattern) tuples for conflicting paths
+    let mut conflicting_paths: Vec<(String, String, String)> = Vec::new();
 
     match reservations_result {
         Ok(resp) if resp.status().is_success() => {
@@ -1260,14 +1291,28 @@ async fn handle_guard_check(stdin_nul: bool, advisory: bool) -> anyhow::Result<(
                     {
                         for path in &paths {
                             for reservation in reservations {
-                                if let Some(pattern) =
-                                    reservation.get("path_pattern").and_then(|p| p.as_str())
-                                {
-                                    // Simple pattern matching - check if path starts with or contains the pattern
+                                let pattern = reservation
+                                    .get("path_pattern")
+                                    .and_then(|p| p.as_str())
+                                    .unwrap_or("");
+                                let agent_name = reservation
+                                    .get("agent_name")
+                                    .and_then(|a| a.as_str())
+                                    .unwrap_or("unknown");
+
+                                if !pattern.is_empty() {
+                                    // Pattern matching: exact prefix or contains with path separator
                                     if path.starts_with(pattern)
                                         || path.contains(&format!("/{}", pattern))
+                                        || pattern == "*"
+                                        || (pattern.ends_with("/**")
+                                            && path.starts_with(&pattern[..pattern.len() - 3]))
                                     {
-                                        conflicting_paths.push((path.clone(), pattern.to_string()));
+                                        conflicting_paths.push((
+                                            path.clone(),
+                                            agent_name.to_string(),
+                                            pattern.to_string(),
+                                        ));
                                         break;
                                     }
                                 }
@@ -1308,16 +1353,22 @@ async fn handle_guard_check(stdin_nul: bool, advisory: bool) -> anyhow::Result<(
                 "Warning: {} path(s) are currently reserved:",
                 conflicting_paths.len()
             );
-            for (path, pattern) in &conflicting_paths {
-                eprintln!("  {} (reserved by: {})", path, pattern);
+            for (path, agent, pattern) in &conflicting_paths {
+                eprintln!(
+                    "  {} (reserved by agent '{}', pattern: {})",
+                    path, agent, pattern
+                );
             }
         } else {
             eprintln!(
                 "Error: {} path(s) are currently reserved:",
                 conflicting_paths.len()
             );
-            for (path, pattern) in &conflicting_paths {
-                eprintln!("  {} (reserved by: {})", path, pattern);
+            for (path, agent, pattern) in &conflicting_paths {
+                eprintln!(
+                    "  {} (reserved by agent '{}', pattern: {})",
+                    path, agent, pattern
+                );
             }
             std::process::exit(1);
         }
@@ -1331,7 +1382,8 @@ async fn handle_guard(args: GuardArgs) -> anyhow::Result<()> {
         GuardCommands::Check {
             stdin_nul,
             advisory,
-        } => handle_guard_check(stdin_nul, advisory).await,
+            project,
+        } => handle_guard_check(stdin_nul, advisory, project).await,
     }
 }
 

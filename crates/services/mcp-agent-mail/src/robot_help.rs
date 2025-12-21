@@ -1,7 +1,4 @@
-use lib_common::robot::{
-    CommandSchema, Example, ParameterSchema, ROBOT_HELP_SCHEMA_VERSION, RobotFlagSchema,
-    RobotHelpOutput,
-};
+use lib_common::robot::Example;
 use once_cell::sync::Lazy;
 use serde::Serialize;
 use std::collections::HashMap;
@@ -9,8 +6,8 @@ use std::collections::HashMap;
 #[derive(Clone, Serialize)]
 pub struct ExampleEntry {
     pub description: &'static str,
-    pub target_type: &'static str,  // "flag" | "subcommand"
-    pub param_type: Option<&'static str>,  // "u16", "String", etc.
+    pub target_type: &'static str,        // "flag" | "subcommand"
+    pub param_type: Option<&'static str>, // "u16", "String", etc.
     pub default: Option<&'static str>,
     pub examples: Vec<Example>,
 }
@@ -57,491 +54,737 @@ pub static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = Lazy::n
     let mut m = HashMap::new();
 
     // ===== GLOBAL FLAGS =====
-    m.insert("--robot-help", ExampleEntry {
-        description: "AI-optimized capability discovery",
-        target_type: "flag",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail --robot-help", "Show all capabilities as JSON"),
-            example("mcp-agent-mail --robot-help --format yaml", "YAML output"),
-        ],
-    });
+    m.insert(
+        "--robot-help",
+        ExampleEntry {
+            description: "AI-optimized capability discovery",
+            target_type: "flag",
+            param_type: None,
+            default: None,
+            examples: vec![
+                example(
+                    "mcp-agent-mail --robot-help",
+                    "Show all capabilities as JSON",
+                ),
+                example("mcp-agent-mail --robot-help --format yaml", "YAML output"),
+            ],
+        },
+    );
 
-    m.insert("--robot-examples", ExampleEntry {
-        description: "Show usage examples for flags/subcommands",
-        target_type: "flag",
-        param_type: Some("String"),
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail --robot-examples serve", "Examples for serve command"),
-            example("mcp-agent-mail --robot-examples --port", "Examples for --port flag"),
-        ],
-    });
+    m.insert(
+        "--robot-examples",
+        ExampleEntry {
+            description: "Show usage examples for flags/subcommands",
+            target_type: "flag",
+            param_type: Some("String"),
+            default: None,
+            examples: vec![
+                example(
+                    "mcp-agent-mail --robot-examples serve",
+                    "Examples for serve command",
+                ),
+                example(
+                    "mcp-agent-mail --robot-examples --port",
+                    "Examples for --port flag",
+                ),
+            ],
+        },
+    );
 
-    m.insert("--robot-status", ExampleEntry {
-        description: "Show system status and health checks",
-        target_type: "flag",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail --robot-status", "Show status in JSON format"),
-            example("mcp-agent-mail --robot-status --format yaml", "YAML status output"),
-        ],
-    });
+    m.insert(
+        "--robot-status",
+        ExampleEntry {
+            description: "Show system status and health checks",
+            target_type: "flag",
+            param_type: None,
+            default: None,
+            examples: vec![
+                example(
+                    "mcp-agent-mail --robot-status",
+                    "Show status in JSON format",
+                ),
+                example(
+                    "mcp-agent-mail --robot-status --format yaml",
+                    "YAML status output",
+                ),
+            ],
+        },
+    );
 
-    m.insert("--format", ExampleEntry {
-        description: "Output format for status/examples",
-        target_type: "flag",
-        param_type: Some("String"),
-        default: Some("json"),
-        examples: vec![
-            example("mcp-agent-mail --robot-status --format yaml", "YAML status output"),
-            example("mcp-agent-mail schema --format markdown", "Markdown schema docs"),
-        ],
-    });
+    m.insert(
+        "--format",
+        ExampleEntry {
+            description: "Output format for status/examples",
+            target_type: "flag",
+            param_type: Some("String"),
+            default: Some("json"),
+            examples: vec![
+                example(
+                    "mcp-agent-mail --robot-status --format yaml",
+                    "YAML status output",
+                ),
+                example(
+                    "mcp-agent-mail schema --format markdown",
+                    "Markdown schema docs",
+                ),
+            ],
+        },
+    );
 
-    m.insert("--log-format", ExampleEntry {
-        description: "Log output format",
-        target_type: "flag",
-        param_type: Some("String"),
-        default: Some("pretty"),
-        examples: vec![
-            example("mcp-agent-mail serve --log-format json", "Structured JSON logs"),
-            example("mcp-agent-mail serve --log-format pretty", "Human-readable logs"),
-        ],
-    });
+    m.insert(
+        "--log-format",
+        ExampleEntry {
+            description: "Log output format",
+            target_type: "flag",
+            param_type: Some("String"),
+            default: Some("pretty"),
+            examples: vec![
+                example(
+                    "mcp-agent-mail serve --log-format json",
+                    "Structured JSON logs",
+                ),
+                example(
+                    "mcp-agent-mail serve --log-format pretty",
+                    "Human-readable logs",
+                ),
+            ],
+        },
+    );
 
     // ===== SUBCOMMANDS =====
-    m.insert("serve", ExampleEntry {
-        description: "Start server (HTTP or MCP mode)",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail serve http", "Start HTTP REST API server"),
-            example("mcp-agent-mail serve mcp --transport stdio", "Start MCP stdio server"),
-            example("mcp-agent-mail serve mcp --transport sse --port 3000", "Start MCP SSE server"),
-        ],
-    });
+    m.insert(
+        "serve",
+        ExampleEntry {
+            description: "Start server (HTTP or MCP mode)",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![
+                example("mcp-agent-mail serve http", "Start HTTP REST API server"),
+                example(
+                    "mcp-agent-mail serve mcp --transport stdio",
+                    "Start MCP stdio server",
+                ),
+                example(
+                    "mcp-agent-mail serve mcp --transport sse --port 3000",
+                    "Start MCP SSE server",
+                ),
+            ],
+        },
+    );
 
-    m.insert("serve http", ExampleEntry {
-        description: "Start HTTP REST API server",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail serve http --port 8765", "Start on custom port"),
-            example("mcp-agent-mail serve http --no-ui", "Headless API server"),
-        ],
-    });
+    m.insert(
+        "serve http",
+        ExampleEntry {
+            description: "Start HTTP REST API server",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![
+                example(
+                    "mcp-agent-mail serve http --port 8765",
+                    "Start on custom port",
+                ),
+                example("mcp-agent-mail serve http --no-ui", "Headless API server"),
+            ],
+        },
+    );
 
-    m.insert("serve mcp", ExampleEntry {
-        description: "Start MCP protocol server",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail serve mcp --transport stdio", "For Claude Desktop"),
-            example("mcp-agent-mail serve mcp --transport sse", "For web clients"),
-        ],
-    });
+    m.insert(
+        "serve mcp",
+        ExampleEntry {
+            description: "Start MCP protocol server",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![
+                example(
+                    "mcp-agent-mail serve mcp --transport stdio",
+                    "For Claude Desktop",
+                ),
+                example(
+                    "mcp-agent-mail serve mcp --transport sse",
+                    "For web clients",
+                ),
+            ],
+        },
+    );
 
-    m.insert("health", ExampleEntry {
-        description: "Check server health and connectivity",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail health", "Check localhost:8765"),
-            example("mcp-agent-mail health --url http://prod.example.com", "Check remote server"),
-        ],
-    });
+    m.insert(
+        "health",
+        ExampleEntry {
+            description: "Check server health and connectivity",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![
+                example("mcp-agent-mail health", "Check localhost:8765"),
+                example(
+                    "mcp-agent-mail health --url http://prod.example.com",
+                    "Check remote server",
+                ),
+            ],
+        },
+    );
 
-    m.insert("config", ExampleEntry {
-        description: "Manage configuration settings",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail config set-port 9000", "Set custom port"),
-            example("mcp-agent-mail config show-port", "Show current port"),
-        ],
-    });
+    m.insert(
+        "config",
+        ExampleEntry {
+            description: "Manage configuration settings",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![
+                example("mcp-agent-mail config set-port 9000", "Set custom port"),
+                example("mcp-agent-mail config show-port", "Show current port"),
+            ],
+        },
+    );
 
-    m.insert("config set-port", ExampleEntry {
-        description: "Set the server port",
-        target_type: "subcommand",
-        param_type: Some("u16"),
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail config set-port 3000", "Set port to 3000"),
-        ],
-    });
+    m.insert(
+        "config set-port",
+        ExampleEntry {
+            description: "Set the server port",
+            target_type: "subcommand",
+            param_type: Some("u16"),
+            default: None,
+            examples: vec![example(
+                "mcp-agent-mail config set-port 3000",
+                "Set port to 3000",
+            )],
+        },
+    );
 
-    m.insert("config show-port", ExampleEntry {
-        description: "Show current server port setting",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail config show-port", "Display current port"),
-        ],
-    });
+    m.insert(
+        "config show-port",
+        ExampleEntry {
+            description: "Show current server port setting",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![example(
+                "mcp-agent-mail config show-port",
+                "Display current port",
+            )],
+        },
+    );
 
-    m.insert("schema", ExampleEntry {
-        description: "Export JSON schemas for all tools",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail schema", "Export all tool schemas as JSON"),
-            example("mcp-agent-mail schema --format markdown --output docs/tools.md", "Generate markdown docs"),
-        ],
-    });
+    m.insert(
+        "schema",
+        ExampleEntry {
+            description: "Export JSON schemas for all tools",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![
+                example("mcp-agent-mail schema", "Export all tool schemas as JSON"),
+                example(
+                    "mcp-agent-mail schema --format markdown --output docs/tools.md",
+                    "Generate markdown docs",
+                ),
+            ],
+        },
+    );
 
-    m.insert("tools", ExampleEntry {
-        description: "List all available MCP tools",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail tools", "List all 45 MCP tools"),
-        ],
-    });
+    m.insert(
+        "tools",
+        ExampleEntry {
+            description: "List all available MCP tools",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![example("mcp-agent-mail tools", "List all 45 MCP tools")],
+        },
+    );
 
-    m.insert("install", ExampleEntry {
-        description: "Install shell alias and configuration",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail install alias", "Install 'am' shell alias"),
-        ],
-    });
+    m.insert(
+        "install",
+        ExampleEntry {
+            description: "Install shell alias and configuration",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![example(
+                "mcp-agent-mail install alias",
+                "Install 'am' shell alias",
+            )],
+        },
+    );
 
-    m.insert("install alias", ExampleEntry {
-        description: "Install shell alias for easier access",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail install alias", "Create 'am' command alias"),
-        ],
-    });
+    m.insert(
+        "install alias",
+        ExampleEntry {
+            description: "Install shell alias for easier access",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![example(
+                "mcp-agent-mail install alias",
+                "Create 'am' command alias",
+            )],
+        },
+    );
 
-    m.insert("service", ExampleEntry {
-        description: "Manage background service",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail service status", "Check service status"),
-            example("mcp-agent-mail service start", "Start background service"),
-            example("mcp-agent-mail service stop", "Stop background service"),
-        ],
-    });
+    m.insert(
+        "service",
+        ExampleEntry {
+            description: "Manage background service",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![
+                example("mcp-agent-mail service status", "Check service status"),
+                example("mcp-agent-mail service start", "Start background service"),
+                example("mcp-agent-mail service stop", "Stop background service"),
+            ],
+        },
+    );
 
-    m.insert("service status", ExampleEntry {
-        description: "Check background service status",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail service status --port 8765", "Check specific port"),
-        ],
-    });
+    m.insert(
+        "service status",
+        ExampleEntry {
+            description: "Check background service status",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![example(
+                "mcp-agent-mail service status --port 8765",
+                "Check specific port",
+            )],
+        },
+    );
 
-    m.insert("service start", ExampleEntry {
-        description: "Start background service",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail service start --port 8765", "Start on specific port"),
-        ],
-    });
+    m.insert(
+        "service start",
+        ExampleEntry {
+            description: "Start background service",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![example(
+                "mcp-agent-mail service start --port 8765",
+                "Start on specific port",
+            )],
+        },
+    );
 
-    m.insert("service stop", ExampleEntry {
-        description: "Stop background service",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail service stop --port 8765", "Stop specific instance"),
-        ],
-    });
+    m.insert(
+        "service stop",
+        ExampleEntry {
+            description: "Stop background service",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![example(
+                "mcp-agent-mail service stop --port 8765",
+                "Stop specific instance",
+            )],
+        },
+    );
 
-    m.insert("service restart", ExampleEntry {
-        description: "Restart background service",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail service restart --port 8765", "Restart with new config"),
-        ],
-    });
+    m.insert(
+        "service restart",
+        ExampleEntry {
+            description: "Restart background service",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![example(
+                "mcp-agent-mail service restart --port 8765",
+                "Restart with new config",
+            )],
+        },
+    );
 
-    m.insert("share", ExampleEntry {
-        description: "Export sharing utilities (encryption/signing)",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail share keypair", "Generate signing keypair"),
-            example("mcp-agent-mail share verify --manifest manifest.json", "Verify signed manifest"),
-        ],
-    });
+    m.insert(
+        "share",
+        ExampleEntry {
+            description: "Export sharing utilities (encryption/signing)",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![
+                example("mcp-agent-mail share keypair", "Generate signing keypair"),
+                example(
+                    "mcp-agent-mail share verify --manifest manifest.json",
+                    "Verify signed manifest",
+                ),
+            ],
+        },
+    );
 
-    m.insert("share keypair", ExampleEntry {
-        description: "Generate signing keypair for manifests",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail share keypair", "Create new keypair"),
-            example("mcp-agent-mail share keypair --output keys.json", "Save to file"),
-        ],
-    });
+    m.insert(
+        "share keypair",
+        ExampleEntry {
+            description: "Generate signing keypair for manifests",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![
+                example("mcp-agent-mail share keypair", "Create new keypair"),
+                example(
+                    "mcp-agent-mail share keypair --output keys.json",
+                    "Save to file",
+                ),
+            ],
+        },
+    );
 
-    m.insert("share verify", ExampleEntry {
-        description: "Verify signed manifest integrity",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail share verify --manifest export.json", "Verify manifest signature"),
-        ],
-    });
+    m.insert(
+        "share verify",
+        ExampleEntry {
+            description: "Verify signed manifest integrity",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![example(
+                "mcp-agent-mail share verify --manifest export.json",
+                "Verify manifest signature",
+            )],
+        },
+    );
 
-    m.insert("share encrypt", ExampleEntry {
-        description: "Encrypt data with passphrase",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail share encrypt --project myproj --passphrase", "Encrypt project data"),
-        ],
-    });
+    m.insert(
+        "share encrypt",
+        ExampleEntry {
+            description: "Encrypt data with passphrase",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![example(
+                "mcp-agent-mail share encrypt --project myproj --passphrase",
+                "Encrypt project data",
+            )],
+        },
+    );
 
-    m.insert("share decrypt", ExampleEntry {
-        description: "Decrypt age-encrypted data",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail share decrypt --input data.age", "Decrypt with passphrase"),
-        ],
-    });
+    m.insert(
+        "share decrypt",
+        ExampleEntry {
+            description: "Decrypt age-encrypted data",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![example(
+                "mcp-agent-mail share decrypt --input data.age",
+                "Decrypt with passphrase",
+            )],
+        },
+    );
 
-    m.insert("archive", ExampleEntry {
-        description: "Archive management for disaster recovery",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail archive save --label backup-2024", "Create timestamped backup"),
-            example("mcp-agent-mail archive list", "List available archives"),
-            example("mcp-agent-mail archive restore archive.zip", "Restore from backup"),
-        ],
-    });
+    m.insert(
+        "archive",
+        ExampleEntry {
+            description: "Archive management for disaster recovery",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![
+                example(
+                    "mcp-agent-mail archive save --label backup-2024",
+                    "Create timestamped backup",
+                ),
+                example("mcp-agent-mail archive list", "List available archives"),
+                example(
+                    "mcp-agent-mail archive restore archive.zip",
+                    "Restore from backup",
+                ),
+            ],
+        },
+    );
 
-    m.insert("archive save", ExampleEntry {
-        description: "Create restorable snapshot archive",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail archive save", "Create timestamped archive"),
-            example("mcp-agent-mail archive save --include-git", "Include git history"),
-        ],
-    });
+    m.insert(
+        "archive save",
+        ExampleEntry {
+            description: "Create restorable snapshot archive",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![
+                example("mcp-agent-mail archive save", "Create timestamped archive"),
+                example(
+                    "mcp-agent-mail archive save --include-git",
+                    "Include git history",
+                ),
+            ],
+        },
+    );
 
-    m.insert("archive list", ExampleEntry {
-        description: "List available restore points",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail archive list", "Show all archives"),
-            example("mcp-agent-mail archive list --json", "JSON format output"),
-        ],
-    });
+    m.insert(
+        "archive list",
+        ExampleEntry {
+            description: "List available restore points",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![
+                example("mcp-agent-mail archive list", "Show all archives"),
+                example("mcp-agent-mail archive list --json", "JSON format output"),
+            ],
+        },
+    );
 
-    m.insert("archive restore", ExampleEntry {
-        description: "Restore from archive snapshot",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail archive restore backup.zip", "Restore from file"),
-            example("mcp-agent-mail archive restore backup.zip --yes", "Skip confirmation"),
-        ],
-    });
+    m.insert(
+        "archive restore",
+        ExampleEntry {
+            description: "Restore from archive snapshot",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![
+                example(
+                    "mcp-agent-mail archive restore backup.zip",
+                    "Restore from file",
+                ),
+                example(
+                    "mcp-agent-mail archive restore backup.zip --yes",
+                    "Skip confirmation",
+                ),
+            ],
+        },
+    );
 
-    m.insert("archive clear-and-reset", ExampleEntry {
-        description: "Clear all data (creates backup first)",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail archive clear-and-reset --archive", "Backup then clear"),
-        ],
-    });
+    m.insert(
+        "archive clear-and-reset",
+        ExampleEntry {
+            description: "Clear all data (creates backup first)",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![example(
+                "mcp-agent-mail archive clear-and-reset --archive",
+                "Backup then clear",
+            )],
+        },
+    );
 
-    m.insert("summarize", ExampleEntry {
-        description: "Summarize conversation threads",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail summarize --project myproj --thread-id task-123", "Summarize single thread"),
-            example("mcp-agent-mail summarize --project myproj --thread-id task-123,task-456", "Summarize multiple threads"),
-        ],
-    });
+    m.insert(
+        "summarize",
+        ExampleEntry {
+            description: "Summarize conversation threads",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![
+                example(
+                    "mcp-agent-mail summarize --project myproj --thread-id task-123",
+                    "Summarize single thread",
+                ),
+                example(
+                    "mcp-agent-mail summarize --project myproj --thread-id task-123,task-456",
+                    "Summarize multiple threads",
+                ),
+            ],
+        },
+    );
 
-    m.insert("version", ExampleEntry {
-        description: "Show version information",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail version", "Display version and build info"),
-        ],
-    });
+    m.insert(
+        "version",
+        ExampleEntry {
+            description: "Show version information",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![example(
+                "mcp-agent-mail version",
+                "Display version and build info",
+            )],
+        },
+    );
 
-    m.insert("products", ExampleEntry {
-        description: "Multi-repo coordination management",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail products ensure --uid cross-platform --name 'Cross-Platform'", "Create product"),
-            example("mcp-agent-mail products link --uid cross-platform --project /path/to/repo", "Link project to product"),
-        ],
-    });
+    m.insert(
+        "products",
+        ExampleEntry {
+            description: "Multi-repo coordination management",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![
+                example(
+                    "mcp-agent-mail products ensure --uid cross-platform --name 'Cross-Platform'",
+                    "Create product",
+                ),
+                example(
+                    "mcp-agent-mail products link --uid cross-platform --project /path/to/repo",
+                    "Link project to product",
+                ),
+            ],
+        },
+    );
 
-    m.insert("products ensure", ExampleEntry {
-        description: "Create or get existing product",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail products ensure --uid my-product --name 'My Product'", "Create new product"),
-        ],
-    });
+    m.insert(
+        "products ensure",
+        ExampleEntry {
+            description: "Create or get existing product",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![example(
+                "mcp-agent-mail products ensure --uid my-product --name 'My Product'",
+                "Create new product",
+            )],
+        },
+    );
 
-    m.insert("products link", ExampleEntry {
-        description: "Link project to product",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail products link --uid my-product --project /repo/path", "Add project to product"),
-        ],
-    });
+    m.insert(
+        "products link",
+        ExampleEntry {
+            description: "Link project to product",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![example(
+                "mcp-agent-mail products link --uid my-product --project /repo/path",
+                "Add project to product",
+            )],
+        },
+    );
 
-    m.insert("products unlink", ExampleEntry {
-        description: "Remove project from product",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail products unlink --uid my-product --project /repo/path", "Remove project link"),
-        ],
-    });
+    m.insert(
+        "products unlink",
+        ExampleEntry {
+            description: "Remove project from product",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![example(
+                "mcp-agent-mail products unlink --uid my-product --project /repo/path",
+                "Remove project link",
+            )],
+        },
+    );
 
-    m.insert("products status", ExampleEntry {
-        description: "Show product status and linked projects",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail products status --uid my-product", "Show product details"),
-        ],
-    });
+    m.insert(
+        "products status",
+        ExampleEntry {
+            description: "Show product status and linked projects",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![example(
+                "mcp-agent-mail products status --uid my-product",
+                "Show product details",
+            )],
+        },
+    );
 
-    m.insert("products search", ExampleEntry {
-        description: "Search across product projects",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail products search --uid my-product --query 'error'", "Search product messages"),
-        ],
-    });
+    m.insert(
+        "products search",
+        ExampleEntry {
+            description: "Search across product projects",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![example(
+                "mcp-agent-mail products search --uid my-product --query 'error'",
+                "Search product messages",
+            )],
+        },
+    );
 
-    m.insert("products inbox", ExampleEntry {
-        description: "View product-wide inbox",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail products inbox --uid my-product", "Show product inbox"),
-        ],
-    });
+    m.insert(
+        "products inbox",
+        ExampleEntry {
+            description: "View product-wide inbox",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![example(
+                "mcp-agent-mail products inbox --uid my-product",
+                "Show product inbox",
+            )],
+        },
+    );
 
-    m.insert("products summarize-thread", ExampleEntry {
-        description: "Summarize thread across product",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail products summarize-thread --uid my-product --thread-id task-123", "Cross-project summary"),
-        ],
-    });
+    m.insert(
+        "products summarize-thread",
+        ExampleEntry {
+            description: "Summarize thread across product",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![example(
+                "mcp-agent-mail products summarize-thread --uid my-product --thread-id task-123",
+                "Cross-project summary",
+            )],
+        },
+    );
 
-    m.insert("guard", ExampleEntry {
-        description: "Pre-commit guard management",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail guard status", "Check guard status"),
-            example("mcp-agent-mail guard check --stdin-nul", "Validate file reservations"),
-        ],
-    });
+    m.insert(
+        "guard",
+        ExampleEntry {
+            description: "Pre-commit guard management",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![
+                example("mcp-agent-mail guard status", "Check guard status"),
+                example(
+                    "mcp-agent-mail guard check --stdin-nul",
+                    "Validate file reservations",
+                ),
+            ],
+        },
+    );
 
-    m.insert("guard status", ExampleEntry {
-        description: "Show pre-commit guard status",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail guard status", "Display current settings"),
-        ],
-    });
+    m.insert(
+        "guard status",
+        ExampleEntry {
+            description: "Show pre-commit guard status",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![example(
+                "mcp-agent-mail guard status",
+                "Display current settings",
+            )],
+        },
+    );
 
-    m.insert("guard check", ExampleEntry {
-        description: "Check file reservation conflicts",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail guard check --stdin-nul", "Check from stdin"),
-            example("mcp-agent-mail guard check --advisory", "Warn instead of fail"),
-        ],
-    });
+    m.insert(
+        "guard check",
+        ExampleEntry {
+            description: "Check file reservation conflicts",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![
+                example("mcp-agent-mail guard check --stdin-nul", "Check from stdin"),
+                example(
+                    "mcp-agent-mail guard check --advisory",
+                    "Warn instead of fail",
+                ),
+            ],
+        },
+    );
 
-    m.insert("mail", ExampleEntry {
-        description: "Direct mail operations",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail mail status", "Show mail system status"),
-        ],
-    });
+    m.insert(
+        "mail",
+        ExampleEntry {
+            description: "Direct mail operations",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![example(
+                "mcp-agent-mail mail status",
+                "Show mail system status",
+            )],
+        },
+    );
 
-    m.insert("mail status", ExampleEntry {
-        description: "Show mail system status",
-        target_type: "subcommand",
-        param_type: None,
-        default: None,
-        examples: vec![
-            example("mcp-agent-mail mail status", "Display system health"),
-        ],
-    });
+    m.insert(
+        "mail status",
+        ExampleEntry {
+            description: "Show mail system status",
+            target_type: "subcommand",
+            param_type: None,
+            default: None,
+            examples: vec![example(
+                "mcp-agent-mail mail status",
+                "Display system health",
+            )],
+        },
+    );
 
     m
 });
