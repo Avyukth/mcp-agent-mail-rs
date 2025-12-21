@@ -372,6 +372,41 @@ impl ArchiveBrowserBmc {
         Ok((added, modified, deleted))
     }
 
+    /// Check if a file was touched (modified) in a commit.
+    fn file_touched_in_commit(
+        repo: &git2::Repository,
+        commit: &git2::Commit,
+        file_path: &std::path::Path,
+    ) -> Result<bool> {
+        if commit.parent_count() == 0 {
+            return Ok(true); // Initial commit always touches new files
+        }
+
+        let parent = match commit.parent(0) {
+            Ok(p) => p,
+            Err(_) => return Ok(true),
+        };
+
+        let tree = commit.tree()?;
+        let parent_tree = parent.tree()?;
+        let diff = repo.diff_tree_to_tree(Some(&parent_tree), Some(&tree), None)?;
+
+        for delta in diff.deltas() {
+            if let Some(p) = delta.new_file().path() {
+                if p == file_path {
+                    return Ok(true);
+                }
+            }
+            if let Some(p) = delta.old_file().path() {
+                if p == file_path {
+                    return Ok(true);
+                }
+            }
+        }
+
+        Ok(false)
+    }
+
     /// List files at a specific commit.
     ///
     /// # Arguments
@@ -577,31 +612,8 @@ impl ArchiveBrowserBmc {
                 (false, true) => "added",
                 (true, true) => {
                     // Need to diff to confirm modification
-                    if commit.parent_count() > 0 {
-                        if let Ok(parent) = commit.parent(0) {
-                            let diff =
-                                repo.diff_tree_to_tree(Some(&parent.tree()?), Some(&tree), None)?;
-
-                            let mut touched = false;
-                            for delta in diff.deltas() {
-                                if let Some(p) = delta.new_file().path() {
-                                    if p == path {
-                                        touched = true;
-                                        break;
-                                    }
-                                }
-                                if let Some(p) = delta.old_file().path() {
-                                    if p == path {
-                                        touched = true;
-                                        break;
-                                    }
-                                }
-                            }
-
-                            if !touched {
-                                continue; // File wasn't touched in this commit
-                            }
-                        }
+                    if !Self::file_touched_in_commit(&repo, &commit, path)? {
+                        continue; // File wasn't touched in this commit
                     }
                     "modified"
                 }
