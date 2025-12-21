@@ -2084,6 +2084,208 @@ pub async fn invoke_macro(
     .into_response())
 }
 
+// ===========================================================================
+// Convenience Macros (Python-compatible pre-built macros)
+// ===========================================================================
+
+// --- macro_start_session ---
+// Combines: register_agent + file_reservation_paths
+#[derive(Deserialize)]
+pub struct MacroStartSessionPayload {
+    pub project_slug: String,
+    pub name: String,
+    pub model: String,
+    pub program: String,
+    pub patterns: Vec<String>,
+    #[serde(default = "default_reservation_ttl")]
+    pub ttl_seconds: i64,
+}
+
+fn default_reservation_ttl() -> i64 {
+    3600
+}
+
+#[derive(Serialize)]
+pub struct MacroStartSessionResponse {
+    pub agent_id: i64,
+    pub agent_name: String,
+    pub reservation_ids: Vec<i64>,
+    pub message: String,
+}
+
+pub async fn macro_start_session(
+    State(app_state): State<AppState>,
+    Json(payload): Json<MacroStartSessionPayload>,
+) -> crate::error::Result<Response> {
+    let ctx = Ctx::root_ctx();
+    let mm = &app_state.mm;
+
+    // Step 1: Ensure project exists
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+
+    // Step 2: Register agent
+    let agent_c = lib_core::model::agent::AgentForCreate {
+        project_id: project.id,
+        name: payload.name.clone(),
+        model: payload.model,
+        program: payload.program,
+        task_description: String::new(),
+    };
+    let agent_id = lib_core::model::agent::AgentBmc::create(&ctx, mm, agent_c).await?;
+
+    // Step 3: Create file reservations
+    let mut reservation_ids = Vec::new();
+    for pattern in &payload.patterns {
+        let res_c = lib_core::model::file_reservation::FileReservationForCreate {
+            project_id: project.id,
+            agent_id,
+            path_pattern: pattern.clone(),
+            exclusive: true,
+            reason: "Session start".to_string(),
+            expires_ts: chrono::Utc::now().naive_utc()
+                + chrono::Duration::seconds(payload.ttl_seconds),
+        };
+        let res_id =
+            lib_core::model::file_reservation::FileReservationBmc::create(&ctx, mm, res_c).await?;
+        reservation_ids.push(res_id);
+    }
+
+    Ok(Json(MacroStartSessionResponse {
+        agent_id,
+        agent_name: payload.name,
+        reservation_ids,
+        message: "Session started: agent registered and files reserved".to_string(),
+    })
+    .into_response())
+}
+
+// --- macro_file_reservation_cycle ---
+// Reserve or release files
+#[derive(Deserialize)]
+pub struct MacroFileReservationCyclePayload {
+    pub project_slug: String,
+    pub agent_name: String,
+    pub patterns: Vec<String>,
+    pub action: String, // "reserve" or "release"
+    #[serde(default = "default_reservation_ttl")]
+    pub ttl_seconds: i64,
+}
+
+#[derive(Serialize)]
+pub struct MacroFileReservationCycleResponse {
+    pub action: String,
+    pub affected_count: usize,
+    pub ids: Vec<i64>,
+}
+
+pub async fn macro_file_reservation_cycle(
+    State(app_state): State<AppState>,
+    Json(payload): Json<MacroFileReservationCyclePayload>,
+) -> crate::error::Result<Response> {
+    let ctx = Ctx::root_ctx();
+    let mm = &app_state.mm;
+
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+    let agent =
+        lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.agent_name)
+            .await?;
+
+    let mut ids = Vec::new();
+
+    if payload.action == "reserve" {
+        for pattern in &payload.patterns {
+            let res_c = lib_core::model::file_reservation::FileReservationForCreate {
+                project_id: project.id,
+                agent_id: agent.id,
+                path_pattern: pattern.clone(),
+                exclusive: true,
+                reason: "Reservation cycle".to_string(),
+                expires_ts: chrono::Utc::now().naive_utc()
+                    + chrono::Duration::seconds(payload.ttl_seconds),
+            };
+            let res_id =
+                lib_core::model::file_reservation::FileReservationBmc::create(&ctx, mm, res_c)
+                    .await?;
+            ids.push(res_id);
+        }
+    } else if payload.action == "release" {
+        for pattern in &payload.patterns {
+            if let Some(released_id) =
+                lib_core::model::file_reservation::FileReservationBmc::release_by_path(
+                    &ctx, mm, project.id, agent.id, pattern,
+                )
+                .await?
+            {
+                ids.push(released_id);
+            }
+        }
+    }
+
+    Ok(Json(MacroFileReservationCycleResponse {
+        action: payload.action,
+        affected_count: ids.len(),
+        ids,
+    })
+    .into_response())
+}
+
+// --- macro_contact_handshake ---
+// Create bidirectional contact between two agents
+#[derive(Deserialize)]
+pub struct MacroContactHandshakePayload {
+    pub project_slug: String,
+    pub requester: String,
+    pub target: String,
+}
+
+#[derive(Serialize)]
+pub struct MacroContactHandshakeResponse {
+    pub contacts_created: i32,
+    pub link_ids: Vec<i64>,
+}
+
+pub async fn macro_contact_handshake(
+    State(app_state): State<AppState>,
+    Json(payload): Json<MacroContactHandshakePayload>,
+) -> crate::error::Result<Response> {
+    let ctx = Ctx::root_ctx();
+    let mm = &app_state.mm;
+
+    let project =
+        lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &payload.project_slug)
+            .await?;
+    let requester =
+        lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.requester)
+            .await?;
+    let target =
+        lib_core::model::agent::AgentBmc::get_by_name(&ctx, mm, project.id, &payload.target)
+            .await?;
+
+    // Create bidirectional contact: request + auto-accept
+    let link_c = lib_core::model::agent_link::AgentLinkForCreate {
+        a_project_id: project.id,
+        a_agent_id: requester.id,
+        b_project_id: project.id,
+        b_agent_id: target.id,
+        reason: "Handshake macro".to_string(),
+    };
+
+    let link_id =
+        lib_core::model::agent_link::AgentLinkBmc::request_contact(&ctx, mm, link_c).await?;
+    // Auto-accept the contact request
+    lib_core::model::agent_link::AgentLinkBmc::respond_contact(&ctx, mm, link_id, true).await?;
+
+    Ok(Json(MacroContactHandshakeResponse {
+        contacts_created: 1,
+        link_ids: vec![link_id],
+    })
+    .into_response())
+}
+
 // --- summarize_thread ---
 // Note: Real summarization would use LLM, this returns a simple summary
 #[derive(Deserialize)]
