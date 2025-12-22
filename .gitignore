@@ -40,3 +40,4 @@ docs/api-quality-audit-report.md
 .bv/
 web-transform*.md
 AGENTS copy.md
+*.startlock
