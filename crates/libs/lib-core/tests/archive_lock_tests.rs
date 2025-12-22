@@ -1,3 +1,4 @@
+#![allow(clippy::unwrap_used, clippy::expect_used)]
 use chrono::{Duration, Utc};
 use lib_core::store::archive_lock::{ArchiveLock, LockOwner};
 use serde_json;
