@@ -9,11 +9,16 @@ const config = {
 			pages: 'build',
 			assets: 'build',
 			fallback: 'index.html',
-			precompress: false,
+			precompress: true,
 			strict: true
 		}),
 		paths: {
 			base: ''
+		},
+		alias: {
+			$components: 'src/lib/components',
+			$api: 'src/lib/api',
+			$stores: 'src/lib/stores'
 		}
 	}
 };

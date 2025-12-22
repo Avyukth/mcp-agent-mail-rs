@@ -1,6 +1,6 @@
 //! Static file serving for embedded web UI assets.
 //!
-//! This module provides handlers for serving the embedded Leptos WASM frontend
+//! This module provides handlers for serving the embedded SvelteKit frontend
 //! with proper MIME type detection and SPA routing support.
 
 use axum::{
@@ -37,14 +37,21 @@ fn serve_file(path: &str) -> Response {
                 .to_string();
 
             // Use different cache strategies based on file type
-            let cache_control = if path.contains(".wasm") || path.contains(".js") {
-                // WASM and JS files have content hashes, cache aggressively
+            // SvelteKit puts hashed assets in /_app/immutable/
+            let cache_control = if path.contains("/_app/immutable/") {
+                // SvelteKit immutable assets have content hashes, cache forever
+                "public, max-age=31536000, immutable"
+            } else if path.contains(".wasm") || path.contains(".js") {
+                // Other JS/WASM files with hashes - cache aggressively
                 "public, max-age=31536000, immutable"
             } else if path == "index.html" {
                 // HTML should be revalidated
                 "public, max-age=0, must-revalidate"
+            } else if path == "_app/version.json" {
+                // Version file should be checked frequently
+                "public, max-age=0, must-revalidate"
             } else {
-                // Other assets (CSS, images) - cache for a day
+                // Other assets (CSS, images, static files) - cache for a day
                 "public, max-age=86400"
             };
 
