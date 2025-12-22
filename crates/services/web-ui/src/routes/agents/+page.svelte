@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { getProjects, getAgents, type Project, type Agent } from '$lib/api/client';
+	import Bot from 'lucide-svelte/icons/bot';
 
 	interface AgentWithProject extends Agent {
 		projectSlug: string;
@@ -131,7 +132,7 @@
 	{:else if filteredAgents().length === 0}
 		<!-- Empty State -->
 		<div class="bg-white dark:bg-gray-800 rounded-xl p-12 text-center shadow-sm border border-gray-200 dark:border-gray-700">
-			<div class="text-4xl mb-4">🤖</div>
+			<div class="mb-4 flex justify-center"><Bot class="h-12 w-12 text-gray-400" /></div>
 			{#if allAgents.length === 0}
 				<h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">No agents yet</h3>
 				<p class="text-gray-600 dark:text-gray-400 mb-4">
@@ -168,7 +169,7 @@
 					<div class="flex items-start justify-between mb-4">
 						<div class="flex items-center gap-3">
 							<div class="w-10 h-10 bg-primary-100 dark:bg-primary-900 rounded-full flex items-center justify-center">
-								<span class="text-lg">🤖</span>
+								<Bot class="h-5 w-5 text-primary-600 dark:text-primary-400" />
 							</div>
 							<div>
 								<h3 class="font-semibold text-gray-900 dark:text-white">{agent.name}</h3>

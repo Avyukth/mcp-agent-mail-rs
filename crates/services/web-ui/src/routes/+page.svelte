@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { checkHealth, getProjects, type Project } from '$lib/api/client';
+	import FolderKanban from 'lucide-svelte/icons/folder-kanban';
 
 	let healthStatus = $state<string>('checking...');
 	let projects = $state<Project[]>([]);
@@ -54,7 +55,7 @@
 		<!-- Projects Count -->
 		<div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
 			<div class="flex items-center gap-3">
-				<span class="text-2xl">📁</span>
+				<FolderKanban class="h-6 w-6 text-primary-600 dark:text-primary-400" />
 				<h3 class="font-semibold text-gray-900 dark:text-white">Projects</h3>
 			</div>
 			<p class="mt-2 text-2xl font-bold text-primary-600 dark:text-primary-400">

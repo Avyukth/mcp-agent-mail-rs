@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { getProjects, ensureProject, type Project } from '$lib/api/client';
+	import FolderKanban from 'lucide-svelte/icons/folder-kanban';
 
 	let projects = $state<Project[]>([]);
 	let loading = $state(true);
@@ -127,7 +128,7 @@
 	{:else if projects.length === 0}
 		<!-- Empty State -->
 		<div class="bg-white dark:bg-gray-800 rounded-xl p-12 text-center shadow-sm border border-gray-200 dark:border-gray-700">
-			<div class="text-4xl mb-4">📁</div>
+			<div class="mb-4 flex justify-center"><FolderKanban class="h-12 w-12 text-gray-400" /></div>
 			<h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">No projects yet</h3>
 			<p class="text-gray-600 dark:text-gray-400 mb-4">
 				Create your first project to start sending messages between agents.

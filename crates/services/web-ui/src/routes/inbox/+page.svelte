@@ -4,6 +4,7 @@
 	import { browser } from '$app/environment';
 	import { getProjects, getAgents, getInbox, type Project, type Agent, type Message } from '$lib/api/client';
 	import ComposeMessage from '$lib/components/ComposeMessage.svelte';
+	import Inbox from 'lucide-svelte/icons/inbox';
 
 	let projects = $state<Project[]>([]);
 	let agents = $state<Agent[]>([]);
@@ -226,7 +227,7 @@
 	{:else if !selectedProject || !selectedAgent}
 		<!-- Selection Prompt -->
 		<div class="bg-white dark:bg-gray-800 rounded-xl p-12 text-center shadow-sm border border-gray-200 dark:border-gray-700">
-			<div class="text-4xl mb-4">📬</div>
+			<div class="mb-4 flex justify-center"><Inbox class="h-12 w-12 text-gray-400" /></div>
 			<h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Select an Agent</h3>
 			<p class="text-gray-600 dark:text-gray-400">
 				Choose a project and agent to view their inbox.

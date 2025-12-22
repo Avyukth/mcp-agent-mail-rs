@@ -4,10 +4,15 @@
 	import { ModeWatcher, toggleMode } from 'mode-watcher';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Toaster } from '$lib/components/ui/sonner/index.js';
-	import type { Snippet } from 'svelte';
+	import type { Snippet, Component } from 'svelte';
 	import Sun from 'lucide-svelte/icons/sun';
 	import Moon from 'lucide-svelte/icons/moon';
 	import Menu from 'lucide-svelte/icons/menu';
+	import LayoutDashboard from 'lucide-svelte/icons/layout-dashboard';
+	import FolderKanban from 'lucide-svelte/icons/folder-kanban';
+	import Bot from 'lucide-svelte/icons/bot';
+	import Inbox from 'lucide-svelte/icons/inbox';
+	import Mail from 'lucide-svelte/icons/mail';
 
 	interface Props {
 		children: Snippet;
@@ -18,14 +23,14 @@
 	interface NavItem {
 		href: string;
 		label: string;
-		icon: string;
+		icon: Component;
 	}
 
 	const navItems: NavItem[] = [
-		{ href: '/', label: 'Dashboard', icon: '🏠' },
-		{ href: '/projects', label: 'Projects', icon: '📁' },
-		{ href: '/agents', label: 'Agents', icon: '🤖' },
-		{ href: '/inbox', label: 'Inbox', icon: '📬' }
+		{ href: '/', label: 'Dashboard', icon: LayoutDashboard },
+		{ href: '/projects', label: 'Projects', icon: FolderKanban },
+		{ href: '/agents', label: 'Agents', icon: Bot },
+		{ href: '/inbox', label: 'Inbox', icon: Inbox }
 	];
 
 	let sidebarOpen = $state(true);
@@ -45,7 +50,10 @@
 		class:hidden={!sidebarOpen}
 	>
 		<div class="p-4 border-b border-border">
-			<h1 class="text-xl font-bold text-primary-600 dark:text-primary-400">📧 Agent Mail</h1>
+			<h1 class="text-xl font-bold text-primary-600 dark:text-primary-400 flex items-center gap-2">
+				<Mail class="h-5 w-5" />
+				Agent Mail
+			</h1>
 			<p class="text-sm text-muted-foreground">MCP Communication Hub</p>
 		</div>
 
@@ -60,7 +68,7 @@
 					class:dark:text-primary-300={isActive(item.href)}
 					class:hover:bg-accent={!isActive(item.href)}
 				>
-					<span class="text-lg">{item.icon}</span>
+					<item.icon class="h-5 w-5" />
 					<span class="font-medium">{item.label}</span>
 				</a>
 			{/each}
