@@ -6,13 +6,15 @@
 
 ```bash
 # 1. Ensure MCP server is running
-am serve mcp --stdio  # For stdio transport
+am serve mcp  # For stdio transport (default)
 # OR
 am serve http --port 8765 --with-ui &  # For HTTP/SSE transport
 
 # 2. List available tools (47 total)
 am tools
 ```
+
+> **Important**: MCP stdio mode enforces capability checks. The `send_message` tool requires the agent to have the `send_message` capability granted. Currently no tool is exposed to grant capabilities, so use the HTTP REST API (see init-new.md) for full functionality.
 
 ---
 
