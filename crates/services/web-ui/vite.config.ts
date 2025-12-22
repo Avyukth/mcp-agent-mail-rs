@@ -3,6 +3,14 @@ import { SvelteKitPWA } from '@vite-pwa/sveltekit';
 import { defineConfig } from 'vite';
 
 export default defineConfig({
+	resolve: {
+		conditions: ['svelte', 'browser', 'import', 'default']
+	},
+	ssr: {
+		resolve: {
+			conditions: ['svelte', 'node', 'import', 'default']
+		}
+	},
 	plugins: [
 		sveltekit(),
 		SvelteKitPWA({

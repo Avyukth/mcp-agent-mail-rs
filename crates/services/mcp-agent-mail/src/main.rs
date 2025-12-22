@@ -1171,7 +1171,7 @@ async fn push_to_gh_pages(
     use base64::Engine;
     use std::io::Read;
 
-    let client = reqwest::Client::new();
+    let _client = reqwest::Client::new();
 
     // Read the bundle file
     let mut file = std::fs::File::open(bundle_path)?;
@@ -1865,9 +1865,9 @@ fn path_matches_pattern(path: &str, pattern: &str) -> bool {
     }
 
     // Exact prefix match
-    if path.starts_with(pattern) {
+    if let Some(rest) = path.strip_prefix(pattern) {
         // Must be exact match or followed by path separator
-        return path.len() == pattern.len() || path[pattern.len()..].starts_with('/');
+        return rest.is_empty() || rest.starts_with('/');
     }
 
     // Check if pattern appears as a path segment (not just substring)
