@@ -14,7 +14,7 @@ am serve http --port 8765 --with-ui &  # For HTTP/SSE transport
 am tools
 ```
 
-> **Important**: MCP stdio mode enforces capability checks. The `send_message` tool requires the agent to have the `send_message` capability granted. Currently no tool is exposed to grant capabilities, so use the HTTP REST API (see init-new.md) for full functionality.
+> **Note**: `register_agent` automatically grants default capabilities (`send_message`, `fetch_inbox`, `file_reservation_paths`, `acknowledge_message`) so all MCP tools work immediately after registration.
 
 ---
 

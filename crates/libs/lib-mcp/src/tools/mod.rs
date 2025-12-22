@@ -21,8 +21,12 @@ use std::sync::Arc;
 use lib_core::{
     ctx::Ctx,
     model::{
-        ModelManager, agent::AgentBmc, agent_capabilities::AgentCapabilityBmc,
-        file_reservation::FileReservationBmc, message::MessageBmc, product::ProductBmc,
+        ModelManager,
+        agent::AgentBmc,
+        agent_capabilities::{AgentCapabilityBmc, AgentCapabilityForCreate},
+        file_reservation::FileReservationBmc,
+        message::MessageBmc,
+        product::ProductBmc,
         project::ProjectBmc,
     },
 };
@@ -2057,7 +2061,29 @@ impl AgentMailService {
                     .await
                     .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-                let msg = format!("Registered agent '{}' with id {}", p.name, id);
+                // Auto-grant default capabilities for MCP tool usage
+                let default_capabilities = [
+                    "send_message",
+                    "fetch_inbox",
+                    "file_reservation_paths",
+                    "acknowledge_message",
+                ];
+                for cap in default_capabilities {
+                    let cap_c = AgentCapabilityForCreate {
+                        agent_id: id,
+                        capability: cap.to_string(),
+                        granted_by: None,
+                        expires_at: None,
+                    };
+                    AgentCapabilityBmc::create(&ctx, &self.mm, cap_c)
+                        .await
+                        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+                }
+
+                let msg = format!(
+                    "Registered agent '{}' with id {} (granted default capabilities)",
+                    p.name, id
+                );
                 Ok(CallToolResult::success(vec![Content::text(msg)]))
             }
         }
