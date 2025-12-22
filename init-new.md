@@ -5,11 +5,123 @@
 ## Quick Start
 
 ```bash
-# 1. Ensure server is running
+# 1. Ensure server is running if not already
 am serve http --port 8765 &
 
 # 2. Initialize agent identity
 am tools  # List all 47 MCP tools available
+```
+
+---
+
+## Git Workflow & Branch Strategy
+
+### Branch Hierarchy
+
+```
+main (protected)
+  │
+  └── beads-sync (integration branch)
+        │
+        ├── feature/NTM-001 (agent worktree)
+        ├── feature/NTM-002 (agent worktree)
+        └── feature/SVELTE-001 (agent worktree)
+```
+
+### CRITICAL: Branch Rules
+
+```
+╔════════════════════════════════════════════════════════════════╗
+║  🚨 AGENTS NEVER WORK ON MAIN BRANCH 🚨                        ║
+║  ✅ Work ONLY on beads-sync or feature branches                ║
+║  ✅ Use worktrees (.sandboxes/agent-<id>/)                     ║
+║  ✅ Coordinator merges beads-sync → main                       ║
+╚════════════════════════════════════════════════════════════════╝
+```
+
+### Three Isolation Layers
+
+| Layer | Tool | Purpose |
+|-------|------|---------|
+| 1. File Reservations | MCP `file_reservation_paths` | Logical locks, prevent same-file conflicts |
+| 2. Worktrees | `git worktree` | Physical isolation, no stash/pop needed |
+| 3. beads-sync | Integration branch | `bd sync` commits here |
+
+---
+
+## Git Worktree Setup
+
+### Creating Agent Worktree
+
+```bash
+# 1. Ensure beads-sync is up to date with main
+git checkout beads-sync
+git merge main --no-edit
+git push origin beads-sync
+
+# 2. Create isolated worktree for your task
+git worktree add .sandboxes/agent-BlueMountain -b feature/NTM-001 beads-sync
+
+# 3. Enter worktree
+cd .sandboxes/agent-BlueMountain
+```
+
+### Worktree Directory Structure
+
+```
+mcp-agent-mail-rs/                 # Main repo (beads-sync branch)
+├── .sandboxes/
+│   ├── agent-BlueMountain/        # Worktree for BlueMountain (feature/NTM-001)
+│   ├── agent-GreenCastle/         # Worktree for GreenCastle (feature/NTM-002)
+│   └── agent-RedFalcon/           # Worktree for RedFalcon (feature/SVELTE-001)
+└── ...
+```
+
+### Worktree Commands
+
+```bash
+# List all worktrees
+git worktree list
+
+# Create new worktree
+git worktree add .sandboxes/agent-$ID -b feature/<task> beads-sync
+
+# Remove worktree after completion
+git worktree remove .sandboxes/agent-$ID
+
+# Prune stale worktree refs
+git worktree prune
+```
+
+### Completing Work in Worktree
+
+```bash
+# 1. In worktree: commit changes
+git add -A
+git commit -m "feat(mcp): add tool aliases for NTM-001"
+
+# 2. Return to main repo
+cd ../..
+
+# 3. Merge feature into beads-sync
+git checkout beads-sync
+git merge feature/NTM-001 --no-edit
+git push origin beads-sync
+
+# 4. Delete feature branch
+git branch -d feature/NTM-001
+
+# 5. Remove worktree
+git worktree remove .sandboxes/agent-BlueMountain
+```
+
+### Beads in Worktree
+
+```bash
+# IMPORTANT: Use --no-daemon flag in worktrees
+bd --no-daemon ready
+bd --no-daemon update <id> --status in_progress
+bd --no-daemon close <id> --reason "Completed"
 ```
 
 ---
@@ -495,6 +607,172 @@ open → in_progress → [completed | blocked]
 
 ---
 
+## Multi-Agent Orchestration
+
+### Agent Roles
+
+| Role | Name Pattern | Responsibility |
+|------|--------------|----------------|
+| Worker | `worker-<id>` or adjective+noun | Implements task, runs quality gates |
+| Reviewer | `reviewer` | Validates work, fixes issues |
+| Human | `human` | Final oversight, merges to main |
+| Coordinator | `Coordinator` | Assigns work, manages conflicts |
+
+### Workflow State Machine
+
+```
+BEADS → WORKER → [COMPLETION] mail → REVIEWER → [APPROVED/FIXED] → HUMAN
+        (exits)    (async)           (picks up)
+```
+
+**Key**: Worker sends [COMPLETION] and **EXITS**. Does NOT wait for [APPROVED].
+
+### Subject Prefix Protocol
+
+```
+[CLAIMING]     → Agent claiming a task
+[TASK_STARTED] → Work beginning (optional)
+[PROGRESS]     → Progress update
+[HELP]         → Request assistance
+[HANDOFF]      → Transfer to another agent
+[CONFLICT]     → File reservation conflict
+[COMPLETION]   → Task done, ready for review
+[REVIEWING]    → Reviewer claiming review
+[APPROVED]     → Review passed
+[REJECTED]     → Review failed, needs rework
+[FIXED]        → Reviewer fixed issues
+[ACK]          → Human acknowledgment
+[URGENT]       → Priority escalation
+[PARALLEL]     → Parallel work opportunity
+```
+
+### Worker Phase
+
+1. `bd ready` → `bd update <id> --status in_progress`
+2. `register_agent` → `file_reservation_paths`
+3. Create worktree, implement, run quality gates
+4. Commit, merge to beads-sync
+5. Send `[COMPLETION]` mail (to=reviewer, cc=human, ack_required=true)
+6. Release reservations, **EXIT**
+
+### Reviewer Phase
+
+1. `check_inbox` for `[COMPLETION]` mails
+2. Check thread state (skip if `[APPROVED]` or `[REVIEWING]` exists)
+3. Send `[REVIEWING]` to claim
+4. **Validate**: Read files, check placeholders, verify acceptance criteria, run gates
+5. If PASS: Send `[APPROVED]`, close task
+6. If FAIL: Fix in worktree, send `[FIXED]`, close task
+
+### CC Rules
+
+| Message | To | CC |
+|---------|----|----|
+| Worker [COMPLETION] | reviewer | human |
+| Reviewer [REVIEWING/APPROVED/FIXED] | worker | human |
+| Human [ACK] | reviewer | worker |
+
+### Single-Agent Fallback
+
+If no reviewer available: Worker self-reviews and sends `[COMPLETION] (Self-Reviewed)` directly to Human.
+
+---
+
+## Quality Gates
+
+### Required Before Commit
+
+```bash
+# Run ALL in worktree before committing
+cargo check --all-targets
+cargo clippy --all-targets -- -D warnings
+cargo fmt --check
+cargo test -p lib-core --test integration -- --test-threads=1
+```
+
+### Validation Checklist
+
+- [ ] Zero `todo!()`, `unimplemented!()` in src/
+- [ ] 100% acceptance criteria mapped to code
+- [ ] All quality gates pass
+- [ ] No OWASP vulnerabilities
+- [ ] Conventional commit message format
+
+### Build Slots (CI/CD Coordination)
+
+When running builds that need exclusive access:
+
+```json
+{
+  "tool": "acquire_build_slot",
+  "arguments": {
+    "project_slug": "mcp-agent-mail-rs",
+    "agent_name": "BlueMountain",
+    "slot_type": "ci",
+    "ttl_seconds": 600,
+    "reason": "Running integration tests"
+  }
+}
+```
+
+Release after build:
+
+```json
+{
+  "tool": "release_build_slot",
+  "arguments": {
+    "project_slug": "mcp-agent-mail-rs",
+    "slot_id": 1
+  }
+}
+```
+
+---
+
+## Message Templates
+
+### [COMPLETION] (Worker → Reviewer)
+
+```markdown
+## Task Completion Report
+
+**Task ID**: mcp-agent-mail-rs-46xk | **Commit**: abc1234
+
+### Files Changed
+- crates/libs/lib-mcp/src/tools/mod.rs
+
+### Acceptance Criteria
+- [x] Added alias mapping in call_tool
+- [x] Synced schema with implementations
+- [x] Added unit tests
+
+### Quality Gates
+✅ check ✅ clippy ✅ fmt ✅ test
+```
+
+### [APPROVED] (Reviewer → Worker, cc Human)
+
+```markdown
+## Review Complete - APPROVED
+
+Implementation complete, criteria met, gates passed.
+Merged to beads-sync at commit def5678.
+```
+
+### [FIXED] (Reviewer → Worker, cc Human)
+
+```markdown
+## Review Complete - FIXED
+
+Found minor issues, fixed in commit ghi9012:
+- Fixed missing error handling in line 234
+- Added missing test case
+
+Task closed.
+```
+
+---
+
 ## Emergency Procedures
 
 ### Force Release (stuck reservation)
@@ -525,18 +803,142 @@ open → in_progress → [completed | blocked]
 
 ---
 
+## Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| `bd` shows "database not found" | `bd init --quiet` |
+| `bd` in worktree fails | Use `bd --no-daemon` flag |
+| Test DB conflicts | Add `--test-threads=1` |
+| File reservation conflict | Check inbox, coordinate with holder |
+| Worktree already exists | `git worktree remove <path>` first |
+| Branch already used by worktree | `git worktree prune` |
+| Merge conflicts on beads-sync | Pull latest, resolve, push |
+| Build slot unavailable | Check `list_build_slots`, wait or request |
+
+---
+
 ## Session End Checklist
 
 ```bash
-[ ] All active beads closed or updated with notes
-[ ] All file reservations released
-[ ] Completion messages sent for finished work
-[ ] bd sync completed
-[ ] git status shows clean working tree
+# Complete ALL before exiting
+[ ] 1. All quality gates pass (check, clippy, fmt, test)
+[ ] 2. Changes committed in worktree
+[ ] 3. Feature branch merged to beads-sync
+[ ] 4. Worktree removed: git worktree remove .sandboxes/agent-$ID
+[ ] 5. All file reservations released via MCP
+[ ] 6. [COMPLETION] message sent to reviewer
+[ ] 7. All active beads closed or updated with notes
+[ ] 8. bd sync completed
+[ ] 9. git push origin beads-sync
+[ ] 10. git status shows clean working tree
 ```
+
+### Worktree Cleanup Script
+
+```bash
+#!/bin/bash
+# cleanup-agent.sh <agent-name> <task-id>
+AGENT=$1
+TASK=$2
+
+# In worktree: final commit
+cd .sandboxes/agent-$AGENT
+git add -A && git commit -m "feat: complete $TASK" --allow-empty
+
+# Back to main repo
+cd ../..
+git checkout beads-sync
+git merge feature/$TASK --no-edit
+git push origin beads-sync
+
+# Cleanup
+git branch -d feature/$TASK
+git worktree remove .sandboxes/agent-$AGENT
+```
+
+---
+
+## Full Agent Lifecycle Example
+
+```bash
+# === STARTUP ===
+git checkout beads-sync && git pull origin beads-sync
+git merge main --no-edit
+
+# Register (via MCP)
+# ensure_project(slug="/path/to/repo", human_key="mcp-agent-mail-rs")
+# register_agent(project_slug="mcp-agent-mail-rs", name="BlueMountain", ...)
+
+# Find work
+bd ready --json
+
+# Claim task (via MCP)
+# send_message(to="Coordinator", subject="[CLAIMING] NTM-001", ...)
+
+# Reserve files (via MCP - BEFORE creating worktree)
+# file_reservation_paths(paths=["crates/libs/lib-mcp/src/tools/*.rs"], ...)
+
+# Create worktree
+git worktree add .sandboxes/agent-BlueMountain -b feature/NTM-001 beads-sync
+cd .sandboxes/agent-BlueMountain
+bd --no-daemon update mcp-agent-mail-rs-46xk --status in_progress
+
+# === WORK LOOP ===
+# Check inbox regularly (via MCP)
+# check_inbox(project_slug="mcp-agent-mail-rs", agent_name="BlueMountain")
+
+# Do work...
+# Edit files, implement feature
+
+# Run quality gates
+cargo check --all-targets
+cargo clippy --all-targets -- -D warnings
+cargo fmt --check
+cargo test -p lib-core --test integration -- --test-threads=1
+
+# Commit
+git add -A
+git commit -m "feat(mcp): add tool aliases for NTM compatibility"
+
+# === COMPLETION ===
+# Return to main repo
+cd ../..
+
+# Merge to beads-sync
+git checkout beads-sync
+git merge feature/NTM-001 --no-edit
+git push origin beads-sync
+
+# Release reservations (via MCP)
+# release_reservation(project_slug="mcp-agent-mail-rs", reservation_id=42)
+
+# Close bead
+bd close mcp-agent-mail-rs-46xk --reason "Completed: alias mapping, schema sync, tests"
+bd sync
+
+# Send completion (via MCP)
+# send_message(to="reviewer", cc="human", subject="[COMPLETION] NTM-001", ack_required=true, ...)
+
+# Cleanup worktree
+git branch -d feature/NTM-001
+git worktree remove .sandboxes/agent-BlueMountain
+
+# Check for more work
+bd ready --json
+# If more work: loop back to STARTUP
+# If no work: EXIT
+```
+
+---
 
 **Next agent prompt**:
 ```
 Continue work on mcp-agent-mail-rs. Run `bd ready --json` to find unblocked tasks.
-Check inbox for any pending messages: check_inbox(project_slug="mcp-agent-mail-rs", agent_name="<your-name>")
+Check inbox: check_inbox(project_slug="mcp-agent-mail-rs", agent_name="<your-name>")
+If starting fresh: Register first, then create worktree.
 ```
+
+---
+
+**Version**: 1.0.0 | **Last Updated**: 2025-12-22
