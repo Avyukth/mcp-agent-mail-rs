@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { sendMessage, type Agent } from "$lib/api/client";
+	import { toast } from "svelte-sonner";
 
 	interface Props {
 		projectSlug: string;
@@ -90,9 +91,11 @@
 				importance: importance,
 				ack_required: ackRequired,
 			});
+			toast.success("Message sent successfully");
 			onSent();
 		} catch (e) {
 			error = e instanceof Error ? e.message : "Failed to send message";
+			toast.error(error);
 		} finally {
 			sending = false;
 		}

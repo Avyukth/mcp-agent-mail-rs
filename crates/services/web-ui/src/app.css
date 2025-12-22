@@ -95,3 +95,32 @@
 .on-surface {
 	color: var(--color-on-surface);
 }
+
+/* Shimmer animation for skeleton loading */
+@keyframes shimmer {
+	0% {
+		background-position: -200% 0;
+	}
+	100% {
+		background-position: 200% 0;
+	}
+}
+
+.skeleton-shimmer {
+	background: linear-gradient(
+		90deg,
+		hsl(var(--muted)) 0%,
+		hsl(var(--muted-foreground) / 0.1) 50%,
+		hsl(var(--muted)) 100%
+	);
+	background-size: 200% 100%;
+	animation: shimmer 2s infinite ease-in-out;
+}
+
+/* Reduced motion preference */
+@media (prefers-reduced-motion: reduce) {
+	.skeleton-shimmer {
+		animation: none;
+		background: hsl(var(--muted));
+	}
+}

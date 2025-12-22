@@ -2,7 +2,9 @@
 	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
 	import { getAgents, registerAgent, type Agent } from '$lib/api/client';
+	import { toast } from 'svelte-sonner';
 	import Bot from 'lucide-svelte/icons/bot';
+	import { AgentCardSkeleton } from '$lib/components/skeletons';
 
 	let agents = $state<Agent[]>([]);
 	let loading = $state(true);
@@ -51,10 +53,12 @@
 				newAgent.task_description.trim() || ''
 			);
 			await loadAgents();
+			toast.success(`Agent "${newAgent.name}" registered successfully`);
 			newAgent = { name: '', program: '', model: '', task_description: '' };
 			showNewForm = false;
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to create agent';
+			toast.error(error);
 		} finally {
 			creating = false;
 		}
@@ -180,8 +184,10 @@
 
 	<!-- Loading State -->
 	{#if loading}
-		<div class="flex items-center justify-center py-12">
-			<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+			{#each Array(3) as _}
+				<AgentCardSkeleton />
+			{/each}
 		</div>
 	{:else if agents.length === 0}
 		<!-- Empty State -->

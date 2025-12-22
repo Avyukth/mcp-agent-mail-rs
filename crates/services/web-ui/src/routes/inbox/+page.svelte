@@ -3,8 +3,10 @@
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
 	import { getProjects, getAgents, getInbox, type Project, type Agent, type Message } from '$lib/api/client';
+	import { toast } from 'svelte-sonner';
 	import ComposeMessage from '$lib/components/ComposeMessage.svelte';
 	import Inbox from 'lucide-svelte/icons/inbox';
+	import { MessageListSkeleton } from '$lib/components/skeletons';
 
 	let projects = $state<Project[]>([]);
 	let agents = $state<Agent[]>([]);
@@ -234,13 +236,11 @@
 			</p>
 		</div>
 	{:else if loadingMessages}
-		<div class="flex items-center justify-center py-12">
-			<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-		</div>
+		<MessageListSkeleton rows={5} />
 	{:else if messages.length === 0}
 		<!-- Empty Inbox -->
 		<div class="bg-white dark:bg-gray-800 rounded-xl p-12 text-center shadow-sm border border-gray-200 dark:border-gray-700">
-			<div class="text-4xl mb-4">📭</div>
+			<div class="mb-4 flex justify-center"><Inbox class="h-12 w-12 text-gray-400" /></div>
 			<h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Inbox is empty</h3>
 			<p class="text-gray-600 dark:text-gray-400 mb-4">
 				No messages for {selectedAgent} yet.
@@ -284,8 +284,8 @@
 											</span>
 										{/if}
 										{#if message.thread_id}
-											<span class="text-xs text-gray-400" title="Part of a thread">
-												🧵
+											<span class="px-2 py-0.5 text-xs rounded-full bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400" title="Part of a thread">
+												Thread
 											</span>
 										{/if}
 									</div>

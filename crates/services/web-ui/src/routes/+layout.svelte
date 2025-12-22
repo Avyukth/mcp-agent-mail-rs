@@ -4,7 +4,8 @@
 	import { ModeWatcher, toggleMode } from 'mode-watcher';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import { Toaster } from '$lib/components/ui/sonner/index.js';
-	import type { Snippet, Component } from 'svelte';
+	import type { Snippet } from 'svelte';
+	import type { ComponentType } from 'svelte';
 	import Sun from 'lucide-svelte/icons/sun';
 	import Moon from 'lucide-svelte/icons/moon';
 	import Menu from 'lucide-svelte/icons/menu';
@@ -23,7 +24,7 @@
 	interface NavItem {
 		href: string;
 		label: string;
-		icon: Component;
+		icon: ComponentType;
 	}
 
 	const navItems: NavItem[] = [

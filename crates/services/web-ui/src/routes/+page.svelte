@@ -2,9 +2,11 @@
 	import { browser } from '$app/environment';
 	import { checkHealth, getProjects, type Project } from '$lib/api/client';
 	import FolderKanban from 'lucide-svelte/icons/folder-kanban';
+	import { DashboardSkeleton } from '$lib/components/skeletons';
 
 	let healthStatus = $state<string>('checking...');
 	let projects = $state<Project[]>([]);
+	let loading = $state(true);
 	let error = $state<string | null>(null);
 
 	// Use $effect for client-side data loading in Svelte 5
@@ -15,6 +17,7 @@
 	});
 
 	async function loadData() {
+		loading = true;
 		try {
 			const health = await checkHealth();
 			healthStatus = health.status;
@@ -24,6 +27,8 @@
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to connect to backend';
 			healthStatus = 'offline';
+		} finally {
+			loading = false;
 		}
 	}
 </script>
@@ -34,8 +39,11 @@
 		<p class="text-gray-600 dark:text-gray-400">Welcome to MCP Agent Mail</p>
 	</div>
 
-	<!-- Status Cards -->
-	<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+	{#if loading}
+		<DashboardSkeleton />
+	{:else}
+		<!-- Status Cards -->
+		<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
 		<!-- Backend Status -->
 		<div class="bg-white dark:bg-gray-800 rounded-xl p-6 shadow-sm border border-gray-200 dark:border-gray-700">
 			<div class="flex items-center gap-3">
@@ -111,5 +119,6 @@
 				{/each}
 			</ul>
 		</div>
+		{/if}
 	{/if}
 </div>

@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { getProjects, ensureProject, type Project } from '$lib/api/client';
+	import { toast } from 'svelte-sonner';
 	import FolderKanban from 'lucide-svelte/icons/folder-kanban';
+	import { ProjectTableSkeleton } from '$lib/components/skeletons';
 
 	let projects = $state<Project[]>([]);
 	let loading = $state(true);
@@ -39,10 +41,12 @@
 		try {
 			await ensureProject(newProjectPath.trim());
 			await loadProjects();
+			toast.success('Project created successfully');
 			newProjectPath = '';
 			showNewForm = false;
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to create project';
+			toast.error(error);
 		} finally {
 			creating = false;
 		}
@@ -122,9 +126,7 @@
 
 	<!-- Loading State -->
 	{#if loading}
-		<div class="flex items-center justify-center py-12">
-			<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
-		</div>
+		<ProjectTableSkeleton rows={3} />
 	{:else if projects.length === 0}
 		<!-- Empty State -->
 		<div class="bg-white dark:bg-gray-800 rounded-xl p-12 text-center shadow-sm border border-gray-200 dark:border-gray-700">

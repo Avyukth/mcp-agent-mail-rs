@@ -2,6 +2,7 @@
 	import { browser } from '$app/environment';
 	import { getProjects, getAgents, type Project, type Agent } from '$lib/api/client';
 	import Bot from 'lucide-svelte/icons/bot';
+	import { AgentCardSkeleton } from '$lib/components/skeletons';
 
 	interface AgentWithProject extends Agent {
 		projectSlug: string;
@@ -126,8 +127,10 @@
 
 	<!-- Loading State -->
 	{#if loading}
-		<div class="flex items-center justify-center py-12">
-			<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+		<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+			{#each Array(6) as _}
+				<AgentCardSkeleton />
+			{/each}
 		</div>
 	{:else if filteredAgents().length === 0}
 		<!-- Empty State -->
