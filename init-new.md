@@ -5,12 +5,117 @@
 ## Quick Start
 
 ```bash
-# 1. Ensure server is running if not already
-am serve http --port 8765 &
+# 1. Ensure server is running with UI
+am serve http --port 8765 --with-ui &
 
-# 2. Initialize agent identity
-am tools  # List all 47 MCP tools available
+# 2. Verify server is healthy
+curl -s http://localhost:8765/health | jq .
+# Expected: {"status":"healthy","uptime_seconds":...}
+
+# 3. List available tools
+am tools
 ```
+
+---
+
+## REST API Reference (Verified Working)
+
+> **CRITICAL**: Use these exact endpoints and field names. Field names differ from MCP tool names!
+
+### Base URL
+```
+http://localhost:8765
+```
+
+### 1. Register Agent
+```bash
+curl -s -X POST http://localhost:8765/api/register_agent \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "project_slug": "mcp-agent-mail-rs",
+    "name": "BlueMountain",
+    "program": "claude-code",
+    "model": "claude-opus-4",
+    "task_description": "Working on NTM-001"
+  }' | jq .
+```
+
+### 2. Send Message
+```bash
+# NOTE: Use "recipient_names" (array), NOT "to"
+curl -s -X POST http://localhost:8765/api/send_message \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "project_slug": "mcp-agent-mail-rs",
+    "sender_name": "BlueMountain",
+    "recipient_names": ["Coordinator"],
+    "subject": "[CLAIMING] NTM-001",
+    "body_md": "Claiming this task.",
+    "thread_id": "NTM-001",
+    "importance": "normal",
+    "ack_required": false
+  }' | jq .
+```
+
+### 3. Reserve Files
+```bash
+curl -s -X POST http://localhost:8765/api/file_reservation_paths \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "project_slug": "mcp-agent-mail-rs",
+    "agent_name": "BlueMountain",
+    "paths": ["crates/libs/lib-mcp/src/tools/mod.rs"],
+    "ttl_seconds": 3600,
+    "exclusive": true,
+    "reason": "NTM-001: Adding tool aliases"
+  }' | jq .
+# Returns: {"granted":[...],"conflicts":[]}
+```
+
+### 4. Check Inbox
+```bash
+# NOTE: Endpoint is "list_inbox", NOT "check_inbox"
+curl -s -X POST http://localhost:8765/api/list_inbox \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "project_slug": "mcp-agent-mail-rs",
+    "agent_name": "BlueMountain",
+    "limit": 10
+  }' | jq .
+```
+
+### 5. Release Reservation
+```bash
+# NOTE: Use "paths" array, NOT "reservation_id"
+curl -s -X POST http://localhost:8765/api/release_file_reservation \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "project_slug": "mcp-agent-mail-rs",
+    "agent_name": "BlueMountain",
+    "paths": ["crates/libs/lib-mcp/src/tools/mod.rs"]
+  }' | jq .
+# Returns: {"released_count":1,"released_ids":[...]}
+```
+
+### 6. List Agents
+```bash
+curl -s http://localhost:8765/api/projects/mcp-agent-mail-rs/agents | jq .
+```
+
+### 7. List Projects
+```bash
+curl -s http://localhost:8765/api/projects | jq .
+```
+
+### API Field Name Mapping
+
+| MCP Tool Parameter | REST API Field | Type |
+|--------------------|----------------|------|
+| `to` | `recipient_names` | array of strings |
+| `check_inbox` | `list_inbox` | endpoint name |
+| `reservation_id` | `paths` | array (for release) |
+| `cc` | `cc_names` | array of strings |
+| `bcc` | `bcc_names` | array of strings |
 
 ---
 
@@ -128,32 +233,34 @@ bd --no-daemon close <id> --reason "Completed"
 
 ## Phase 1: Agent Registration
 
-### Step 1.1: Ensure Project Exists
+### Prerequisites
+- Server running: `curl -s http://localhost:8765/health` returns `{"status":"healthy"}`
+- Project exists: Check with `curl -s http://localhost:8765/api/projects | jq '.[] | select(.slug=="mcp-agent-mail-rs")'`
 
-```json
-{
-  "tool": "ensure_project",
-  "arguments": {
-    "slug": "/abs/path/to/mcp-agent-mail-rs",
-    "human_key": "mcp-agent-mail-rs"
-  }
-}
-```
+### Step 1.1: Register Your Agent
 
-### Step 1.2: Register Agent Identity
-
-```json
-{
-  "tool": "register_agent",
-  "arguments": {
+```bash
+curl -s -X POST http://localhost:8765/api/register_agent \
+  -H 'Content-Type: application/json' \
+  -d '{
     "project_slug": "mcp-agent-mail-rs",
     "name": "BlueMountain",
     "program": "claude-code",
     "model": "claude-opus-4",
-    "task_description": "Working on NTM-001: Add tool aliases for NTM compatibility"
-  }
-}
+    "task_description": "Working on NTM-001"
+  }' | jq .
 ```
+
+**Expected Response:**
+```json
+{"id": 123, "name": "BlueMountain", "project_id": 122, ...}
+```
+
+**Common Errors:**
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `Project not found` | Project doesn't exist | Run `ensure_project` first |
+| `Agent already exists` | Name taken | Use different name or update existing |
 
 **Naming Convention**: Use adjective+noun format (GreenCastle, RedFalcon, BlueMountain).
 
@@ -167,43 +274,67 @@ bd --no-daemon close <id> --reason "Completed"
 bd ready --json
 ```
 
-### Step 2.2: Claim and Communicate
+### Step 2.2: Ensure Coordinator Exists
 
-```json
-{
-  "tool": "send_message",
-  "arguments": {
+**IMPORTANT**: Before sending messages to Coordinator, ensure it exists:
+
+```bash
+curl -s -X POST http://localhost:8765/api/register_agent \
+  -H 'Content-Type: application/json' \
+  -d '{
     "project_slug": "mcp-agent-mail-rs",
-    "sender_name": "BlueMountain",
-    "to": "Coordinator",
-    "subject": "[CLAIMING] NTM-001: Add tool aliases",
-    "body_md": "I am claiming issue `mcp-agent-mail-rs-46xk` (NTM-001).\n\n**Plan:**\n1. Add alias mapping in call_tool\n2. Sync schema with implementations\n3. Add unit tests\n\n**Files to reserve:** `crates/libs/lib-mcp/src/tools/mod.rs`",
-    "thread_id": "NTM-001",
-    "importance": "normal"
-  }
-}
+    "name": "Coordinator",
+    "program": "human",
+    "model": "human",
+    "task_description": "Project coordinator"
+  }' | jq .
 ```
 
-### Step 2.3: Reserve Files (BEFORE editing)
+### Step 2.3: Send Claiming Message
 
-```json
-{
-  "tool": "file_reservation_paths",
-  "arguments": {
+```bash
+# ⚠️ CRITICAL: Use "recipient_names" (array), NOT "to"
+curl -s -X POST http://localhost:8765/api/send_message \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "project_slug": "mcp-agent-mail-rs",
+    "sender_name": "BlueMountain",
+    "recipient_names": ["Coordinator"],
+    "subject": "[CLAIMING] NTM-001: Add tool aliases",
+    "body_md": "Claiming issue mcp-agent-mail-rs-46xk",
+    "thread_id": "NTM-001",
+    "importance": "normal"
+  }' | jq .
+```
+
+**Common Errors:**
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `Agent not found: Coordinator` | Recipient doesn't exist | Register Coordinator first (Step 2.2) |
+| `invalid type: string, expected sequence` | Used `"to": "X"` | Use `"recipient_names": ["X"]` |
+| `invalid escape` | Bad JSON escaping | Use file: `-d @message.json` |
+
+### Step 2.4: Reserve Files (BEFORE editing)
+
+```bash
+curl -s -X POST http://localhost:8765/api/file_reservation_paths \
+  -H 'Content-Type: application/json' \
+  -d '{
     "project_slug": "mcp-agent-mail-rs",
     "agent_name": "BlueMountain",
-    "paths": [
-      "crates/libs/lib-mcp/src/tools/mod.rs",
-      "crates/libs/lib-mcp/src/tools/*.rs"
-    ],
+    "paths": ["crates/libs/lib-mcp/src/tools/mod.rs"],
     "ttl_seconds": 3600,
     "exclusive": true,
     "reason": "NTM-001: Adding tool aliases"
-  }
-}
+  }' | jq .
 ```
 
-**If reservation fails**: Another agent has the files. Check inbox and coordinate.
+**Expected Response:**
+```json
+{"granted": [{"id": 22, "path_pattern": "...", "expires_ts": "..."}], "conflicts": []}
+```
+
+**If conflicts not empty**: Another agent has the files. Check their inbox and coordinate.
 
 ---
 
@@ -255,16 +386,18 @@ bd ready --json
 
 ### Step 3.1: Check Inbox Regularly
 
-```json
-{
-  "tool": "check_inbox",
-  "arguments": {
+```bash
+# ⚠️ CRITICAL: Endpoint is "list_inbox", NOT "check_inbox"
+curl -s -X POST http://localhost:8765/api/list_inbox \
+  -H 'Content-Type: application/json' \
+  -d '{
     "project_slug": "mcp-agent-mail-rs",
     "agent_name": "BlueMountain",
     "limit": 10
-  }
-}
+  }' | jq .
 ```
+
+**Returns**: Array of unread messages `[{"id":..., "subject":..., "sender_name":...}, ...]`
 
 ### Step 3.2: Process Messages
 
@@ -411,31 +544,42 @@ bd close mcp-agent-mail-rs-46xk --reason "Implemented alias mapping, schema sync
 
 ### Step 5.2: Release Reservations
 
-```json
-{
-  "tool": "release_reservation",
-  "arguments": {
+```bash
+# ⚠️ CRITICAL: Use "paths" array, NOT "reservation_id"
+curl -s -X POST http://localhost:8765/api/release_file_reservation \
+  -H 'Content-Type: application/json' \
+  -d '{
     "project_slug": "mcp-agent-mail-rs",
-    "reservation_id": 42
-  }
-}
+    "agent_name": "BlueMountain",
+    "paths": ["crates/libs/lib-mcp/src/tools/mod.rs"]
+  }' | jq .
+```
+
+**Expected Response:**
+```json
+{"released_count": 1, "released_ids": [22]}
 ```
 
 ### Step 5.3: Send Completion Notification
 
-```json
+```bash
+# ⚠️ CRITICAL: Use "recipient_names" array, NOT "to"
+# Use file to avoid JSON escaping issues with complex body
+cat > /tmp/completion.json << 'EOF'
 {
-  "tool": "send_message",
-  "arguments": {
-    "project_slug": "mcp-agent-mail-rs",
-    "sender_name": "BlueMountain",
-    "to": "Coordinator",
-    "subject": "[COMPLETED] NTM-001: Tool aliases",
-    "body_md": "## Task Completed\n\n**Bead**: mcp-agent-mail-rs-46xk\n**Commits**: abc1234, def5678\n\n**Changes**:\n- Added alias mapping in `call_tool`\n- Synced schema: added `whois`, `fetch_inbox`\n- Added 4 unit tests\n\n**Ready for**: NTM-002, NTM-003, NTM-004 (unblocked)",
-    "thread_id": "NTM-001",
-    "importance": "high"
-  }
+  "project_slug": "mcp-agent-mail-rs",
+  "sender_name": "BlueMountain",
+  "recipient_names": ["Coordinator"],
+  "subject": "[COMPLETION] NTM-001: Tool aliases",
+  "body_md": "Task completed. See commit abc1234.",
+  "thread_id": "NTM-001",
+  "importance": "high",
+  "ack_required": true
 }
+EOF
+curl -s -X POST http://localhost:8765/api/send_message \
+  -H 'Content-Type: application/json' \
+  -d @/tmp/completion.json | jq .
 ```
 
 ### Step 5.4: Check for More Work
