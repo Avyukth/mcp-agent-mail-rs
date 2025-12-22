@@ -15,7 +15,10 @@ use rmcp::{ErrorData as McpError, model::CallToolResult, model::Content};
 use std::sync::Arc;
 
 use super::helpers;
-use super::{GetAgentProfileParams, RegisterAgentParams, UpdateAgentProfileParams, WhoisParams};
+use super::{
+    CreateAgentIdentityParams, GetAgentProfileParams, RegisterAgentParams,
+    UpdateAgentProfileParams, WhoisParams,
+};
 
 /// Register an agent in a project.
 pub async fn register_agent_impl(
@@ -185,6 +188,106 @@ pub async fn list_agents_impl(
             a.name, a.id, a.program, a.model
         ));
     }
+
+    Ok(CallToolResult::success(vec![Content::text(output)]))
+}
+
+const ADJECTIVES: &[&str] = &[
+    "Blue", "Green", "Red", "Golden", "Silver", "Crystal", "Dark", "Bright", "Swift", "Calm",
+    "Bold", "Wise", "Noble", "Grand", "Mystic", "Ancient", "Lunar", "Solar", "Azure", "Coral",
+    "Amber", "Jade", "Onyx", "Pearl", "Scarlet", "Violet", "Copper", "Bronze", "Iron", "Steel",
+    "Frost", "Storm",
+];
+
+const NOUNS: &[&str] = &[
+    "Mountain", "Castle", "River", "Forest", "Valley", "Harbor", "Tower", "Bridge", "Falcon",
+    "Phoenix", "Dragon", "Wolf", "Eagle", "Lion", "Hawk", "Owl", "Oak", "Pine", "Willow", "Cedar",
+    "Maple", "Birch", "Ash", "Elm", "Stone", "Crystal", "Star", "Moon", "Sun", "Cloud", "Wind",
+    "Thunder",
+];
+
+fn generate_random_names(
+    existing: &std::collections::HashSet<String>,
+    count: usize,
+) -> Vec<String> {
+    let mut names = Vec::new();
+    let mut rng_seed = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos() as usize;
+
+    let mut next_rand = || {
+        rng_seed = rng_seed.wrapping_mul(1103515245).wrapping_add(12345);
+        rng_seed
+    };
+
+    for _ in 0..count * 2 {
+        let adj_idx = next_rand() % ADJECTIVES.len();
+        let noun_idx = next_rand() % NOUNS.len();
+        let name = format!("{}{}", ADJECTIVES[adj_idx], NOUNS[noun_idx]);
+
+        if !existing.contains(&name) && !names.contains(&name) {
+            names.push(name);
+            if names.len() >= count {
+                break;
+            }
+        }
+    }
+    names
+}
+
+fn find_hint_match(
+    hint: &str,
+    existing: &std::collections::HashSet<String>,
+    alternatives: &[String],
+) -> Option<String> {
+    let hint_lower = hint.to_lowercase();
+    for adj in ADJECTIVES {
+        if !adj.to_lowercase().contains(&hint_lower) {
+            continue;
+        }
+        for noun in NOUNS {
+            let name = format!("{adj}{noun}");
+            if !existing.contains(&name) && !alternatives.contains(&name) {
+                return Some(name);
+            }
+        }
+    }
+    None
+}
+
+pub async fn create_agent_identity_impl(
+    ctx: &Ctx,
+    mm: &Arc<ModelManager>,
+    params: CreateAgentIdentityParams,
+) -> Result<CallToolResult, McpError> {
+    use std::collections::HashSet;
+
+    let project = helpers::resolve_project(ctx, mm, &params.project_slug).await?;
+
+    let existing_agents = AgentBmc::list_all_for_project(ctx, mm, project.id)
+        .await
+        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+    let existing_names: HashSet<String> = existing_agents.iter().map(|a| a.name.clone()).collect();
+
+    let mut alternatives = generate_random_names(&existing_names, 5);
+
+    if let Some(hint) = &params.hint {
+        if let Some(hint_name) = find_hint_match(hint, &existing_names, &alternatives) {
+            alternatives.insert(0, hint_name);
+        }
+    }
+
+    let suggested_name = alternatives
+        .first()
+        .cloned()
+        .unwrap_or_else(|| "Agent1".to_string());
+
+    let output = format!(
+        "Suggested name: {}\nAlternatives: {}",
+        suggested_name,
+        alternatives.join(", ")
+    );
 
     Ok(CallToolResult::success(vec![Content::text(output)]))
 }

@@ -1041,6 +1041,153 @@ fn get_all_tool_schemas() -> Vec<ToolSchema> {
                 },
             ],
         },
+        ToolSchema {
+            name: "whois".into(),
+            description: "Get information about an agent including their program, model, and task description.".into(),
+            parameters: vec![
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "agent_name".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Agent name to look up".into(),
+                },
+            ],
+        },
+        // NTM compatibility aliases - these map to existing tools
+        ToolSchema {
+            name: "fetch_inbox".into(),
+            description: "Check an agent's inbox for new messages. (Alias for check_inbox/list_inbox)".into(),
+            parameters: vec![
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "agent_name".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Agent name".into(),
+                },
+                ParameterSchema {
+                    name: "limit".into(),
+                    param_type: "integer".into(),
+                    required: false,
+                    description: "Maximum messages to return".into(),
+                },
+            ],
+        },
+        ToolSchema {
+            name: "release_file_reservations".into(),
+            description: "Release a file reservation by ID. (Alias for release_reservation)".into(),
+            parameters: vec![ParameterSchema {
+                name: "reservation_id".into(),
+                param_type: "integer".into(),
+                required: true,
+                description: "Reservation ID".into(),
+            }],
+        },
+        ToolSchema {
+            name: "renew_file_reservations".into(),
+            description: "Extend the TTL of a file reservation. (Alias for renew_file_reservation)".into(),
+            parameters: vec![
+                ParameterSchema {
+                    name: "reservation_id".into(),
+                    param_type: "integer".into(),
+                    required: true,
+                    description: "Reservation ID".into(),
+                },
+                ParameterSchema {
+                    name: "ttl_seconds".into(),
+                    param_type: "integer".into(),
+                    required: false,
+                    description: "New TTL in seconds".into(),
+                },
+            ],
+        },
+        ToolSchema {
+            name: "list_project_agents".into(),
+            description: "List all agents in a project. (Alias for list_agents)".into(),
+            parameters: vec![ParameterSchema {
+                name: "project_slug".into(),
+                param_type: "string".into(),
+                required: true,
+                description: "Project slug".into(),
+            }],
+        },
+        ToolSchema {
+            name: "create_agent_identity".into(),
+            description: "Create a unique agent identity with auto-generated name.".into(),
+            parameters: vec![
+                ParameterSchema {
+                    name: "project_slug".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Project slug".into(),
+                },
+                ParameterSchema {
+                    name: "hint".into(),
+                    param_type: "string".into(),
+                    required: false,
+                    description: "Optional hint for name generation (e.g., 'blue' for BlueMountain)".into(),
+                },
+            ],
+        },
+        ToolSchema {
+            name: "macro_start_session".into(),
+            description: "Boot a project session: ensure project, register agent, optionally reserve files, fetch inbox.".into(),
+            parameters: vec![
+                ParameterSchema {
+                    name: "human_key".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Human-readable project key (creates if not exists)".into(),
+                },
+                ParameterSchema {
+                    name: "program".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Agent program identifier".into(),
+                },
+                ParameterSchema {
+                    name: "model".into(),
+                    param_type: "string".into(),
+                    required: true,
+                    description: "Model being used".into(),
+                },
+                ParameterSchema {
+                    name: "task_description".into(),
+                    param_type: "string".into(),
+                    required: false,
+                    description: "Description of agent's task".into(),
+                },
+                ParameterSchema {
+                    name: "agent_name".into(),
+                    param_type: "string".into(),
+                    required: false,
+                    description: "Agent name (auto-generated if not provided)".into(),
+                },
+                ParameterSchema {
+                    name: "file_reservation_paths".into(),
+                    param_type: "array".into(),
+                    required: false,
+                    description: "Optional file paths to reserve".into(),
+                },
+                ParameterSchema {
+                    name: "inbox_limit".into(),
+                    param_type: "integer".into(),
+                    required: false,
+                    description: "Number of inbox messages to fetch".into(),
+                },
+            ],
+        },
     ]
 }
 
@@ -1730,10 +1877,33 @@ impl ServerHandler for AgentMailService {
     ) -> impl std::future::Future<Output = Result<CallToolResult, McpError>> + Send + '_ {
         async move {
             let start = std::time::Instant::now();
-            let tool_name = request.name.clone();
+            let original_name = request.name.clone();
             let args = request.arguments.clone();
 
-            // Reject build slot tool calls when worktrees is disabled
+            let resolved_name: Option<&str> = match &*original_name {
+                "fetch_inbox" | "check_inbox" => Some("list_inbox"),
+                "release_file_reservations" => Some("release_reservation"),
+                "renew_file_reservations" => Some("renew_file_reservation"),
+                "list_project_agents" => Some("list_agents"),
+                _ => None,
+            };
+
+            let request = if let Some(new_name) = resolved_name {
+                tracing::debug!(
+                    original = %original_name,
+                    resolved = %new_name,
+                    "Resolved tool alias"
+                );
+                CallToolRequestParam {
+                    name: new_name.into(),
+                    arguments: args.clone(),
+                }
+            } else {
+                request
+            };
+
+            let tool_name = request.name.clone();
+
             if !self.worktrees_enabled && BUILD_SLOT_TOOLS.contains(&&*tool_name) {
                 tracing::warn!(
                     tool = %tool_name,
