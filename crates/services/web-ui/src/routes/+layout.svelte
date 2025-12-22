@@ -1,7 +1,13 @@
 <script lang="ts">
 	import '../app.css';
 	import { page } from '$app/stores';
+	import { ModeWatcher, toggleMode } from 'mode-watcher';
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Toaster } from '$lib/components/ui/sonner/index.js';
 	import type { Snippet } from 'svelte';
+	import Sun from 'lucide-svelte/icons/sun';
+	import Moon from 'lucide-svelte/icons/moon';
+	import Menu from 'lucide-svelte/icons/menu';
 
 	interface Props {
 		children: Snippet;
@@ -30,17 +36,17 @@
 	}
 </script>
 
+<ModeWatcher />
+<Toaster />
+
 <div class="min-h-screen flex">
-	<!-- Sidebar -->
 	<aside
-		class="w-64 bg-white dark:bg-gray-800 border-r border-gray-200 dark:border-gray-700 flex-shrink-0 transition-all duration-300"
+		class="w-64 bg-card border-r border-border flex-shrink-0 transition-all duration-300"
 		class:hidden={!sidebarOpen}
 	>
-		<div class="p-4 border-b border-gray-200 dark:border-gray-700">
-			<h1 class="text-xl font-bold text-primary-600 dark:text-primary-400">
-				📧 Agent Mail
-			</h1>
-			<p class="text-sm text-gray-500 dark:text-gray-400">MCP Communication Hub</p>
+		<div class="p-4 border-b border-border">
+			<h1 class="text-xl font-bold text-primary-600 dark:text-primary-400">📧 Agent Mail</h1>
+			<p class="text-sm text-muted-foreground">MCP Communication Hub</p>
 		</div>
 
 		<nav class="p-4 space-y-1">
@@ -52,8 +58,7 @@
 					class:dark:bg-primary-900={isActive(item.href)}
 					class:text-primary-700={isActive(item.href)}
 					class:dark:text-primary-300={isActive(item.href)}
-					class:hover:bg-gray-100={!isActive(item.href)}
-					class:dark:hover:bg-gray-700={!isActive(item.href)}
+					class:hover:bg-accent={!isActive(item.href)}
 				>
 					<span class="text-lg">{item.icon}</span>
 					<span class="font-medium">{item.label}</span>
@@ -62,28 +67,30 @@
 		</nav>
 	</aside>
 
-	<!-- Main content -->
 	<div class="flex-1 flex flex-col">
-		<!-- Top bar -->
-		<header class="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+		<header class="bg-card border-b border-border px-6 py-4">
 			<div class="flex items-center justify-between">
-				<button
-					onclick={() => sidebarOpen = !sidebarOpen}
-					class="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"
-				>
-					<span class="text-xl">☰</span>
-				</button>
+				<Button variant="ghost" size="icon" onclick={() => (sidebarOpen = !sidebarOpen)}>
+					<Menu class="h-5 w-5" />
+					<span class="sr-only">Toggle sidebar</span>
+				</Button>
 
 				<div class="flex items-center gap-4">
-					<span class="text-sm text-gray-500 dark:text-gray-400">
-						MCP Agent Mail
-					</span>
+					<span class="text-sm text-muted-foreground">MCP Agent Mail</span>
+					<Button onclick={toggleMode} variant="outline" size="icon">
+						<Sun
+							class="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 !transition-all dark:-rotate-90 dark:scale-0"
+						/>
+						<Moon
+							class="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 !transition-all dark:rotate-0 dark:scale-100"
+						/>
+						<span class="sr-only">Toggle theme</span>
+					</Button>
 				</div>
 			</div>
 		</header>
 
-		<!-- Page content -->
-		<main class="flex-1 p-6 bg-gray-50 dark:bg-gray-900 overflow-auto">
+		<main class="flex-1 p-6 bg-background overflow-auto">
 			{@render children()}
 		</main>
 	</div>
