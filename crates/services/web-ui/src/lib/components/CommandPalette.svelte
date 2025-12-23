@@ -10,7 +10,6 @@
 	import SunMoon from 'lucide-svelte/icons/sun-moon';
 	import Settings from 'lucide-svelte/icons/settings';
 	import Search from 'lucide-svelte/icons/search';
-	import FileText from 'lucide-svelte/icons/file-text';
 	import Fuse from 'fuse.js';
 
 	let open = $state(false);
