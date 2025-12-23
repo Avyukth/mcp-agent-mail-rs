@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page, type Route } from '@playwright/test';
 
 const sampleMessages = [
 	{
@@ -29,8 +29,8 @@ const sampleMessages = [
 	}
 ];
 
-async function mockUnifiedInbox(page) {
-	await page.route('**/api/unified-inbox**', async (route) => {
+async function mockUnifiedInbox(page: Page) {
+	await page.route('**/api/unified-inbox**', async (route: Route) => {
 		await route.fulfill({
 			status: 200,
 			contentType: 'application/json',
