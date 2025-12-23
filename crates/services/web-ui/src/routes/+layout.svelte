@@ -1,19 +1,9 @@
 <script lang="ts">
 	import '../app.css';
-	import { page } from '$app/stores';
-	import { ModeWatcher, toggleMode } from 'mode-watcher';
-	import { Button } from '$lib/components/ui/button/index.js';
+	import { ModeWatcher } from 'mode-watcher';
 	import { Toaster } from '$lib/components/ui/sonner/index.js';
+	import { AppSidebar } from '$lib/components/layout/index.js';
 	import type { Snippet } from 'svelte';
-	import type { ComponentType } from 'svelte';
-	import Sun from 'lucide-svelte/icons/sun';
-	import Moon from 'lucide-svelte/icons/moon';
-	import Menu from 'lucide-svelte/icons/menu';
-	import LayoutDashboard from 'lucide-svelte/icons/layout-dashboard';
-	import FolderKanban from 'lucide-svelte/icons/folder-kanban';
-	import Bot from 'lucide-svelte/icons/bot';
-	import Inbox from 'lucide-svelte/icons/inbox';
-	import Mail from 'lucide-svelte/icons/mail';
 
 	interface Props {
 		children: Snippet;
@@ -21,86 +11,20 @@
 
 	let { children }: Props = $props();
 
-	interface NavItem {
-		href: string;
-		label: string;
-		icon: ComponentType;
-	}
-
-	const navItems: NavItem[] = [
-		{ href: '/', label: 'Dashboard', icon: LayoutDashboard },
-		{ href: '/projects', label: 'Projects', icon: FolderKanban },
-		{ href: '/agents', label: 'Agents', icon: Bot },
-		{ href: '/mail', label: 'Mail', icon: Mail },
-		{ href: '/inbox', label: 'Inbox', icon: Inbox }
-	];
-
-	let sidebarOpen = $state(true);
-
-	function isActive(href: string): boolean {
-		if (href === '/') return $page.url.pathname === '/';
-		return $page.url.pathname.startsWith(href);
-	}
+	// TODO: Fetch actual unread count from API
+	let unreadCount = $state(3);
 </script>
 
 <ModeWatcher />
 <Toaster />
 
 <div class="min-h-screen flex">
-	<aside
-		class="w-64 bg-card border-r border-border flex-shrink-0 transition-all duration-300"
-		class:hidden={!sidebarOpen}
-	>
-		<div class="p-4 border-b border-border">
-			<h1 class="text-xl font-bold text-primary-600 dark:text-primary-400 flex items-center gap-2">
-				<Mail class="h-5 w-5" />
-				Agent Mail
-			</h1>
-			<p class="text-sm text-muted-foreground">MCP Communication Hub</p>
-		</div>
+	<!-- Sidebar (handles both mobile sheet trigger and desktop sidebar) -->
+	<AppSidebar {unreadCount} />
 
-		<nav class="p-4 space-y-1">
-			{#each navItems as item}
-				<a
-					href={item.href}
-					class="flex items-center gap-3 px-3 py-2 rounded-lg transition-colors"
-					class:bg-primary-100={isActive(item.href)}
-					class:dark:bg-primary-900={isActive(item.href)}
-					class:text-primary-700={isActive(item.href)}
-					class:dark:text-primary-300={isActive(item.href)}
-					class:hover:bg-accent={!isActive(item.href)}
-				>
-					<item.icon class="h-5 w-5" />
-					<span class="font-medium">{item.label}</span>
-				</a>
-			{/each}
-		</nav>
-	</aside>
-
-	<div class="flex-1 flex flex-col">
-		<header class="bg-card border-b border-border px-6 py-4">
-			<div class="flex items-center justify-between">
-				<Button variant="ghost" size="icon" onclick={() => (sidebarOpen = !sidebarOpen)}>
-					<Menu class="h-5 w-5" />
-					<span class="sr-only">Toggle sidebar</span>
-				</Button>
-
-				<div class="flex items-center gap-4">
-					<span class="text-sm text-muted-foreground">MCP Agent Mail</span>
-					<Button onclick={toggleMode} variant="outline" size="icon">
-						<Sun
-							class="h-[1.2rem] w-[1.2rem] rotate-0 scale-100 !transition-all dark:-rotate-90 dark:scale-0"
-						/>
-						<Moon
-							class="absolute h-[1.2rem] w-[1.2rem] rotate-90 scale-0 !transition-all dark:rotate-0 dark:scale-100"
-						/>
-						<span class="sr-only">Toggle theme</span>
-					</Button>
-				</div>
-			</div>
-		</header>
-
-		<main class="flex-1 p-6 bg-background overflow-auto">
+	<!-- Main content -->
+	<div class="flex-1 flex flex-col min-w-0">
+		<main class="flex-1 p-4 md:p-6 bg-background overflow-auto">
 			{@render children()}
 		</main>
 	</div>
