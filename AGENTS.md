@@ -1303,9 +1303,10 @@ Key variables (see `.env.example` for all 35+):
 ║  ❌ FORBIDDEN: git commit on main                                            ║
 ║  ❌ FORBIDDEN: git push origin main (from agent)                             ║
 ║                                                                              ║
-║  ✅ REQUIRED: Work ONLY on beads-sync or feature branches                    ║
+║  ✅ REQUIRED: Work ONLY on dev or feature branches                           ║
 ║  ✅ REQUIRED: Use worktrees for isolation (.sandboxes/agent-<id>/)           ║
-║  ✅ REQUIRED: Coordinator (human) merges beads-sync → main                   ║
+║  ✅ REQUIRED: Feature branches merge → dev, Coordinator merges dev → main    ║
+║  ✅ REQUIRED: beads-sync is ISOLATED (data only, never merges with code)     ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 ```
 
@@ -1329,33 +1330,42 @@ All agents MUST follow this workflow. No exceptions. Failure to follow causes me
            │
            ▼
 ┌─────────────────────────────────────────────────────────────┐
-│  LAYER 3: BEADS-SYNC (Integration branch)                   │
-│  - All agent work merges here first                         │
-│  - bd sync commits issue state                              │
-│  - Coordinator merges to main                               │
+│  LAYER 3: DEV BRANCH (Code integration)                     │
+│  - All feature branches merge here                          │
+│  - Coordinator reviews and merges dev → main                │
+└─────────────────────────────────────────────────────────────┘
+           │
+           ▼
+┌─────────────────────────────────────────────────────────────┐
+│  LAYER 4: BEADS-SYNC (Data only - ISOLATED)                 │
+│  - bd sync commits issue state here                         │
+│  - NEVER merges with code branches (main, dev, feature/*)   │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 #### Branch Structure
 
 ```
-main (protected/stable)
+main (production, protected)
   │
-  └── beads-sync (integration branch - bd sync commits here)
-        │
-        ├── .sandboxes/agent-001/ → feature/task-abc
-        ├── .sandboxes/agent-002/ → feature/task-def
-        └── .sandboxes/agent-003/ → feature/task-ghi
+  ├── dev (development/integration branch)
+  │     │
+  │     ├── .sandboxes/agent-001/ → feature/task-abc
+  │     ├── .sandboxes/agent-002/ → feature/task-def
+  │     └── .sandboxes/agent-003/ → feature/task-ghi
+  │
+  └── beads-sync (ISOLATED - beads data only)
+        └── Only .beads/ changes, auto-synced by bd
 ```
 
 #### Phase 1: Agent Startup (MANDATORY)
 
 ```bash
-# 1. Sync beads-sync with main (coordinator does this once)
-git checkout beads-sync
-git pull origin beads-sync
-git merge main --no-edit
-git push origin beads-sync
+# 1. Sync dev with main (coordinator does this periodically)
+git checkout dev
+git pull origin dev
+git merge main --no-edit  # Only if main has hotfixes
+git push origin dev
 
 # 2. Register with Agent Mail (MANDATORY - before any work)
 export AGENT_ID=$(uuidgen | cut -c1-8)
@@ -1380,8 +1390,8 @@ curl -X POST http://localhost:8765/api/file_reservations/paths \
   }'
 # If reservation fails (another agent has lock) → STOP, coordinate via Agent Mail
 
-# 4. Create isolated worktree FROM beads-sync
-git worktree add .sandboxes/agent-$AGENT_ID -b feature/<task-id> beads-sync
+# 4. Create isolated worktree FROM dev
+git worktree add .sandboxes/agent-$AGENT_ID -b feature/<task-id> dev
 cd .sandboxes/agent-$AGENT_ID
 
 # 5. Claim task in beads
@@ -1423,37 +1433,41 @@ curl -X POST http://localhost:8765/api/file_reservations/release \
 
 # 2. Close beads task
 bd --no-daemon close <task-id>
-git add .beads/ && git commit -m "chore(beads): close <task-id>"
 
 # 3. Return to main repo
 cd ../..
 
-# 4. Merge worktree to beads-sync
-git checkout beads-sync
+# 4. Merge worktree to dev
+git checkout dev
 git merge feature/<task-id> --no-edit
-git push origin beads-sync
+git push origin dev
 
-# 5. Clean up worktree
+# 5. Sync beads (separate from code)
+bd sync  # Commits to beads-sync branch automatically
+
+# 6. Clean up worktree
 git worktree remove .sandboxes/agent-$AGENT_ID
 git branch -d feature/<task-id>
 
-# 6. Notify completion via Agent Mail
+# 7. Notify completion via Agent Mail
 curl -X POST http://localhost:8765/api/message/send \
   -d '{"project_slug":"...","sender":"agent-'$AGENT_ID'","recipients":["coordinator"],"subject":"COMPLETED: <task-id>",...}'
 ```
 
-#### Phase 4: Coordinator Merges to Main
+#### Phase 4: Coordinator Merges to Main (Release)
 
 ```bash
-# Only coordinator does this (after reviewing agent work)
+# Only coordinator/human does this (after reviewing agent work on dev)
 git checkout main
-git merge beads-sync --no-edit
+git merge dev --no-edit  # Or create PR: dev → main
 git push origin main
+git tag -a v1.x.x -m "Release v1.x.x"  # Optional: tag release
+git push origin v1.x.x
 
-# Sync beads-sync with updated main
-git checkout beads-sync
+# Sync dev with updated main (if hotfixes were applied to main)
+git checkout dev
 git merge main --no-edit
-git push origin beads-sync
+git push origin dev
 ```
 
 #### Why Each Layer is Mandatory
@@ -1462,7 +1476,8 @@ git push origin beads-sync
 |-------|----------------|------------------------|
 | **File Reservations** | Prevents same-file edits | Merge conflicts, lost work |
 | **Worktrees** | Eliminates stash/pop | Complex state, errors |
-| **Beads-sync** | bd sync works | Worktree conflict with main |
+| **Dev branch** | Code integration point | Feature branches conflict |
+| **Beads-sync** | Isolated beads data | Data mixed with code branches |
 | **Agent Mail** | Async coordination | Agents step on each other |
 
 #### Anti-Patterns (NEVER DO)
@@ -1471,9 +1486,10 @@ git push origin beads-sync
 |--------|--------|
 | `git stash` / `git stash pop` | Use worktree per agent |
 | Edit files without reservation | Reserve BEFORE editing |
-| Work directly on main/beads-sync | Work in worktree only |
+| Work directly on main/dev | Work in feature/* worktree only |
 | Skip Agent Mail registration | Always register first |
 | Force push to shared branches | Only merge, never force |
+| Merge beads-sync with code branches | Keep beads-sync isolated (data only) |
 
 ### Quality Gates
 
@@ -2031,10 +2047,11 @@ Implements: <task-id>
 
 🤖 Generated with Claude Code"
 
-# 5. Return to main and merge
+# 5. Return to dev and merge
 cd ../..
-git checkout main
+git checkout dev
 git merge feature/<task-id> --no-edit
+git push origin dev
 
 # 6. Clean up worktree
 git worktree remove .sandboxes/worker-<task-id>
@@ -2053,7 +2070,7 @@ git branch -d feature/<task-id>
 **Task ID**: <beads-id>
 **Task Title**: <title from beads>
 **Commit ID**: <40-char git SHA>
-**Branch**: main (merged from feature/<task-id>)
+**Branch**: dev (merged from feature/<task-id>)
 
 ### Files Changed
 <output of: git diff --name-only <merge-base>..HEAD>
@@ -2112,7 +2129,7 @@ cargo test -p <affected-crate>
 │  2. Register agent                                          │
 │  3. Reserve files                                          │
 │  4. Implement & run quality gates                          │
-│  5. Commit & merge to main                                 │
+│  5. Commit & merge to dev                                  │
 │  6. Send [COMPLETION] mail                                 │
 │  7. Release reservations                                   │
 │  8. ✅ SESSION ENDS — Worker does NOT await [APPROVED]     │
@@ -2354,10 +2371,11 @@ Fixes:
 - <issue 1>
 - <issue 2>"
 
-# 5. Merge to main
+# 5. Merge to dev
 cd ../..
-git checkout main
+git checkout dev
 git merge fix/<task-id> --no-edit
+git push origin dev
 
 # 6. Clean up
 git worktree remove .sandboxes/reviewer-fix-<task-id>
@@ -2739,10 +2757,12 @@ bd sync               # Commit and push changes
 **See [MANDATORY: Parallel Agent Workflow (ULTRA Pattern)](#mandatory-parallel-agent-workflow-ultra-pattern) above for the complete workflow.**
 
 Key points:
-- **beads-sync** is the integration branch (configured via `bd config set sync.branch beads-sync`)
+- **dev** is the code integration branch (feature branches merge here)
+- **beads-sync** is isolated for beads data only (configured via `bd config set sync.branch beads-sync`)
 - **Worktrees** provide physical isolation (`.sandboxes/agent-<id>/`)
 - **File reservations** prevent same-file conflicts
 - **Agent Mail** is mandatory for all coordination
+- **main** receives merges from dev only (releases)
 
 ### Session Protocol
 
@@ -2752,13 +2772,16 @@ Key points:
 curl -X POST http://localhost:8765/api/file_reservations/release \
   -d '{"project_slug":"...","agent_name":"..."}'
 
-# 2. Commit and merge
+# 2. Commit and merge to dev
 git add -A && git commit -m "..."
-cd ../.. && git checkout beads-sync
+cd ../.. && git checkout dev
 git merge feature/<task-id> --no-edit
-git push origin beads-sync
+git push origin dev
 
-# 3. Clean up worktree
+# 3. Sync beads (separate from code)
+bd sync
+
+# 4. Clean up worktree
 git worktree remove .sandboxes/agent-$AGENT_ID
 ```
 
