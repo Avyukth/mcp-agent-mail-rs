@@ -248,6 +248,15 @@ export async function listThreads(projectSlug: string): Promise<ThreadSummary[]>
 	});
 }
 
+export async function getThreadMessages(
+	projectSlug: string,
+	_agentName: string,
+	threadId: string
+): Promise<Message[]> {
+	const thread = await getThread(projectSlug, threadId);
+	return thread.messages;
+}
+
 // ============================================================================
 // Unified Inbox (Cross-Project)
 // ============================================================================
