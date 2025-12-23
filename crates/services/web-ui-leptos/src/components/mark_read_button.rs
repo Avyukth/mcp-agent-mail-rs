@@ -137,8 +137,6 @@ pub fn MarkReadButton(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_mark_read_button_props() {
         // Basic smoke test - component can be instantiated with props

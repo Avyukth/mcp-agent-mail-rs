@@ -123,8 +123,6 @@ pub fn Pagination(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn test_pagination_button_meets_touch_target() {
         // WCAG 2.2 requires 44x44px minimum

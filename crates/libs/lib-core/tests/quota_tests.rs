@@ -13,7 +13,7 @@
 mod common;
 
 use crate::common::TestContext;
-use lib_common::config::{AppConfig, QuotaConfig};
+use lib_common::config::AppConfig;
 use lib_core::model::agent::{AgentBmc, AgentForCreate};
 use lib_core::model::attachment::{AttachmentBmc, AttachmentForCreate};
 use lib_core::model::message::{MessageBmc, MessageForCreate};
