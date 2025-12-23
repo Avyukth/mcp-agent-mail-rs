@@ -4,6 +4,7 @@
 
 @layer base {
 	:root {
+		/* === shadcn Base Tokens === */
 		--background: 0 0% 100%;
 		--foreground: 224 71.4% 4.1%;
 		--card: 0 0% 100%;
@@ -25,19 +26,44 @@
 		--ring: 239 84% 67%;
 		--radius: 0.5rem;
 
-		--color-primary: #6366f1;
-		--color-primary-container: #e0e7ff;
-		--color-on-primary: #ffffff;
-		--color-secondary: #4f46e5;
-		--color-surface: #ffffff;
-		--color-surface-variant: #f3f4f6;
-		--color-on-surface: #1f2937;
-		--color-outline: #d1d5db;
-		--color-error: #ef4444;
-		--color-success: #22c55e;
+		/* === Spacing Scale (8px grid) === */
+		--space-1: 0.25rem;  /* 4px */
+		--space-2: 0.5rem;   /* 8px */
+		--space-3: 0.75rem;  /* 12px */
+		--space-4: 1rem;     /* 16px */
+		--space-6: 1.5rem;   /* 24px */
+		--space-8: 2rem;     /* 32px */
+		--space-12: 3rem;    /* 48px */
+
+		/* === Animation Tokens === */
+		--duration-instant: 50ms;
+		--duration-fast: 150ms;
+		--duration-normal: 200ms;
+		--duration-slow: 300ms;
+		--duration-slower: 500ms;
+		--ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+		--ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+		--ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+		/* === Status Colors (HSL) === */
+		--status-online: 142 76% 36%;
+		--status-offline: 0 84% 60%;
+		--status-pending: 38 92% 50%;
+		--status-idle: 220 9% 46%;
+
+		/* === Shadow Tokens === */
+		--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+		--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+		--shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+		--shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.1), 0 8px 10px -6px rgb(0 0 0 / 0.1);
+		--shadow-focus: 0 0 0 3px hsl(var(--ring) / 0.3);
+
+		/* === Touch Target === */
+		--touch-target-min: 44px;
 	}
 
 	.dark {
+		/* === shadcn Base Tokens (Dark) === */
 		--background: 224 71.4% 4.1%;
 		--foreground: 210 20% 98%;
 		--card: 224 71.4% 4.1%;
@@ -58,16 +84,11 @@
 		--input: 215 27.9% 16.9%;
 		--ring: 239 84% 67%;
 
-		--color-primary: #818cf8;
-		--color-primary-container: #312e81;
-		--color-on-primary: #1e1b4b;
-		--color-secondary: #a5b4fc;
-		--color-surface: #111827;
-		--color-surface-variant: #1f2937;
-		--color-on-surface: #f9fafb;
-		--color-outline: #4b5563;
-		--color-error: #f87171;
-		--color-success: #4ade80;
+		/* === Shadow Tokens (Dark) === */
+		--shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+		--shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.3);
+		--shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.4), 0 4px 6px -4px rgb(0 0 0 / 0.3);
+		--shadow-xl: 0 20px 25px -5px rgb(0 0 0 / 0.4), 0 8px 10px -6px rgb(0 0 0 / 0.3);
 	}
 }
 
@@ -83,17 +104,80 @@
 	}
 }
 
-.surface {
-	background-color: var(--color-surface);
+/* === Entrance Animations (CSS Keyframes) === */
+@keyframes fade-in {
+	from {
+		opacity: 0;
+	}
+	to {
+		opacity: 1;
+	}
 }
-.surface-variant {
-	background-color: var(--color-surface-variant);
+
+@keyframes fade-in-up {
+	from {
+		opacity: 0;
+		transform: translateY(10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
 }
-.primary {
-	color: var(--color-primary);
+
+@keyframes fade-in-down {
+	from {
+		opacity: 0;
+		transform: translateY(-10px);
+	}
+	to {
+		opacity: 1;
+		transform: translateY(0);
+	}
 }
-.on-surface {
-	color: var(--color-on-surface);
+
+@keyframes slide-in-right {
+	from {
+		opacity: 0;
+		transform: translateX(20px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+@keyframes slide-in-left {
+	from {
+		opacity: 0;
+		transform: translateX(-20px);
+	}
+	to {
+		opacity: 1;
+		transform: translateX(0);
+	}
+}
+
+@keyframes scale-in {
+	from {
+		opacity: 0;
+		transform: scale(0.95);
+	}
+	to {
+		opacity: 1;
+		transform: scale(1);
+	}
+}
+
+@keyframes blur-fade-in {
+	from {
+		opacity: 0;
+		filter: blur(4px);
+	}
+	to {
+		opacity: 1;
+		filter: blur(0);
+	}
 }
 
 /* Shimmer animation for skeleton loading */
@@ -106,6 +190,17 @@
 	}
 }
 
+/* === Pulse animation for status indicators === */
+@keyframes pulse-status {
+	0%, 100% {
+		opacity: 1;
+	}
+	50% {
+		opacity: 0.5;
+	}
+}
+
+/* === Utility Classes === */
 .skeleton-shimmer {
 	background: linear-gradient(
 		90deg,
@@ -117,10 +212,49 @@
 	animation: shimmer 2s infinite ease-in-out;
 }
 
-/* Reduced motion preference */
+/* Status indicator utilities */
+.status-online {
+	background-color: hsl(var(--status-online));
+}
+.status-offline {
+	background-color: hsl(var(--status-offline));
+}
+.status-pending {
+	background-color: hsl(var(--status-pending));
+	animation: pulse-status 2s infinite;
+}
+.status-idle {
+	background-color: hsl(var(--status-idle));
+}
+
+/* Touch target enforcement */
+.touch-target {
+	min-height: var(--touch-target-min);
+	min-width: var(--touch-target-min);
+}
+
+/* Focus visible ring */
+.focus-ring {
+	@apply outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2;
+}
+
+/* === Reduced Motion Preference === */
 @media (prefers-reduced-motion: reduce) {
+	*,
+	*::before,
+	*::after {
+		animation-duration: 0.01ms !important;
+		animation-iteration-count: 1 !important;
+		transition-duration: 0.01ms !important;
+		scroll-behavior: auto !important;
+	}
+
 	.skeleton-shimmer {
 		animation: none;
 		background: hsl(var(--muted));
+	}
+
+	.status-pending {
+		animation: none;
 	}
 }

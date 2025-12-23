@@ -59,8 +59,16 @@ export default {
 					DEFAULT: 'hsl(var(--card) / <alpha-value>)',
 					foreground: 'hsl(var(--card-foreground) / <alpha-value>)'
 				},
-				// Python reference colors
+				// Status colors (semantic)
+				status: {
+					online: 'hsl(var(--status-online) / <alpha-value>)',
+					offline: 'hsl(var(--status-offline) / <alpha-value>)',
+					pending: 'hsl(var(--status-pending) / <alpha-value>)',
+					idle: 'hsl(var(--status-idle) / <alpha-value>)'
+				},
+				// Semantic colors
 				success: {
+					DEFAULT: '#10b981',
 					50: '#f0fdf4',
 					100: '#dcfce7',
 					200: '#bbf7d0',
@@ -73,6 +81,7 @@ export default {
 					900: '#064e3b'
 				},
 				warning: {
+					DEFAULT: '#f59e0b',
 					50: '#fffbeb',
 					100: '#fef3c7',
 					200: '#fde68a',
@@ -85,6 +94,7 @@ export default {
 					900: '#78350f'
 				},
 				danger: {
+					DEFAULT: '#ef4444',
 					50: '#fef2f2',
 					100: '#fee2e2',
 					200: '#fecaca',
@@ -97,6 +107,17 @@ export default {
 					900: '#7f1d1d'
 				}
 			},
+			// Spacing aliases for 8px grid
+			spacing: {
+				'touch': 'var(--touch-target-min)'
+			},
+			// Min height for touch targets
+			minHeight: {
+				'touch': 'var(--touch-target-min)'
+			},
+			minWidth: {
+				'touch': 'var(--touch-target-min)'
+			},
 			borderRadius: {
 				lg: 'var(--radius)',
 				md: 'calc(var(--radius) - 2px)',
@@ -105,7 +126,15 @@ export default {
 			fontFamily: {
 				sans: [...fontFamily.sans]
 			},
+			boxShadow: {
+				'sm': 'var(--shadow-sm)',
+				'md': 'var(--shadow-md)',
+				'lg': 'var(--shadow-lg)',
+				'xl': 'var(--shadow-xl)',
+				'focus': 'var(--shadow-focus)'
+			},
 			keyframes: {
+				// shadcn/bits-ui keyframes
 				'accordion-down': {
 					from: { height: '0' },
 					to: { height: 'var(--bits-accordion-content-height)' }
@@ -117,12 +146,64 @@ export default {
 				'caret-blink': {
 					'0%,70%,100%': { opacity: '1' },
 					'20%,50%': { opacity: '0' }
+				},
+				// Entrance animations
+				'fade-in': {
+					from: { opacity: '0' },
+					to: { opacity: '1' }
+				},
+				'fade-in-up': {
+					from: { opacity: '0', transform: 'translateY(10px)' },
+					to: { opacity: '1', transform: 'translateY(0)' }
+				},
+				'fade-in-down': {
+					from: { opacity: '0', transform: 'translateY(-10px)' },
+					to: { opacity: '1', transform: 'translateY(0)' }
+				},
+				'slide-in-right': {
+					from: { opacity: '0', transform: 'translateX(20px)' },
+					to: { opacity: '1', transform: 'translateX(0)' }
+				},
+				'slide-in-left': {
+					from: { opacity: '0', transform: 'translateX(-20px)' },
+					to: { opacity: '1', transform: 'translateX(0)' }
+				},
+				'scale-in': {
+					from: { opacity: '0', transform: 'scale(0.95)' },
+					to: { opacity: '1', transform: 'scale(1)' }
+				},
+				'blur-fade-in': {
+					from: { opacity: '0', filter: 'blur(4px)' },
+					to: { opacity: '1', filter: 'blur(0)' }
 				}
 			},
 			animation: {
+				// shadcn/bits-ui animations
 				'accordion-down': 'accordion-down 0.2s ease-out',
 				'accordion-up': 'accordion-up 0.2s ease-out',
-				'caret-blink': 'caret-blink 1.25s ease-out infinite'
+				'caret-blink': 'caret-blink 1.25s ease-out infinite',
+				// Entrance animations (using CSS variable timing)
+				'fade-in': 'fade-in var(--duration-normal, 200ms) var(--ease-out, ease-out)',
+				'fade-in-up': 'fade-in-up var(--duration-normal, 200ms) var(--ease-out, ease-out)',
+				'fade-in-down': 'fade-in-down var(--duration-normal, 200ms) var(--ease-out, ease-out)',
+				'slide-in-right': 'slide-in-right var(--duration-normal, 200ms) var(--ease-out, ease-out)',
+				'slide-in-left': 'slide-in-left var(--duration-normal, 200ms) var(--ease-out, ease-out)',
+				'scale-in': 'scale-in var(--duration-fast, 150ms) var(--ease-out, ease-out)',
+				'blur-fade-in': 'blur-fade-in var(--duration-slow, 300ms) var(--ease-out, ease-out)',
+				// Quick variants
+				'fade-in-fast': 'fade-in var(--duration-fast, 150ms) var(--ease-out, ease-out)',
+				'scale-in-fast': 'scale-in var(--duration-fast, 150ms) var(--ease-out, ease-out)'
+			},
+			// Animation delay utilities for staggering
+			transitionDelay: {
+				'0': '0ms',
+				'50': '50ms',
+				'100': '100ms',
+				'150': '150ms',
+				'200': '200ms',
+				'300': '300ms',
+				'400': '400ms',
+				'500': '500ms'
 			}
 		}
 	},
