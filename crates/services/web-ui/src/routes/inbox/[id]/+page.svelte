@@ -4,6 +4,9 @@
 	import { browser } from '$app/environment';
 	import { getMessage, getAgents, type Message, type Agent } from '$lib/api/client';
 	import ComposeMessage from '$lib/components/ComposeMessage.svelte';
+	import ArrowLeft from 'lucide-svelte/icons/arrow-left';
+	import Reply from 'lucide-svelte/icons/reply';
+	import Inbox from 'lucide-svelte/icons/inbox';
 
 	let message = $state<Message | null>(null);
 	let agents = $state<Agent[]>([]);
@@ -86,7 +89,7 @@
 	<!-- Breadcrumb / Back -->
 	<nav class="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
 		<button onclick={goBack} class="hover:text-primary-600 dark:hover:text-primary-400 flex items-center gap-1">
-			<span>←</span>
+			<ArrowLeft class="h-4 w-4" />
 			<span>Back to Inbox</span>
 		</button>
 		{#if agentName}
@@ -140,7 +143,7 @@
 							onclick={() => showReply = true}
 							class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2"
 						>
-							<span>↩️</span>
+							<Reply class="h-4 w-4" />
 							<span>Reply</span>
 						</button>
 					{/if}
@@ -189,9 +192,10 @@
 		<div class="flex items-center gap-3">
 			<button
 				onclick={goBack}
-				class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+				class="px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors flex items-center gap-2"
 			>
-				← Back to Inbox
+				<ArrowLeft class="h-4 w-4" />
+				<span>Back to Inbox</span>
 			</button>
 			{#if projectSlug && agentName && agents.length > 0}
 				<button
@@ -205,7 +209,7 @@
 	{:else}
 		<!-- Not Found -->
 		<div class="bg-white dark:bg-gray-800 rounded-xl p-12 text-center shadow-sm border border-gray-200 dark:border-gray-700">
-			<div class="text-4xl mb-4">📭</div>
+			<div class="mb-4 flex justify-center"><Inbox class="h-12 w-12 text-gray-400" /></div>
 			<h3 class="text-lg font-semibold text-gray-900 dark:text-white mb-2">Message not found</h3>
 			<p class="text-gray-600 dark:text-gray-400 mb-4">
 				The message you're looking for doesn't exist or has been deleted.

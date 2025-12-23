@@ -6,6 +6,8 @@
 	import { toast } from 'svelte-sonner';
 	import ComposeMessage from '$lib/components/ComposeMessage.svelte';
 	import Inbox from 'lucide-svelte/icons/inbox';
+	import PenSquare from 'lucide-svelte/icons/pen-square';
+	import RefreshCw from 'lucide-svelte/icons/refresh-cw';
 	import { MessageListSkeleton } from '$lib/components/skeletons';
 
 	let projects = $state<Project[]>([]);
@@ -153,7 +155,7 @@
 				onclick={() => showCompose = true}
 				class="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors flex items-center gap-2"
 			>
-				<span class="text-lg">✉️</span>
+				<PenSquare class="h-4 w-4" />
 				<span>Compose</span>
 			</button>
 		{/if}
@@ -205,9 +207,10 @@
 					<button
 						onclick={loadMessages}
 						disabled={loadingMessages}
-						class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50"
+						class="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors disabled:opacity-50 flex items-center gap-2"
 					>
-						🔄 Refresh
+						<RefreshCw class="h-4 w-4 {loadingMessages ? 'animate-spin' : ''}" />
+						<span>Refresh</span>
 					</button>
 				</div>
 			{/if}

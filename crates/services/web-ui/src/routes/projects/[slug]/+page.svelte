@@ -4,6 +4,7 @@
 	import { getAgents, registerAgent, type Agent } from '$lib/api/client';
 	import { toast } from 'svelte-sonner';
 	import Bot from 'lucide-svelte/icons/bot';
+	import ArrowRight from 'lucide-svelte/icons/arrow-right';
 	import { AgentCardSkeleton } from '$lib/components/skeletons';
 
 	let agents = $state<Agent[]>([]);
@@ -241,9 +242,10 @@
 					<div class="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
 						<a
 							href="/inbox?project={$page.params.slug}&agent={agent.name}"
-							class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 text-sm font-medium"
+							class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 text-sm font-medium inline-flex items-center gap-1"
 						>
-							View Inbox →
+							<span>View Inbox</span>
+							<ArrowRight class="h-4 w-4" />
 						</a>
 					</div>
 				</div>

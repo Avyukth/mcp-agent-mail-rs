@@ -2,6 +2,7 @@
 	import { browser } from '$app/environment';
 	import { checkHealth, getProjects, type Project } from '$lib/api/client';
 	import FolderKanban from 'lucide-svelte/icons/folder-kanban';
+	import ArrowRight from 'lucide-svelte/icons/arrow-right';
 	import { DashboardSkeleton } from '$lib/components/skeletons';
 
 	let healthStatus = $state<string>('checking...');
@@ -77,15 +78,17 @@
 			<div class="space-y-2">
 				<a
 					href="/projects"
-					class="block px-4 py-2 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 rounded-lg hover:bg-primary-200 dark:hover:bg-primary-800 transition-colors"
+					class="flex items-center justify-between px-4 py-2 bg-primary-100 dark:bg-primary-900 text-primary-700 dark:text-primary-300 rounded-lg hover:bg-primary-200 dark:hover:bg-primary-800 transition-colors"
 				>
-					View Projects →
+					<span>View Projects</span>
+					<ArrowRight class="h-4 w-4" />
 				</a>
 				<a
 					href="/inbox"
-					class="block px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+					class="flex items-center justify-between px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
 				>
-					Check Inbox →
+					<span>Check Inbox</span>
+					<ArrowRight class="h-4 w-4" />
 				</a>
 			</div>
 		</div>

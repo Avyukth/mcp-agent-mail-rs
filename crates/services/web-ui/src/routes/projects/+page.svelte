@@ -3,6 +3,7 @@
 	import { getProjects, ensureProject, type Project } from '$lib/api/client';
 	import { toast } from 'svelte-sonner';
 	import FolderKanban from 'lucide-svelte/icons/folder-kanban';
+	import ArrowRight from 'lucide-svelte/icons/arrow-right';
 	import { ProjectTableSkeleton } from '$lib/components/skeletons';
 
 	let projects = $state<Project[]>([]);
@@ -184,9 +185,10 @@
 							<td class="px-6 py-4 whitespace-nowrap text-right">
 								<a
 									href="/projects/{project.slug}"
-									class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 text-sm font-medium"
+									class="text-primary-600 dark:text-primary-400 hover:text-primary-800 dark:hover:text-primary-300 text-sm font-medium inline-flex items-center gap-1"
 								>
-									View Agents →
+									<span>View Agents</span>
+									<ArrowRight class="h-4 w-4" />
 								</a>
 							</td>
 						</tr>
