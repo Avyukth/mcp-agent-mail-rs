@@ -405,7 +405,7 @@
 						<p class="mt-1">Try adjusting filters or wait for new mail.</p>
 					</div>
 				{:else}
-					<div class="divide-y divide-border">
+					<div class="divide-y divide-border overflow-y-auto max-h-[calc(100vh-20rem)]">
 						{#each $filteredMessages as message}
 							<button
 								data-testid={`mail-item-${message.id}`}
@@ -456,9 +456,7 @@
 										<p class="mt-2 text-sm font-medium text-foreground">
 											{message.subject || '(No subject)'}
 										</p>
-										<p class="mt-1 text-xs text-muted-foreground line-clamp-2">
-											{message.excerpt ?? message.body_md ?? ''}
-										</p>
+										<p class="mt-1 text-xs text-muted-foreground line-clamp-2">{message.excerpt ?? message.body_md ?? ''}</p>
 									</div>
 								</div>
 							</button>
@@ -469,7 +467,7 @@
 
 			<div
 				data-testid="mail-detail"
-				class="bg-card border border-border rounded-xl p-6"
+				class="bg-card border border-border rounded-xl p-6 overflow-y-auto max-h-[calc(100vh-16rem)]"
 			>
 				{#if $selectedMessage}
 					<div class="flex items-start justify-between gap-4">
@@ -518,9 +516,7 @@
 
 					<div class="mt-6">
 						<h3 class="text-sm font-semibold text-foreground">Message</h3>
-						<pre class="mt-2 whitespace-pre-wrap text-sm text-muted-foreground bg-muted/30 rounded-lg p-4">
-							{$selectedMessage.body_md ?? ''}
-						</pre>
+						<pre class="mt-2 whitespace-pre-wrap text-sm text-muted-foreground bg-muted/30 rounded-lg p-4 overflow-x-auto">{$selectedMessage.body_md ?? ''}</pre>
 					</div>
 				{:else}
 					<div data-testid="mail-empty-detail" class="text-center text-sm text-muted-foreground py-12">

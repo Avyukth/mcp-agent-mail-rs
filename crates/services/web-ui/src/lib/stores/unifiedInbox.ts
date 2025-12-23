@@ -17,6 +17,7 @@ export interface Message {
 	sender_name: string;
 	subject: string;
 	body_md?: string | null;
+	excerpt?: string | null;
 	importance?: string;
 	thread_id?: string | null;
 	recipients?: string[];

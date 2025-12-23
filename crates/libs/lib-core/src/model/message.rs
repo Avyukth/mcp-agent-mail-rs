@@ -101,6 +101,8 @@ pub struct UnifiedInboxItem {
     pub sender_name: String,
     pub thread_id: Option<String>,
     pub subject: String,
+    pub body_md: String,
+    pub excerpt: String,
     pub importance: String,
     pub created_ts: NaiveDateTime,
 }
@@ -1179,7 +1181,7 @@ impl MessageBmc {
                 let q = r#"
                     SELECT
                         m.id, m.project_id, p.slug as project_slug, m.sender_id, ag.name as sender_name,
-                        m.thread_id, m.subject, m.importance, m.created_ts
+                        m.thread_id, m.subject, m.body_md, m.importance, m.created_ts
                     FROM messages AS m
                     JOIN agents AS ag ON m.sender_id = ag.id
                     JOIN projects AS p ON m.project_id = p.id
@@ -1193,7 +1195,7 @@ impl MessageBmc {
                 let q = r#"
                     SELECT
                         m.id, m.project_id, p.slug as project_slug, m.sender_id, ag.name as sender_name,
-                        m.thread_id, m.subject, m.importance, m.created_ts
+                        m.thread_id, m.subject, m.body_md, m.importance, m.created_ts
                     FROM messages AS m
                     JOIN agents AS ag ON m.sender_id = ag.id
                     JOIN projects AS p ON m.project_id = p.id
@@ -1207,7 +1209,7 @@ impl MessageBmc {
                 let q = r#"
                     SELECT
                         m.id, m.project_id, p.slug as project_slug, m.sender_id, ag.name as sender_name,
-                        m.thread_id, m.subject, m.importance, m.created_ts
+                        m.thread_id, m.subject, m.body_md, m.importance, m.created_ts
                     FROM messages AS m
                     JOIN agents AS ag ON m.sender_id = ag.id
                     JOIN projects AS p ON m.project_id = p.id
@@ -1232,10 +1234,22 @@ impl MessageBmc {
             let sender_name: String = row.get(4)?;
             let thread_id: Option<String> = row.get(5)?;
             let subject: String = row.get(6)?;
-            let importance: String = row.get(7)?;
-            let created_ts_str: String = row.get(8)?;
+            let body_md: String = row.get(7)?;
+            let importance: String = row.get(8)?;
+            let created_ts_str: String = row.get(9)?;
             let created_ts = NaiveDateTime::parse_from_str(&created_ts_str, "%Y-%m-%d %H:%M:%S")
                 .unwrap_or_default();
+
+            // Generate excerpt: first 200 chars, truncated at word boundary
+            let excerpt = if body_md.len() <= 200 {
+                body_md.clone()
+            } else {
+                let truncated = &body_md[..200];
+                match truncated.rfind(char::is_whitespace) {
+                    Some(pos) if pos > 100 => format!("{}…", &truncated[..pos]),
+                    _ => format!("{}…", truncated),
+                }
+            };
 
             items.push(UnifiedInboxItem {
                 id,
@@ -1245,6 +1259,8 @@ impl MessageBmc {
                 sender_name,
                 thread_id,
                 subject,
+                body_md,
+                excerpt,
                 importance,
                 created_ts,
             });
