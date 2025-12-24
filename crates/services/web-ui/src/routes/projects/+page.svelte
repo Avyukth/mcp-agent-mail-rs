@@ -31,6 +31,7 @@
 	import { Label } from "$lib/components/ui/label";
 	import { Textarea } from "$lib/components/ui/textarea";
 	import { SearchInput } from "$lib/components/ui/search-input";
+	import { SortButton, type SortDirection } from "$lib/components/ui/sort-button";
 
 	let projects = $state<Project[]>([]);
 	let loading = $state(true);
@@ -39,15 +40,40 @@
 	// Search filter
 	let searchQuery = $state("");
 
-	// Filter projects by search query
+	// Sort state
+	type SortField = 'name' | 'date';
+	let sortField = $state<SortField>('date');
+	let sortDirection = $state<SortDirection>('desc');
+
+	function handleSort(field: string, direction: SortDirection) {
+		sortField = field as SortField;
+		sortDirection = direction;
+	}
+
+	// Filter and sort projects
 	let filteredProjects = $derived(() => {
-		if (!searchQuery.trim()) return projects;
-		const query = searchQuery.toLowerCase();
-		return projects.filter(
-			(p) =>
-				p.human_key.toLowerCase().includes(query) ||
-				p.slug.toLowerCase().includes(query)
-		);
+		let result = projects;
+
+		// Apply search filter
+		if (searchQuery.trim()) {
+			const query = searchQuery.toLowerCase();
+			result = result.filter(
+				(p) =>
+					p.human_key.toLowerCase().includes(query) ||
+					p.slug.toLowerCase().includes(query)
+			);
+		}
+
+		// Apply sorting
+		return [...result].sort((a, b) => {
+			let comparison = 0;
+			if (sortField === 'name') {
+				comparison = a.human_key.localeCompare(b.human_key);
+			} else if (sortField === 'date') {
+				comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+			}
+			return sortDirection === 'asc' ? comparison : -comparison;
+		});
 	});
 
 	// New project form
@@ -191,13 +217,30 @@
 		</div>
 	</BlurFade>
 
-	<!-- Sticky Toolbar: Search + Count -->
+	<!-- Sticky Toolbar: Search + Sort + Count -->
 	<div class="sticky top-0 z-10 -mx-4 md:-mx-6 px-4 md:px-6 py-3 bg-background/95 backdrop-blur-sm border-b border-border">
 		<div class="flex flex-col sm:flex-row gap-3 sm:items-center">
 			<div class="flex-1 max-w-md">
 				<SearchInput
 					bind:value={searchQuery}
 					placeholder="Search projects..."
+				/>
+			</div>
+			<div class="flex items-center gap-1">
+				<span class="text-xs text-muted-foreground mr-2">Sort by:</span>
+				<SortButton
+					field="name"
+					label="Name"
+					currentField={sortField}
+					currentDirection={sortDirection}
+					onSort={handleSort}
+				/>
+				<SortButton
+					field="date"
+					label="Date"
+					currentField={sortField}
+					currentDirection={sortDirection}
+					onSort={handleSort}
 				/>
 			</div>
 		</div>

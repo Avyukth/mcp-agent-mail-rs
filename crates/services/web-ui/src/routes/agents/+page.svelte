@@ -10,6 +10,7 @@
 	import { Badge } from '$lib/components/ui/badge';
 	import { Input } from '$lib/components/ui/input';
 	import { FilterCombobox } from '$lib/components/ui/combobox';
+	import { SortButton, type SortDirection } from '$lib/components/ui/sort-button';
 
 	interface AgentWithProject extends Agent {
 		projectSlug: string;
@@ -23,6 +24,16 @@
 	// Filters
 	let selectedProject = $state<string>('');
 	let searchQuery = $state('');
+
+	// Sort state
+	type SortField = 'name' | 'model' | 'activity';
+	let sortField = $state<SortField>('activity');
+	let sortDirection = $state<SortDirection>('desc');
+
+	function handleSort(field: string, direction: SortDirection) {
+		sortField = field as SortField;
+		sortDirection = direction;
+	}
 
 	// Use $effect for client-side data loading in Svelte 5
 	$effect(() => {
@@ -104,7 +115,18 @@
 			);
 		}
 
-		return result;
+		// Apply sorting
+		return [...result].sort((a, b) => {
+			let comparison = 0;
+			if (sortField === 'name') {
+				comparison = a.name.localeCompare(b.name);
+			} else if (sortField === 'model') {
+				comparison = a.model.localeCompare(b.model);
+			} else if (sortField === 'activity') {
+				comparison = new Date(a.last_active_ts).getTime() - new Date(b.last_active_ts).getTime();
+			}
+			return sortDirection === 'asc' ? comparison : -comparison;
+		});
 	});
 </script>
 
@@ -117,7 +139,7 @@
 		</div>
 	</BlurFade>
 
-	<!-- Sticky Toolbar: Search + Filter + Count -->
+	<!-- Sticky Toolbar: Search + Filter + Sort + Count -->
 	<div class="sticky top-0 z-10 -mx-4 md:-mx-6 px-4 md:px-6 py-3 bg-background/95 backdrop-blur-sm border-b border-border">
 		<div class="flex flex-col md:flex-row gap-3 md:gap-4">
 			<!-- Search -->
@@ -142,6 +164,32 @@
 					placeholder="All Projects"
 					searchPlaceholder="Search projects..."
 					emptyMessage="No projects found."
+				/>
+			</div>
+
+			<!-- Sort Controls -->
+			<div class="flex items-center gap-1">
+				<span class="text-xs text-muted-foreground mr-2">Sort by:</span>
+				<SortButton
+					field="name"
+					label="Name"
+					currentField={sortField}
+					currentDirection={sortDirection}
+					onSort={handleSort}
+				/>
+				<SortButton
+					field="model"
+					label="Model"
+					currentField={sortField}
+					currentDirection={sortDirection}
+					onSort={handleSort}
+				/>
+				<SortButton
+					field="activity"
+					label="Activity"
+					currentField={sortField}
+					currentDirection={sortDirection}
+					onSort={handleSort}
 				/>
 			</div>
 		</div>
