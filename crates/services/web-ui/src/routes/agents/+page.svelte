@@ -11,6 +11,8 @@
 	import { Input } from '$lib/components/ui/input';
 	import { FilterCombobox } from '$lib/components/ui/combobox';
 	import { SortButton, type SortDirection } from '$lib/components/ui/sort-button';
+	import { EmptyState } from '$lib/components/ui/empty-state';
+	import { Button } from '$lib/components/ui/button';
 
 	interface AgentWithProject extends Agent {
 		projectSlug: string;
@@ -226,23 +228,29 @@
 	{:else if filteredAgents().length === 0}
 		<!-- Empty State -->
 		<BlurFade delay={150}>
-			<Card.Root class="p-8 md:p-12 text-center">
-				<div class="mb-4 flex justify-center"><Bot class="h-12 w-12 text-muted-foreground" /></div>
+			<Card.Root class="p-8 md:p-12">
 				{#if allAgents.length === 0}
-					<h3 class="text-lg font-semibold text-foreground mb-2">No agents yet</h3>
-					<p class="text-muted-foreground mb-4">
-						Create a project and register agents to get started.
-					</p>
-					<a href="/projects">
-						<ShimmerButton>
-							Go to Projects
-						</ShimmerButton>
-					</a>
+					<EmptyState
+						title="No agents yet"
+						description="Create a project and register agents to get started."
+						actionLabel="Go to Projects"
+						onAction={() => window.location.href = '/projects'}
+					>
+						{#snippet icon()}
+							<Bot class="h-12 w-12" />
+						{/snippet}
+					</EmptyState>
 				{:else}
-					<h3 class="text-lg font-semibold text-foreground mb-2">No matching agents</h3>
-					<p class="text-muted-foreground">
-						Try adjusting your search or filter criteria.
-					</p>
+					<EmptyState
+						title="No matching agents"
+						description="Try adjusting your search or filter criteria."
+						actionLabel="Clear filters"
+						onAction={() => { searchQuery = ''; selectedProject = ''; }}
+					>
+						{#snippet icon()}
+							<Bot class="h-12 w-12" />
+						{/snippet}
+					</EmptyState>
 				{/if}
 			</Card.Root>
 		</BlurFade>

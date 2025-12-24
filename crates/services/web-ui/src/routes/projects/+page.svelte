@@ -34,6 +34,7 @@
 	import { SortButton, type SortDirection } from "$lib/components/ui/sort-button";
 	import { BulkActionBar } from "$lib/components/ui/bulk-action-bar";
 	import { Checkbox } from "$lib/components/ui/checkbox";
+	import { EmptyState } from "$lib/components/ui/empty-state";
 
 	let projects = $state<Project[]>([]);
 	let loading = $state(true);
@@ -368,39 +369,33 @@
 	{:else if projects.length === 0}
 		<!-- Empty State - No Projects -->
 		<BlurFade delay={100}>
-			<Card.Root class="p-8 md:p-12 text-center">
-				<div class="mb-4 flex justify-center">
-					<FolderKanban class="h-12 w-12 text-muted-foreground" />
-				</div>
-				<h3 class="text-lg font-semibold text-foreground mb-2">
-					No projects yet
-				</h3>
-				<p class="text-muted-foreground mb-4">
-					Create your first project to start sending messages between
-					agents.
-				</p>
-				<ShimmerButton on:click={() => (showNewForm = true)}>
-					<Plus class="h-4 w-4 mr-2" />
-					Create Project
-				</ShimmerButton>
+			<Card.Root class="p-8 md:p-12">
+				<EmptyState
+					title="No projects yet"
+					description="Create your first project to start sending messages between agents."
+					actionLabel="Create Project"
+					onAction={() => (showNewForm = true)}
+				>
+					{#snippet icon()}
+						<FolderKanban class="h-12 w-12" />
+					{/snippet}
+				</EmptyState>
 			</Card.Root>
 		</BlurFade>
 	{:else if filteredProjects().length === 0}
 		<!-- Empty State - No Matching Results -->
 		<BlurFade delay={100}>
-			<Card.Root class="p-8 md:p-12 text-center">
-				<div class="mb-4 flex justify-center">
-					<FolderKanban class="h-12 w-12 text-muted-foreground" />
-				</div>
-				<h3 class="text-lg font-semibold text-foreground mb-2">
-					No projects found
-				</h3>
-				<p class="text-muted-foreground mb-4">
-					No projects match "{searchQuery}". Try a different search term.
-				</p>
-				<Button variant="outline" onclick={() => (searchQuery = "")}>
-					Clear search
-				</Button>
+			<Card.Root class="p-8 md:p-12">
+				<EmptyState
+					title="No projects found"
+					description="No projects match your search. Try a different search term."
+					actionLabel="Clear search"
+					onAction={() => (searchQuery = "")}
+				>
+					{#snippet icon()}
+						<FolderKanban class="h-12 w-12" />
+					{/snippet}
+				</EmptyState>
 			</Card.Root>
 		</BlurFade>
 	{:else}

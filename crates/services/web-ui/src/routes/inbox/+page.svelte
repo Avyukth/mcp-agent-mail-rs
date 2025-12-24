@@ -16,6 +16,7 @@
 	import { FilterCombobox } from '$lib/components/ui/combobox/index.js';
 	import { ShimmerButton, BlurFade } from '$lib/components/magic';
 	import { MessageListSkeleton } from '$lib/components/skeletons';
+	import { EmptyState } from '$lib/components/ui/empty-state';
 
 	// Icons
 	import Inbox from 'lucide-svelte/icons/inbox';
@@ -275,12 +276,15 @@
 	{:else if !selectedProject || !selectedAgent}
 		<!-- Selection Prompt -->
 		<BlurFade delay={200}>
-			<Card.Root class="p-8 md:p-12 text-center">
-				<div class="mb-4 flex justify-center"><Inbox class="h-12 w-12 text-muted-foreground" /></div>
-				<h3 class="text-lg font-semibold text-foreground mb-2">Select an Agent</h3>
-				<p class="text-muted-foreground">
-					Choose a project and agent to view their inbox.
-				</p>
+			<Card.Root class="p-8 md:p-12">
+				<EmptyState
+					title="Select a Project and Agent"
+					description="Choose a project and agent above to view their inbox."
+				>
+					{#snippet icon()}
+						<Inbox class="h-12 w-12" />
+					{/snippet}
+				</EmptyState>
 			</Card.Root>
 		</BlurFade>
 	{:else if loadingMessages}
@@ -288,15 +292,17 @@
 	{:else if messages.length === 0}
 		<!-- Empty Inbox -->
 		<BlurFade delay={200}>
-			<Card.Root class="p-8 md:p-12 text-center">
-				<div class="mb-4 flex justify-center"><Inbox class="h-12 w-12 text-muted-foreground" /></div>
-				<h3 class="text-lg font-semibold text-foreground mb-2">Inbox is empty</h3>
-				<p class="text-muted-foreground mb-4">
-					No messages for {selectedAgent} yet.
-				</p>
-				<ShimmerButton on:click={() => showCompose = true}>
-					Send a Message
-				</ShimmerButton>
+			<Card.Root class="p-8 md:p-12">
+				<EmptyState
+					title="Inbox is empty"
+					description="No messages for {selectedAgent} yet."
+					actionLabel="Send a Message"
+					onAction={() => showCompose = true}
+				>
+					{#snippet icon()}
+						<Inbox class="h-12 w-12" />
+					{/snippet}
+				</EmptyState>
 			</Card.Root>
 		</BlurFade>
 	{:else}
