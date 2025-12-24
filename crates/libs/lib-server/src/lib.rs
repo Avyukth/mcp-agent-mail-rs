@@ -6,6 +6,7 @@ use std::net::SocketAddr;
 use std::sync::OnceLock;
 use std::time::Instant;
 use tower_http::cors::{Any, CorsLayer};
+use tower_http::limit::RequestBodyLimitLayer;
 use tower_http::set_header::SetResponseHeaderLayer;
 use tower_http::trace::TraceLayer;
 
@@ -190,7 +191,9 @@ pub async fn run(config: lib_common::config::AppConfig) -> std::result::Result<(
         .layer(SetResponseHeaderLayer::overriding(
             HeaderName::from_static("permissions-policy"),
             HeaderValue::from_static("camera=(), microphone=(), geolocation=()"),
-        ));
+        ))
+        // 9. Request Body Size Limit (NIST SC-5 DoS Protection)
+        .layer(RequestBodyLimitLayer::new(get_request_body_limit()));
 
     // Conditionally add embedded web UI routes
     #[cfg(feature = "with-web-ui")]
@@ -256,6 +259,20 @@ async fn shutdown_signal() {
     }
 
     tracing::info!("Signal received, starting graceful shutdown");
+}
+
+/// Get the request body size limit from environment variable or use default
+/// Default: 1MB (1048576 bytes)
+/// Set MAX_REQUEST_SIZE_MB environment variable to override
+fn get_request_body_limit() -> usize {
+    const DEFAULT_LIMIT_MB: usize = 1;
+    const BYTES_PER_MB: usize = 1024 * 1024;
+
+    std::env::var("MAX_REQUEST_SIZE_MB")
+        .ok()
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(DEFAULT_LIMIT_MB)
+        * BYTES_PER_MB
 }
 
 async fn root_handler() -> &'static str {

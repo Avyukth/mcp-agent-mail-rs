@@ -44,7 +44,7 @@ chrono = { workspace = true }
 # Web Framework
 axum = "0.8.7"
 tokio = { version = "1.48.0", features = ["full"] }
-tower-http = { version = "0.6.8", features = ["trace", "cors", "request-id", "set-header"] }
+tower-http = { version = "0.6.8", features = ["trace", "cors", "request-id", "set-header", "limit"] }
 reqwest = { version = "0.12.26", features = ["json", "rustls-tls"], default-features = false }
 
 # Metrics
