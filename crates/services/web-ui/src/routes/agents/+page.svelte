@@ -109,7 +109,7 @@
 </script>
 
 <div class="space-y-4 md:space-y-6">
-	<!-- Header -->
+	<!-- Header (scrolls away) -->
 	<BlurFade delay={0}>
 		<div>
 			<h1 class="text-xl md:text-2xl font-bold text-foreground">All Agents</h1>
@@ -117,39 +117,47 @@
 		</div>
 	</BlurFade>
 
-	<!-- Filters -->
-	<BlurFade delay={100}>
-		<Card.Root>
-			<Card.Content class="p-3 md:p-4">
-				<div class="flex flex-col md:flex-row gap-3 md:gap-4">
-					<!-- Search -->
-					<div class="flex-1">
-						<div class="relative">
-							<Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-							<Input
-								type="text"
-								bind:value={searchQuery}
-								placeholder="Search by name, program, model, or task..."
-								class="pl-10"
-							/>
-						</div>
-					</div>
-
-					<!-- Project Filter -->
-					<div class="md:w-64">
-						<FilterCombobox
-							value={selectedProject ? getProjectName(selectedProject) : ''}
-							onValueChange={handleProjectChange}
-							options={projectOptions}
-							placeholder="All Projects"
-							searchPlaceholder="Search projects..."
-							emptyMessage="No projects found."
-						/>
-					</div>
+	<!-- Sticky Toolbar: Search + Filter + Count -->
+	<div class="sticky top-0 z-10 -mx-4 md:-mx-6 px-4 md:px-6 py-3 bg-background/95 backdrop-blur-sm border-b border-border">
+		<div class="flex flex-col md:flex-row gap-3 md:gap-4">
+			<!-- Search -->
+			<div class="flex-1">
+				<div class="relative">
+					<Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+					<Input
+						type="text"
+						bind:value={searchQuery}
+						placeholder="Search by name, program, model, or task..."
+						class="pl-10"
+					/>
 				</div>
-			</Card.Content>
-		</Card.Root>
-	</BlurFade>
+			</div>
+
+			<!-- Project Filter -->
+			<div class="md:w-64">
+				<FilterCombobox
+					value={selectedProject ? getProjectName(selectedProject) : ''}
+					onValueChange={handleProjectChange}
+					options={projectOptions}
+					placeholder="All Projects"
+					searchPlaceholder="Search projects..."
+					emptyMessage="No projects found."
+				/>
+			</div>
+		</div>
+
+		<!-- Stats (always visible when not loading) -->
+		{#if !loading}
+			<div class="flex items-center gap-4 text-sm text-muted-foreground mt-3">
+				<span>Showing {filteredAgents().length} of {allAgents.length} agents</span>
+				{#if selectedProject}
+					<Badge variant="secondary">
+						{getProjectName(selectedProject)}
+					</Badge>
+				{/if}
+			</div>
+		{/if}
+	</div>
 
 	<!-- Error Message -->
 	{#if error}
@@ -191,18 +199,6 @@
 			</Card.Root>
 		</BlurFade>
 	{:else}
-		<!-- Stats -->
-		<BlurFade delay={150}>
-			<div class="flex items-center gap-4 text-sm text-muted-foreground">
-				<span>Showing {filteredAgents().length} of {allAgents.length} agents</span>
-				{#if selectedProject}
-					<Badge variant="secondary">
-						{getProjectName(selectedProject)}
-					</Badge>
-				{/if}
-			</div>
-		</BlurFade>
-
 		<!-- Agents Grid -->
 		<BlurFade delay={200}>
 			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
