@@ -2079,18 +2079,14 @@ impl AgentMailService {
         &self,
         params: Parameters<SendMessageParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::agent::AgentBmc;
         use lib_core::model::message::{MessageBmc, MessageForCreate};
 
         let ctx = self.ctx();
         let p = params.0;
 
-        // Get project and sender
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        let sender = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.sender_name)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("Sender not found: {}", e), None))?;
+        let (project, sender) =
+            helpers::resolve_project_and_agent(&ctx, &self.mm, &p.project_slug, &p.sender_name)
+                .await?;
 
         if !AgentCapabilityBmc::check(&ctx, &self.mm, sender.id, "send_message")
             .await
@@ -2105,47 +2101,15 @@ impl AgentMailService {
             ));
         }
 
-        // Helper to resolve list of names to IDs
-        async fn resolve_agents(
-            ctx: &lib_core::Ctx,
-            mm: &lib_core::ModelManager,
-            project_id: i64,
-            names_str: &str,
-        ) -> Result<Vec<i64>, McpError> {
-            use lib_core::model::agent::AgentBmc;
-            let names: Vec<&str> = names_str
-                .split(',')
-                .map(|s| s.trim())
-                .filter(|s| !s.is_empty())
-                .collect();
-            let mut ids = Vec::new();
-            for name in names {
-                let agent = AgentBmc::get_by_name(ctx, mm, project_id, name)
-                    .await
-                    .map_err(|e| {
-                        McpError::invalid_params(format!("Agent '{}' not found: {}", name, e), None)
-                    })?;
-                ids.push(agent.id);
-            }
-            Ok(ids)
-        }
+        let recipient_ids = helpers::resolve_agent_names(&ctx, &self.mm, project.id, &p.to).await?;
 
-        // Parse recipients
-        let recipient_ids = resolve_agents(&ctx, &self.mm, project.id, &p.to).await?;
+        let cc_ids =
+            helpers::resolve_optional_agent_names(&ctx, &self.mm, project.id, p.cc.as_deref())
+                .await?;
 
-        let cc_ids = if let Some(cc) = &p.cc {
-            let ids = resolve_agents(&ctx, &self.mm, project.id, cc).await?;
-            if ids.is_empty() { None } else { Some(ids) }
-        } else {
-            None
-        };
-
-        let bcc_ids = if let Some(bcc) = &p.bcc {
-            let ids = resolve_agents(&ctx, &self.mm, project.id, bcc).await?;
-            if ids.is_empty() { None } else { Some(ids) }
-        } else {
-            None
-        };
+        let bcc_ids =
+            helpers::resolve_optional_agent_names(&ctx, &self.mm, project.id, p.bcc.as_deref())
+                .await?;
 
         // Create message
         let msg_c = MessageForCreate {
@@ -2178,17 +2142,14 @@ impl AgentMailService {
         &self,
         params: Parameters<ListInboxParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::agent::AgentBmc;
         use lib_core::model::message::MessageBmc;
 
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
+        let (project, agent) =
+            helpers::resolve_project_and_agent(&ctx, &self.mm, &p.project_slug, &p.agent_name)
+                .await?;
 
         if !AgentCapabilityBmc::check(&ctx, &self.mm, agent.id, "fetch_inbox")
             .await
@@ -2262,16 +2223,12 @@ impl AgentMailService {
         description = "Get information about an agent including their program, model, and task description."
     )]
     async fn whois(&self, params: Parameters<WhoisParams>) -> Result<CallToolResult, McpError> {
-        use lib_core::model::agent::AgentBmc;
-
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
+        let (_project, agent) =
+            helpers::resolve_project_and_agent(&ctx, &self.mm, &p.project_slug, &p.agent_name)
+                .await?;
 
         let output = format!(
             "Agent: {}\nID: {}\nProgram: {}\nModel: {}\nTask: {}\nContact Policy: {}\nAttachments Policy: {}",
@@ -2479,17 +2436,14 @@ impl AgentMailService {
         &self,
         params: Parameters<ReplyMessageParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::agent::AgentBmc;
         use lib_core::model::message::{MessageBmc, MessageForCreate};
 
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        let sender = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.sender_name)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("Sender not found: {}", e), None))?;
+        let (project, sender) =
+            helpers::resolve_project_and_agent(&ctx, &self.mm, &p.project_slug, &p.sender_name)
+                .await?;
 
         if !AgentCapabilityBmc::check(&ctx, &self.mm, sender.id, "send_message")
             .await
@@ -2541,17 +2495,14 @@ impl AgentMailService {
         &self,
         params: Parameters<MarkMessageReadParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::agent::AgentBmc;
         use lib_core::model::message::MessageBmc;
 
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
+        let (_project, agent) =
+            helpers::resolve_project_and_agent(&ctx, &self.mm, &p.project_slug, &p.agent_name)
+                .await?;
 
         MessageBmc::mark_read(&ctx, &self.mm, p.message_id, agent.id)
             .await
@@ -2570,17 +2521,14 @@ impl AgentMailService {
         &self,
         params: Parameters<AcknowledgeMessageParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::agent::AgentBmc;
         use lib_core::model::message::MessageBmc;
 
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
+        let (_project, agent) =
+            helpers::resolve_project_and_agent(&ctx, &self.mm, &p.project_slug, &p.agent_name)
+                .await?;
 
         if !AgentCapabilityBmc::check(&ctx, &self.mm, agent.id, "acknowledge_message")
             .await
@@ -2683,11 +2631,9 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
+        let (_project, agent) =
+            helpers::resolve_project_and_agent(&ctx, &self.mm, &p.project_slug, &p.agent_name)
+                .await?;
 
         let update = AgentProfileUpdate {
             task_description: p.task_description,
@@ -2749,11 +2695,9 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
+        let (project, agent) =
+            helpers::resolve_project_and_agent(&ctx, &self.mm, &p.project_slug, &p.agent_name)
+                .await?;
 
         let sent_count = AgentBmc::count_messages_sent(&ctx, &self.mm, agent.id)
             .await
@@ -2884,17 +2828,14 @@ impl AgentMailService {
         &self,
         params: Parameters<SendOverseerMessageParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::agent::AgentBmc;
         use lib_core::model::overseer_message::{OverseerMessageBmc, OverseerMessageForCreate};
 
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        let agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.agent_name)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
+        let (project, agent) =
+            helpers::resolve_project_and_agent(&ctx, &self.mm, &p.project_slug, &p.agent_name)
+                .await?;
 
         let msg_c = OverseerMessageForCreate {
             project_id: project.id,
@@ -3060,11 +3001,9 @@ impl AgentMailService {
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        let sender = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.sender_name)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("Sender not found: {}", e), None))?;
+        let (project, sender) =
+            helpers::resolve_project_and_agent(&ctx, &self.mm, &p.project_slug, &p.sender_name)
+                .await?;
 
         let agents = AgentBmc::list_all_for_project(&ctx, &self.mm, project.id)
             .await
@@ -3107,21 +3046,16 @@ impl AgentMailService {
         &self,
         params: Parameters<QuickHandoffWorkflowParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::agent::AgentBmc;
         use lib_core::model::message::{MessageBmc, MessageForCreate};
 
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
+        let (project, from_agent) =
+            helpers::resolve_project_and_agent(&ctx, &self.mm, &p.project_slug, &p.from_agent)
+                .await?;
 
-        let from_agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.from_agent)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("From agent not found: {}", e), None))?;
-
-        let to_agent = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.to_agent)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("To agent not found: {}", e), None))?;
+        let to_agent = helpers::resolve_agent(&ctx, &self.mm, project.id, &p.to_agent).await?;
 
         let files_text = if let Some(files) = &p.files {
             format!("\n\nFiles:\n{}", files.join("\n"))
@@ -3159,22 +3093,17 @@ impl AgentMailService {
         &self,
         params: Parameters<QuickReviewWorkflowParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::agent::AgentBmc;
         use lib_core::model::file_reservation::{FileReservationBmc, FileReservationForCreate};
         use lib_core::model::message::{MessageBmc, MessageForCreate};
 
         let ctx = self.ctx();
         let p = params.0;
 
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
+        let (project, requester) =
+            helpers::resolve_project_and_agent(&ctx, &self.mm, &p.project_slug, &p.requester)
+                .await?;
 
-        let requester = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.requester)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("Requester not found: {}", e), None))?;
-
-        let reviewer = AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.reviewer)
-            .await
-            .map_err(|e| McpError::invalid_params(format!("Reviewer not found: {}", e), None))?;
+        let reviewer = helpers::resolve_agent(&ctx, &self.mm, project.id, &p.reviewer).await?;
 
         // Reserve files for review (non-exclusive)
         let expires_ts = chrono::Utc::now().naive_utc() + chrono::Duration::hours(2);

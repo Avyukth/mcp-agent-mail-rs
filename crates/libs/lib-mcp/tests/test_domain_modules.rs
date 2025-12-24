@@ -10,7 +10,6 @@ use lib_core::model::{
     message::{MessageBmc, MessageForCreate},
     project::ProjectBmc,
 };
-use serde_json;
 use lib_mcp::tools::{
     // Params
     EnsureProjectParams,
@@ -198,6 +197,7 @@ async fn test_register_agent() {
 /// Test that RegisterAgentParams accepts `agent_name` as alias for `name`
 /// This is for NTM compatibility where tools may use `agent_name` instead of `name`
 #[test]
+#[allow(clippy::expect_used)]
 fn test_register_agent_params_agent_name_alias() {
     // Test with `agent_name` (alias)
     let json_with_alias = serde_json::json!({
