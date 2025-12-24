@@ -19,8 +19,8 @@ use std::sync::Arc;
 
 use super::helpers;
 use super::{
-    FileReservationParams, ForceReleaseReservationParams, ListReservationsParams,
-    ReleaseReservationParams, RenewFileReservationParams,
+    FileReservationParams, FileReservationPathsParams, ForceReleaseReservationParams,
+    ListReservationsParams, ReleaseReservationParams, RenewFileReservationParams,
 };
 
 /// Reserve a file path pattern to prevent conflicts between agents.
@@ -177,4 +177,110 @@ pub async fn renew_file_reservation_impl(
         params.reservation_id, new_expires
     );
     Ok(CallToolResult::success(vec![Content::text(msg)]))
+}
+
+/// Reserve multiple file paths with conflict detection.
+pub async fn file_reservation_paths_impl(
+    ctx: &Ctx,
+    mm: &Arc<ModelManager>,
+    params: FileReservationPathsParams,
+) -> Result<CallToolResult, McpError> {
+    // Validate inputs
+    validate_project_key(&params.project_slug).map_err(|e| {
+        McpError::invalid_params(
+            format!("{}", e),
+            Some(serde_json::json!({ "details": e.context() })),
+        )
+    })?;
+
+    validate_agent_name(&params.agent_name).map_err(|e| {
+        McpError::invalid_params(
+            format!("{}", e),
+            Some(serde_json::json!({ "details": e.context() })),
+        )
+    })?;
+
+    // Validate all paths
+    for path in &params.paths {
+        validate_reservation_path(path).map_err(|e| {
+            McpError::invalid_params(
+                format!("{}", e),
+                Some(serde_json::json!({ "details": e.context() })),
+            )
+        })?;
+    }
+
+    if let Some(ttl) = params.ttl_seconds {
+        validate_ttl(ttl as u64).map_err(|e| {
+            McpError::invalid_params(
+                format!("{}", e),
+                Some(serde_json::json!({ "details": e.context() })),
+            )
+        })?;
+    }
+
+    let project = helpers::resolve_project(ctx, mm, &params.project_slug).await?;
+
+    let agent = AgentBmc::get_by_name(ctx, mm, project.id, &params.agent_name)
+        .await
+        .map_err(|e| McpError::invalid_params(format!("Agent not found: {}", e), None))?;
+
+    let active_reservations = FileReservationBmc::list_active_for_project(ctx, mm, project.id)
+        .await
+        .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+    let ttl = params.ttl_seconds.unwrap_or(3600);
+    let now = chrono::Utc::now().naive_utc();
+    let expires_ts = now + chrono::Duration::seconds(ttl);
+
+    let mut granted = Vec::new();
+    let mut conflicts = Vec::new();
+
+    for path in params.paths {
+        // Check conflicts using glob pattern matching
+        for res in &active_reservations {
+            if res.agent_id != agent.id
+                && (res.exclusive || params.exclusive)
+                && lib_core::utils::pathspec::paths_conflict(&res.path_pattern, &path)
+            {
+                conflicts.push(format!(
+                    "Conflict: {} overlaps with {} (held by agent ID {}, expires: {})",
+                    path, res.path_pattern, res.agent_id, res.expires_ts
+                ));
+            }
+        }
+
+        // Always grant (advisory model)
+        let fr_c = FileReservationForCreate {
+            project_id: project.id,
+            agent_id: agent.id,
+            path_pattern: path.clone(),
+            exclusive: params.exclusive,
+            reason: params.reason.clone().unwrap_or_default(),
+            expires_ts,
+        };
+
+        let id = FileReservationBmc::create(ctx, mm, fr_c)
+            .await
+            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
+
+        granted.push(format!(
+            "Granted: {} (id: {}, expires: {})",
+            path, id, expires_ts
+        ));
+    }
+
+    let mut output = format!("Granted {} reservations\n\n", granted.len());
+    for g in granted {
+        output.push_str(&format!("  {}\n", g));
+    }
+
+    if !conflicts.is_empty() {
+        output.push_str(&format!("\n⚠️ {} conflicts detected:\n", conflicts.len()));
+        for c in conflicts {
+            output.push_str(&format!("  {}\n", c));
+        }
+    }
+
+    Ok(CallToolResult::success(vec![Content::text(output)]))
 }
