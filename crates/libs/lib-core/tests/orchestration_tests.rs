@@ -211,9 +211,10 @@ async fn test_single_agent_fallback_no_reviewer() {
     let worker_id = create_agent(&tc, project_id, "worker-solo", "worker").await;
     let human_id = create_agent(&tc, project_id, "human-solo", "human").await;
 
-    let reviewer_exists = AgentBmc::get_by_name(&tc.ctx, &tc.mm, ProjectId::from(project_id), "reviewer")
-        .await
-        .is_ok();
+    let reviewer_exists =
+        AgentBmc::get_by_name(&tc.ctx, &tc.mm, ProjectId::from(project_id), "reviewer")
+            .await
+            .is_ok();
     assert!(!reviewer_exists, "Reviewer should not exist in this test");
 
     let thread_id = "TASK-solo-001".to_string();
