@@ -121,11 +121,8 @@
 						</Badge>
 					{/if}
 				</h1>
-				<p class="text-sm md:text-base text-gray-600 dark:text-gray-400 flex items-center gap-2">
-					<span>Registered agents</span>
-					{#if project}
-						<code class="text-xs font-mono bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">{project.slug}</code>
-					{/if}
+				<p class="text-sm md:text-base text-gray-600 dark:text-gray-400">
+					Registered agents for this project
 				</p>
 			</div>
 			<ShimmerButton on:click={() => showNewForm = true}>

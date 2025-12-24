@@ -32,13 +32,36 @@
 		segments.forEach((segment, index) => {
 			currentPath += `/${segment}`;
 			const isLast = index === segments.length - 1;
+			const prevSegment = index > 0 ? segments[index - 1] : '';
 
-			// Check if this is a dynamic segment (like an ID)
-			const isDynamic = segment.match(/^[a-f0-9-]+$/i) || segment.match(/^\d+$/);
+			// Check if this is a dynamic segment (like a UUID or numeric ID)
+			// UUIDs follow 8-4-4-4-12 pattern of hex chars
+			const containsUUID = segment.match(/[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}/i);
+			const isNumericId = segment.match(/^\d+$/);
+			// Also treat long hex-looking strings as dynamic (like project slugs)
+			const isLongSlug = segment.length > 20 && segment.includes('-');
+			const isDynamic = containsUUID || isNumericId || isLongSlug;
+
+			// For dynamic segments, show a human-readable label based on context
+			let label: string;
+			if (isDynamic) {
+				// Use context from previous segment to determine label
+				if (prevSegment === 'projects') {
+					label = 'Project Details';
+				} else if (prevSegment === 'agents') {
+					label = 'Agent Details';
+				} else if (prevSegment === 'inbox' || prevSegment === 'messages') {
+					label = 'Message';
+				} else {
+					label = 'Details';
+				}
+			} else {
+				label = routeLabels[segment] || capitalize(segment);
+			}
 
 			crumbs.push({
 				href: currentPath,
-				label: isDynamic ? segment.slice(0, 8) + '...' : (routeLabels[segment] || capitalize(segment)),
+				label,
 				isLast
 			});
 		});

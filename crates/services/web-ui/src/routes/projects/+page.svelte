@@ -137,7 +137,6 @@
 										<h3 class="font-semibold text-gray-900 dark:text-white truncate group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
 											{project.human_key}
 										</h3>
-										<p class="text-xs font-mono text-gray-500 dark:text-gray-500 truncate">{project.slug}</p>
 									</div>
 								</div>
 								<ArrowRight class="h-5 w-5 text-gray-400 group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors opacity-0 group-hover:opacity-100 -translate-x-2 group-hover:translate-x-0 transition-all" />
