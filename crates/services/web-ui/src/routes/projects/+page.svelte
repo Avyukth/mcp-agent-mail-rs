@@ -212,12 +212,18 @@
 	let showDeleteDialog = $state(false);
 	let projectToDelete = $state<Project | null>(null);
 	let deleting = $state(false);
+	let openDropdownId = $state<number | null>(null);
 
 	function handleDeleteClick(e: Event, project: Project) {
 		e.preventDefault();
 		e.stopPropagation();
-		projectToDelete = project;
-		showDeleteDialog = true;
+		// Close the dropdown first
+		openDropdownId = null;
+		// Small delay to let dropdown close animation complete
+		setTimeout(() => {
+			projectToDelete = project;
+			showDeleteDialog = true;
+		}, 50);
 	}
 
 	async function confirmDelete() {
@@ -451,7 +457,12 @@
 												</h3>
 											</div>
 										</div>
-										<DropdownMenu.Root>
+										<DropdownMenu.Root
+										open={openDropdownId === project.id}
+										onOpenChange={(open) => {
+											openDropdownId = open ? project.id : null;
+										}}
+									>
 											<DropdownMenu.Trigger>
 												{#snippet child({ props })}
 													<Button

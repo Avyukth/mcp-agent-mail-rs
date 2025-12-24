@@ -100,12 +100,18 @@
 	let showDeleteDialog = $state(false);
 	let agentToDelete = $state<Agent | null>(null);
 	let deleting = $state(false);
+	let openDropdownName = $state<string | null>(null);
 
 	function handleDeleteClick(e: Event, agent: Agent) {
 		e.preventDefault();
 		e.stopPropagation();
-		agentToDelete = agent;
-		showDeleteDialog = true;
+		// Close the dropdown first
+		openDropdownName = null;
+		// Small delay to let dropdown close animation complete
+		setTimeout(() => {
+			agentToDelete = agent;
+			showDeleteDialog = true;
+		}, 50);
 	}
 
 	async function confirmDelete() {
@@ -214,7 +220,12 @@
 									<p class="text-sm text-gray-500 dark:text-gray-400 truncate">{agent.program}</p>
 								</div>
 							</div>
-							<DropdownMenu.Root>
+							<DropdownMenu.Root
+								open={openDropdownName === agent.name}
+								onOpenChange={(open) => {
+									openDropdownName = open ? agent.name : null;
+								}}
+							>
 								<DropdownMenu.Trigger>
 									{#snippet child({ props })}
 										<Button
