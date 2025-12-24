@@ -288,27 +288,29 @@
 					{/if}
 
 					<!-- Details Tab -->
-					<Tabs.Content value="details" class="p-4 md:p-6">
+					<Tabs.Content value="details" class="p-4 md:p-6" data-testid="message-details">
 						<dl class="grid grid-cols-1 sm:grid-cols-2 gap-4">
 							<div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-								<dt class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Message ID</dt>
-								<dd class="font-mono text-sm text-gray-900 dark:text-white break-all">{message.id}</dd>
+								<dt class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">From</dt>
+								<dd class="text-sm text-gray-900 dark:text-white" data-testid="message-sender">{message.sender_name || agentName || 'Unknown'}</dd>
 							</div>
 							<div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-								<dt class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Project ID</dt>
-								<dd class="font-mono text-sm text-gray-900 dark:text-white break-all">{message.project_id}</dd>
+								<dt class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">To</dt>
+								<dd class="text-sm text-gray-900 dark:text-white">{message.recipients?.join(', ') || agentName || 'Unknown'}</dd>
 							</div>
+							{#if message.thread_id}
+								<div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
+									<dt class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Thread</dt>
+									<dd class="text-sm text-gray-900 dark:text-white" data-testid="message-thread">{message.thread_id}</dd>
+								</div>
+							{/if}
 							<div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-								<dt class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Sender ID</dt>
-								<dd class="font-mono text-sm text-gray-900 dark:text-white break-all">{message.sender_id}</dd>
-							</div>
-							<div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4">
-								<dt class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Thread ID</dt>
-								<dd class="font-mono text-sm text-gray-900 dark:text-white break-all">{message.thread_id || 'None'}</dd>
+								<dt class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Importance</dt>
+								<dd class="text-sm text-gray-900 dark:text-white capitalize">{message.importance}</dd>
 							</div>
 							<div class="bg-gray-50 dark:bg-gray-700/50 rounded-lg p-4 sm:col-span-2">
-								<dt class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Created</dt>
-								<dd class="text-sm text-gray-900 dark:text-white">{formatDate(message.created_ts)}</dd>
+								<dt class="text-xs text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1">Sent</dt>
+								<dd class="text-sm text-gray-900 dark:text-white" data-testid="message-timestamp">{formatDate(message.created_ts)}</dd>
 							</div>
 						</dl>
 					</Tabs.Content>

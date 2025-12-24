@@ -28,7 +28,8 @@
 	// Action items
 	const actionItems = [
 		{ id: 'theme', label: 'Toggle Theme', action: () => toggleMode(), icon: SunMoon, shortcut: '⌘T' },
-		{ id: 'settings', label: 'Settings', action: () => goto('/settings'), icon: Settings, shortcut: '⌘,' },
+		// Settings page not yet implemented - TODO: uncomment when ready
+		// { id: 'settings', label: 'Settings', action: () => goto('/settings'), icon: Settings, shortcut: '⌘,' },
 		{ id: 'tutorial', label: 'Show Tutorial', action: () => window.dispatchEvent(new CustomEvent('show-tutorial')), icon: HelpCircle, shortcut: '⌘?' }
 	];
 

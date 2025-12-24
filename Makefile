@@ -45,6 +45,21 @@ build-prod: build-release build-web
 # Development Commands
 # ============================================================================
 
+## Frontend dev with HMR (fast iteration - use with dev-backend)
+## Usage: Terminal 1: make dev-backend | Terminal 2: make dev-frontend
+dev-frontend:
+	@echo "🌐 Starting SvelteKit dev server with HMR..."
+	@echo "   Frontend: http://localhost:5173 (hot reload)"
+	@echo "   API proxy: → http://localhost:9765/api/*"
+	cd crates/services/web-ui && bun run dev
+
+## Backend API server for frontend development
+dev-backend:
+	@echo "🚀 Starting backend API server..."
+	@echo "   API: http://localhost:9765"
+	@echo "   Tip: Use 'make dev-frontend' in another terminal for HMR"
+	am serve http --port 9765
+
 ## Run API server (development)
 dev-api:
 	@echo "🚀 Starting API server on http://localhost:8000..."

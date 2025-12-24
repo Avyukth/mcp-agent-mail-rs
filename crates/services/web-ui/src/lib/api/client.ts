@@ -235,10 +235,22 @@ export async function searchMessages(req: SearchMessagesRequest): Promise<Messag
 // ============================================================================
 
 export async function getThread(projectSlug: string, threadId: string): Promise<Thread> {
-	return request<Thread>('/thread', {
+	// API returns Message[] directly, wrap it in Thread format
+	const messages = await request<Message[]>('/thread', {
 		method: 'POST',
 		body: JSON.stringify({ project_slug: projectSlug, thread_id: threadId })
 	});
+
+	// Build Thread object from messages array
+	const firstMessage = messages[0];
+	return {
+		thread_id: threadId,
+		subject: firstMessage?.subject || '',
+		messages,
+		participants: [...new Set(messages.map(m => m.sender_name || ''))],
+		message_count: messages.length,
+		last_message_ts: messages[messages.length - 1]?.created_ts || ''
+	};
 }
 
 export async function listThreads(projectSlug: string): Promise<ThreadSummary[]> {

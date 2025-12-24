@@ -48,11 +48,11 @@ export default defineConfig({
 		port: 5173,
 		proxy: {
 			'/api': {
-				target: 'http://localhost:8080',
+				target: process.env.API_URL || 'http://localhost:9765',
 				changeOrigin: true
 			},
 			'/mail/api': {
-				target: 'http://localhost:8080',
+				target: process.env.API_URL || 'http://localhost:9765',
 				changeOrigin: true
 			}
 		}
