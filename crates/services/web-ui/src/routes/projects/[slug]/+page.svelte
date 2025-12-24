@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
-	import { getAgents, registerAgent, getProjectInfo, type Agent, type Project } from '$lib/api/client';
+	import { getAgents, registerAgent, getProjectInfo, deleteAgent, type Agent, type Project } from '$lib/api/client';
 	import { toast } from 'svelte-sonner';
 	import Bot from 'lucide-svelte/icons/bot';
 	import ArrowRight from 'lucide-svelte/icons/arrow-right';
@@ -10,9 +10,13 @@
 	import Clock from 'lucide-svelte/icons/clock';
 	import Cpu from 'lucide-svelte/icons/cpu';
 	import Inbox from 'lucide-svelte/icons/inbox';
+	import MoreVertical from 'lucide-svelte/icons/more-vertical';
+	import Trash2 from 'lucide-svelte/icons/trash-2';
 	import { AgentCardSkeleton } from '$lib/components/skeletons';
 	import { BlurFade, ShimmerButton, NumberTicker } from '$lib/components/magic';
 	import * as Dialog from '$lib/components/ui/dialog';
+	import * as DropdownMenu from '$lib/components/ui/dropdown-menu';
+	import * as AlertDialog from '$lib/components/ui/alert-dialog';
 	import { Button } from '$lib/components/ui/button';
 	import { Badge } from '$lib/components/ui/badge';
 
@@ -90,6 +94,34 @@
 			hour: '2-digit',
 			minute: '2-digit'
 		});
+	}
+
+	// Delete agent state
+	let showDeleteDialog = $state(false);
+	let agentToDelete = $state<Agent | null>(null);
+	let deleting = $state(false);
+
+	function handleDeleteClick(e: Event, agent: Agent) {
+		e.preventDefault();
+		e.stopPropagation();
+		agentToDelete = agent;
+		showDeleteDialog = true;
+	}
+
+	async function confirmDelete() {
+		if (!agentToDelete) return;
+		deleting = true;
+		try {
+			await deleteAgent($page.params.slug ?? '', agentToDelete.name);
+			toast.success(`Agent "${agentToDelete.name}" deleted`);
+			await loadProjectData();
+		} catch (e) {
+			toast.error(e instanceof Error ? e.message : 'Failed to delete agent');
+		} finally {
+			deleting = false;
+			showDeleteDialog = false;
+			agentToDelete = null;
+		}
 	}
 </script>
 
@@ -182,6 +214,30 @@
 									<p class="text-sm text-gray-500 dark:text-gray-400 truncate">{agent.program}</p>
 								</div>
 							</div>
+							<DropdownMenu.Root>
+								<DropdownMenu.Trigger>
+									{#snippet child({ props })}
+										<Button
+											{...props}
+											variant="ghost"
+											size="icon"
+											class="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+										>
+											<MoreVertical class="h-4 w-4" />
+											<span class="sr-only">More options</span>
+										</Button>
+									{/snippet}
+								</DropdownMenu.Trigger>
+								<DropdownMenu.Content align="end">
+									<DropdownMenu.Item
+										class="text-destructive focus:text-destructive"
+										onclick={(e: Event) => handleDeleteClick(e, agent)}
+									>
+										<Trash2 class="h-4 w-4 mr-2" />
+										Delete
+									</DropdownMenu.Item>
+								</DropdownMenu.Content>
+							</DropdownMenu.Root>
 						</div>
 
 						<div class="space-y-3 text-sm">
@@ -295,6 +351,36 @@
 		</form>
 	</Dialog.Content>
 </Dialog.Root>
+
+<!-- Delete Agent Confirmation Dialog -->
+<AlertDialog.Root bind:open={showDeleteDialog}>
+	<AlertDialog.Content>
+		<AlertDialog.Header>
+			<AlertDialog.Title>Delete Agent</AlertDialog.Title>
+			<AlertDialog.Description>
+				Are you sure you want to delete <strong>{agentToDelete?.name}</strong>?
+				This action cannot be undone. All messages and data associated with this agent will be permanently deleted.
+			</AlertDialog.Description>
+		</AlertDialog.Header>
+		<AlertDialog.Footer>
+			<AlertDialog.Cancel
+				onclick={() => {
+					showDeleteDialog = false;
+					agentToDelete = null;
+				}}
+			>
+				Cancel
+			</AlertDialog.Cancel>
+			<AlertDialog.Action
+				class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+				disabled={deleting}
+				onclick={confirmDelete}
+			>
+				{deleting ? 'Deleting...' : 'Delete Agent'}
+			</AlertDialog.Action>
+		</AlertDialog.Footer>
+	</AlertDialog.Content>
+</AlertDialog.Root>
 
 <style>
 	/* Staggered animation keyframes */
