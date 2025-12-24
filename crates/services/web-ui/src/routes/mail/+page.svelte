@@ -25,9 +25,32 @@
 		selectPreviousMessage
 	} from '$lib/stores/unifiedInbox';
 
+	// shadcn/ui components
+	import { Button } from '$lib/components/ui/button/index.js';
+	import { Input } from '$lib/components/ui/input/index.js';
+	import { Label } from '$lib/components/ui/label/index.js';
+	import { Checkbox } from '$lib/components/ui/checkbox/index.js';
+	import { Badge } from '$lib/components/ui/badge/index.js';
+	import * as Select from '$lib/components/ui/select/index.js';
+	import { FilterCombobox } from '$lib/components/ui/combobox/index.js';
+
+	// Icons
+	import Search from 'lucide-svelte/icons/search';
+	import Filter from 'lucide-svelte/icons/filter';
+	import LayoutGrid from 'lucide-svelte/icons/layout-grid';
+	import List from 'lucide-svelte/icons/list';
+	import Maximize from 'lucide-svelte/icons/maximize';
+	import Minimize from 'lucide-svelte/icons/minimize';
+	import RefreshCw from 'lucide-svelte/icons/refresh-cw';
+	import Copy from 'lucide-svelte/icons/copy';
+	import ExternalLink from 'lucide-svelte/icons/external-link';
+	import X from 'lucide-svelte/icons/x';
+	import CheckSquare from 'lucide-svelte/icons/check-square';
+	import Mail from 'lucide-svelte/icons/mail';
+
 	let loading = $state(true);
 	let error = $state<string | null>(null);
-	let searchInput: HTMLInputElement | null = null;
+	let searchInput = $state<HTMLInputElement | null>(null);
 	let refreshTimer: ReturnType<typeof setInterval> | null = null;
 
 	$effect(() => {
@@ -194,14 +217,14 @@
 		window.open(url, '_blank');
 	}
 
-	function getImportanceBadge(importance?: string) {
+	function getImportanceVariant(importance?: string): 'default' | 'destructive' | 'secondary' | 'outline' {
 		switch (importance) {
 			case 'high':
-				return 'bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300';
+				return 'destructive';
 			case 'low':
-				return 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300';
+				return 'secondary';
 			default:
-				return 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300';
+				return 'outline';
 		}
 	}
 </script>
@@ -211,163 +234,206 @@
 	data-fullscreen={$isFullscreen}
 	class={`space-y-4 ${$isFullscreen ? 'fixed inset-0 z-40 bg-background p-6 overflow-auto' : ''}`}
 >
+	<!-- Header -->
 	<div class="flex flex-col gap-3 sticky top-0 z-20 bg-background/95 backdrop-blur -mx-6 px-6 py-4 border-b border-border">
 		<div class="flex flex-wrap items-center gap-3">
+			<!-- Search Input -->
 			<div class="flex-1 min-w-[240px]">
 				<div class="relative">
-					<input
-						bind:this={searchInput}
+					<Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+					<Input
+						bind:ref={searchInput}
 						bind:value={$searchQuery}
 						data-testid="mail-search-input"
 						aria-label="Search mail"
 						placeholder="Search across all mail..."
-						class="w-full rounded-xl border border-border bg-card px-4 py-2.5 pr-20 text-sm text-foreground placeholder:text-muted-foreground shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500"
+						class="pl-10 pr-16"
 					/>
-					<span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
-						⌘K / /
+					<span class="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground pointer-events-none">
+						<kbd class="px-1.5 py-0.5 bg-muted rounded text-[10px]">⌘K</kbd>
 					</span>
 				</div>
 			</div>
 
+			<!-- Action Buttons -->
 			<div class="flex flex-wrap items-center gap-2">
-				<button
+				<Button
+					variant="outline"
+					size="sm"
 					onclick={() => showFilters.update((value) => !value)}
-					class="px-3 py-2 text-xs font-medium rounded-lg border border-border bg-card hover:bg-muted"
 				>
-					{$showFilters ? 'Hide Filters' : 'Show Filters'}
-				</button>
-				<button
+					<Filter class="h-4 w-4" />
+					{$showFilters ? 'Hide' : 'Filters'}
+				</Button>
+				<Button
+					variant="outline"
+					size="sm"
 					onclick={() => viewMode.update((mode) => (mode === 'split' ? 'list' : 'split'))}
-					class="px-3 py-2 text-xs font-medium rounded-lg border border-border bg-card hover:bg-muted"
 				>
-					{$viewMode === 'split' ? 'List View' : 'Split View'}
-				</button>
-				<button
+					{#if $viewMode === 'split'}
+						<List class="h-4 w-4" />
+						List
+					{:else}
+						<LayoutGrid class="h-4 w-4" />
+						Split
+					{/if}
+				</Button>
+				<Button
+					variant="outline"
+					size="sm"
 					onclick={() => isFullscreen.update((value) => !value)}
-					class="px-3 py-2 text-xs font-medium rounded-lg border border-border bg-card hover:bg-muted"
 				>
-					{$isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
-				</button>
-				<button
+					{#if $isFullscreen}
+						<Minimize class="h-4 w-4" />
+						Exit
+					{:else}
+						<Maximize class="h-4 w-4" />
+						Expand
+					{/if}
+				</Button>
+				<Button
+					variant="outline"
+					size="sm"
 					onclick={() => loadMessages(false)}
-					class="px-3 py-2 text-xs font-medium rounded-lg border border-border bg-card hover:bg-muted"
 					disabled={$isRefreshing}
 				>
-					{$isRefreshing ? 'Refreshing...' : 'Refresh'}
-				</button>
+					<RefreshCw class="h-4 w-4 {$isRefreshing ? 'animate-spin' : ''}" />
+					{$isRefreshing ? 'Refreshing' : 'Refresh'}
+				</Button>
 			</div>
 		</div>
 
-		<div class="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-			<label class="flex items-center gap-2">
-				<input
-					type="checkbox"
+		<!-- Auto-refresh and shortcuts -->
+		<div class="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+			<label class="flex items-center gap-2 cursor-pointer">
+				<Checkbox
 					checked={$autoRefreshEnabled}
-					onchange={(event) => autoRefreshEnabled.set(event.currentTarget.checked)}
-					class="h-4 w-4 rounded border border-border"
+					onCheckedChange={(checked) => autoRefreshEnabled.set(checked === true)}
 				/>
-				<span>Auto-refresh every 45s</span>
+				<span>Auto-refresh (45s)</span>
 			</label>
-			<span class="text-muted-foreground/70">Shortcut: f (fullscreen), j/k (navigate)</span>
+			<span class="hidden sm:inline">
+				<kbd class="px-1 py-0.5 bg-muted rounded text-[10px]">f</kbd> fullscreen
+				<kbd class="px-1 py-0.5 bg-muted rounded text-[10px] ml-2">j</kbd>/<kbd class="px-1 py-0.5 bg-muted rounded text-[10px]">k</kbd> navigate
+			</span>
 		</div>
 	</div>
 
+	<!-- Filters Panel -->
 	{#if $showFilters}
 		<div
 			class="bg-card border border-border rounded-xl p-4 shadow-sm"
 			transition:slide={{ duration: 180 }}
 		>
-			<div class="flex flex-wrap gap-4">
-				<div class="min-w-[160px] flex-1">
-					<label class="text-xs font-medium text-muted-foreground">Project</label>
-					<select
-						class="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+			<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+				<!-- Project Filter (Searchable Combobox) -->
+				<div class="space-y-1.5">
+					<Label class="text-xs font-medium">Project</Label>
+					<FilterCombobox
 						value={$filters.project}
-						onchange={(event) => setFilter('project', event.currentTarget.value)}
-					>
-						<option value="">All projects</option>
-						{#each $uniqueProjects as project}
-							<option value={project}>{project}</option>
-						{/each}
-					</select>
+						onValueChange={(value) => setFilter('project', value)}
+						options={$uniqueProjects}
+						placeholder="All projects"
+						searchPlaceholder="Search projects..."
+						emptyMessage="No projects found."
+					/>
 				</div>
-				<div class="min-w-[160px] flex-1">
-					<label class="text-xs font-medium text-muted-foreground">Sender</label>
-					<select
-						class="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+
+				<!-- Sender Filter (Searchable Combobox) -->
+				<div class="space-y-1.5">
+					<Label class="text-xs font-medium">Sender</Label>
+					<FilterCombobox
 						value={$filters.sender}
-						onchange={(event) => setFilter('sender', event.currentTarget.value)}
-					>
-						<option value="">All senders</option>
-						{#each $uniqueSenders as sender}
-							<option value={sender}>{sender}</option>
-						{/each}
-					</select>
+						onValueChange={(value) => setFilter('sender', value)}
+						options={$uniqueSenders}
+						placeholder="All senders"
+						searchPlaceholder="Search senders..."
+						emptyMessage="No senders found."
+					/>
 				</div>
-				<div class="min-w-[160px] flex-1">
-					<label class="text-xs font-medium text-muted-foreground">Recipient</label>
-					<select
-						class="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+
+				<!-- Recipient Filter (Searchable Combobox) -->
+				<div class="space-y-1.5">
+					<Label class="text-xs font-medium">Recipient</Label>
+					<FilterCombobox
 						value={$filters.recipient}
-						onchange={(event) => setFilter('recipient', event.currentTarget.value)}
-					>
-						<option value="">All recipients</option>
-						{#each $uniqueRecipients as recipient}
-							<option value={recipient}>{recipient}</option>
-						{/each}
-					</select>
+						onValueChange={(value) => setFilter('recipient', value)}
+						options={$uniqueRecipients}
+						placeholder="All recipients"
+						searchPlaceholder="Search recipients..."
+						emptyMessage="No recipients found."
+					/>
 				</div>
-				<div class="min-w-[160px] flex-1">
-					<label class="text-xs font-medium text-muted-foreground">Importance</label>
-					<select
-						class="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+
+				<!-- Importance Filter (Select) -->
+				<div class="space-y-1.5">
+					<Label class="text-xs font-medium">Importance</Label>
+					<Select.Root
+						type="single"
 						value={$filters.importance}
-						onchange={(event) => setFilter('importance', event.currentTarget.value)}
+						onValueChange={(value) => setFilter('importance', value ?? '')}
 					>
-						<option value="">All</option>
-						<option value="high">High</option>
-						<option value="normal">Normal</option>
-						<option value="low">Low</option>
-					</select>
+						<Select.Trigger class="w-full">
+							{$filters.importance || 'All'}
+						</Select.Trigger>
+						<Select.Content>
+							<Select.Item value="">All</Select.Item>
+							<Select.Item value="high">High</Select.Item>
+							<Select.Item value="normal">Normal</Select.Item>
+							<Select.Item value="low">Low</Select.Item>
+						</Select.Content>
+					</Select.Root>
 				</div>
-				<div class="min-w-[160px] flex-1">
-					<label class="text-xs font-medium text-muted-foreground">Thread</label>
-					<select
-						class="mt-1 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+
+				<!-- Thread Filter (Select) -->
+				<div class="space-y-1.5">
+					<Label class="text-xs font-medium">Thread</Label>
+					<Select.Root
+						type="single"
 						value={$filters.hasThread}
-						onchange={(event) => setFilter('hasThread', event.currentTarget.value)}
+						onValueChange={(value) => setFilter('hasThread', value ?? '')}
 					>
-						<option value="">All</option>
-						<option value="yes">Has thread</option>
-						<option value="no">No thread</option>
-					</select>
+						<Select.Trigger class="w-full">
+							{$filters.hasThread === 'yes' ? 'Has thread' : $filters.hasThread === 'no' ? 'No thread' : 'All'}
+						</Select.Trigger>
+						<Select.Content>
+							<Select.Item value="">All</Select.Item>
+							<Select.Item value="yes">Has thread</Select.Item>
+							<Select.Item value="no">No thread</Select.Item>
+						</Select.Content>
+					</Select.Root>
 				</div>
 			</div>
 
 			<div class="mt-4 flex items-center gap-3">
-				<button
+				<Button
+					variant="outline"
+					size="sm"
 					onclick={clearAllFilters}
-					class="px-3 py-2 text-xs font-medium rounded-lg border border-border bg-card hover:bg-muted"
 					disabled={!$filtersActive && !$searchQuery}
 				>
+					<X class="h-4 w-4" />
 					Clear filters
-				</button>
+				</Button>
 				<span class="text-xs text-muted-foreground">{$filteredMessages.length} messages</span>
 			</div>
 		</div>
 	{/if}
 
+	<!-- Error Alert -->
 	{#if error}
-		<div class="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl p-4">
-			<p class="text-red-700 dark:text-red-400">{error}</p>
+		<div class="bg-destructive/10 border border-destructive/30 rounded-xl p-4">
+			<p class="text-destructive">{error}</p>
 		</div>
 	{/if}
 
+	<!-- Loading State -->
 	{#if loading}
 		<div class="flex items-center justify-center py-12">
-			<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div>
+			<div class="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
 		</div>
 	{:else}
+		<!-- Mail Grid -->
 		<div
 			class={`grid gap-4 ${
 				$viewMode === 'split'
@@ -375,33 +441,34 @@
 					: 'grid-cols-1'
 			}`}
 		>
+			<!-- Message List -->
 			<div
 				data-testid="mail-list"
 				class="bg-card border border-border rounded-xl overflow-hidden"
 			>
 				<div class="flex items-center justify-between px-4 py-3 border-b border-border">
 					<div class="flex items-center gap-3">
-						<button
-							onclick={toggleSelectAll}
-							class="text-xs font-medium text-primary-600 hover:text-primary-700"
-						>
+						<Button variant="ghost" size="sm" onclick={toggleSelectAll}>
+							<CheckSquare class="h-4 w-4" />
 							Select all
-						</button>
-						<button
+						</Button>
+						<Button
+							variant="ghost"
+							size="sm"
 							onclick={markSelectedRead}
-							class="text-xs font-medium text-muted-foreground hover:text-foreground"
 							disabled={$selectedMessages.length === 0}
 						>
+							<Mail class="h-4 w-4" />
 							Mark read
-						</button>
+						</Button>
 					</div>
-					<span class="text-xs text-muted-foreground">{$selectedMessages.length} selected</span>
+					<Badge variant="secondary">{$selectedMessages.length} selected</Badge>
 				</div>
 
 				{#if $filteredMessages.length === 0}
 					<div class="p-8 text-center text-sm text-muted-foreground">
-						<p class="text-lg">📭</p>
-						<p class="mt-2">No messages match this view.</p>
+						<p class="text-4xl">📭</p>
+						<p class="mt-2 font-medium">No messages match this view.</p>
 						<p class="mt-1">Try adjusting filters or wait for new mail.</p>
 					</div>
 				{:else}
@@ -417,43 +484,42 @@
 								} ${message.is_read ? 'opacity-70' : ''}`}
 							>
 								<div class="flex items-start gap-3">
-									<input
-										type="checkbox"
-										class="mt-1 h-4 w-4 rounded border border-border"
+									<Checkbox
 										checked={$selectedMessages.includes(message.id)}
-										onclick={(event) => event.stopPropagation()}
-										onchange={() => toggleMessageSelection(message.id)}
+										onCheckedChange={() => toggleMessageSelection(message.id)}
+										onclick={(event: MouseEvent) => event.stopPropagation()}
+										class="mt-1"
 									/>
-									<div class="flex-1">
+									<div class="flex-1 min-w-0">
 										<div class="flex items-center justify-between gap-2">
-											<div>
-												<p class="text-sm font-semibold text-foreground">
+											<div class="min-w-0">
+												<p class="text-sm font-semibold text-foreground truncate">
 													{message.sender_name}
 													<span class="text-xs font-normal text-muted-foreground">
 														→ {formatRecipients(message)}
 													</span>
 												</p>
-												<div class="flex flex-wrap items-center gap-2 mt-1">
-													<span class="px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wide bg-muted text-muted-foreground">
+												<div class="flex flex-wrap items-center gap-1.5 mt-1">
+													<Badge variant="secondary" class="text-[10px] px-1.5 py-0">
 														{message.project_slug}
-													</span>
+													</Badge>
 													{#if message.importance && message.importance !== 'normal'}
-														<span class={`px-2 py-0.5 rounded-full text-[10px] ${getImportanceBadge(message.importance)}`}>
+														<Badge variant={getImportanceVariant(message.importance)} class="text-[10px] px-1.5 py-0">
 															{message.importance}
-														</span>
+														</Badge>
 													{/if}
 													{#if message.thread_id}
-														<span class="px-2 py-0.5 rounded-full text-[10px] bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300">
+														<Badge variant="outline" class="text-[10px] px-1.5 py-0 border-purple-500/50 text-purple-600 dark:text-purple-400">
 															Thread
-														</span>
+														</Badge>
 													{/if}
 												</div>
 											</div>
-											<span class="text-xs text-muted-foreground">
+											<span class="text-xs text-muted-foreground whitespace-nowrap">
 												{formatTimestamp(message)}
 											</span>
 										</div>
-										<p class="mt-2 text-sm font-medium text-foreground">
+										<p class="mt-2 text-sm font-medium text-foreground truncate">
 											{message.subject || '(No subject)'}
 										</p>
 										<p class="mt-1 text-xs text-muted-foreground line-clamp-2">{message.excerpt ?? message.body_md ?? ''}</p>
@@ -465,13 +531,14 @@
 				{/if}
 			</div>
 
+			<!-- Message Detail -->
 			<div
 				data-testid="mail-detail"
 				class="bg-card border border-border rounded-xl p-6 overflow-y-auto max-h-[calc(100vh-16rem)]"
 			>
 				{#if $selectedMessage}
 					<div class="flex items-start justify-between gap-4">
-						<div>
+						<div class="min-w-0">
 							<h2 data-testid="mail-detail-subject" class="text-xl font-semibold text-foreground">
 								{$selectedMessage.subject || '(No subject)'}
 							</h2>
@@ -479,19 +546,15 @@
 								From {$selectedMessage.sender_name} • {formatTimestamp($selectedMessage)}
 							</p>
 						</div>
-						<div class="flex items-center gap-2">
-							<button
-								onclick={copyMessageBody}
-								class="px-3 py-2 text-xs font-medium rounded-lg border border-border bg-card hover:bg-muted"
-							>
+						<div class="flex items-center gap-2 shrink-0">
+							<Button variant="outline" size="sm" onclick={copyMessageBody}>
+								<Copy class="h-4 w-4" />
 								Copy
-							</button>
-							<button
-								onclick={openMessage}
-								class="px-3 py-2 text-xs font-medium rounded-lg border border-border bg-card hover:bg-muted"
-							>
+							</Button>
+							<Button variant="outline" size="sm" onclick={openMessage}>
+								<ExternalLink class="h-4 w-4" />
 								Open
-							</button>
+							</Button>
 						</div>
 					</div>
 
@@ -506,7 +569,9 @@
 						</div>
 						<div>
 							<p class="font-medium text-foreground">Importance</p>
-							<p>{$selectedMessage.importance ?? 'normal'}</p>
+							<Badge variant={getImportanceVariant($selectedMessage.importance)} class="mt-0.5">
+								{$selectedMessage.importance ?? 'normal'}
+							</Badge>
 						</div>
 						<div>
 							<p class="font-medium text-foreground">Thread</p>
@@ -520,9 +585,9 @@
 					</div>
 				{:else}
 					<div data-testid="mail-empty-detail" class="text-center text-sm text-muted-foreground py-12">
-						<p class="text-lg">✉️</p>
-						<p class="mt-2">Select a message to see details.</p>
-						<p class="mt-1">Use j/k to move through the list.</p>
+						<p class="text-4xl">✉️</p>
+						<p class="mt-2 font-medium">Select a message to see details.</p>
+						<p class="mt-1">Use <kbd class="px-1 py-0.5 bg-muted rounded text-[10px]">j</kbd>/<kbd class="px-1 py-0.5 bg-muted rounded text-[10px]">k</kbd> to move through the list.</p>
 					</div>
 				{/if}
 			</div>
