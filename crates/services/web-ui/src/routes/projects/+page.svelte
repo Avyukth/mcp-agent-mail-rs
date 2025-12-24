@@ -252,25 +252,22 @@
 										</div>
 									</div>
 									<DropdownMenu.Root>
-										<DropdownMenu.Trigger
-											asChild
-											let:builder
-										>
-											<Button
-												builders={[builder]}
-												variant="ghost"
-												size="icon"
-												class="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-												onclick={(e: Event) => {
-													e.preventDefault();
-													e.stopPropagation();
-												}}
-											>
-												<MoreVertical class="h-4 w-4" />
-												<span class="sr-only"
-													>More options</span
+										<DropdownMenu.Trigger>
+											{#snippet child({ props })}
+												<Button
+													{...props}
+													variant="ghost"
+													size="icon"
+													class="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+													onclick={(e: Event) => {
+														e.preventDefault();
+														e.stopPropagation();
+													}}
 												>
-											</Button>
+													<MoreVertical class="h-4 w-4" />
+													<span class="sr-only">More options</span>
+												</Button>
+											{/snippet}
 										</DropdownMenu.Trigger>
 										<DropdownMenu.Content align="end">
 											<DropdownMenu.Item
