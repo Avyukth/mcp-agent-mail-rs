@@ -32,6 +32,8 @@
 	import { Textarea } from "$lib/components/ui/textarea";
 	import { SearchInput } from "$lib/components/ui/search-input";
 	import { SortButton, type SortDirection } from "$lib/components/ui/sort-button";
+	import { BulkActionBar } from "$lib/components/ui/bulk-action-bar";
+	import { Checkbox } from "$lib/components/ui/checkbox";
 
 	let projects = $state<Project[]>([]);
 	let loading = $state(true);
@@ -48,6 +50,54 @@
 	function handleSort(field: string, direction: SortDirection) {
 		sortField = field as SortField;
 		sortDirection = direction;
+	}
+
+	// Selection state
+	let selectedIds = $state<Set<number>>(new Set());
+
+	let selectedCount = $derived(selectedIds.size);
+	let allSelected = $derived(() => {
+		const filtered = filteredProjects();
+		return filtered.length > 0 && filtered.every(p => selectedIds.has(p.id));
+	});
+	let someSelected = $derived(() => {
+		const filtered = filteredProjects();
+		return filtered.some(p => selectedIds.has(p.id)) && !allSelected();
+	});
+
+	function toggleSelection(projectId: number, e: Event) {
+		e.preventDefault();
+		e.stopPropagation();
+		const newSet = new Set(selectedIds);
+		if (newSet.has(projectId)) {
+			newSet.delete(projectId);
+		} else {
+			newSet.add(projectId);
+		}
+		selectedIds = newSet;
+	}
+
+	function toggleSelectAll() {
+		const filtered = filteredProjects();
+		if (allSelected()) {
+			// Deselect all filtered
+			const newSet = new Set(selectedIds);
+			filtered.forEach(p => newSet.delete(p.id));
+			selectedIds = newSet;
+		} else {
+			// Select all filtered
+			const newSet = new Set(selectedIds);
+			filtered.forEach(p => newSet.add(p.id));
+			selectedIds = newSet;
+		}
+	}
+
+	function clearSelection() {
+		selectedIds = new Set();
+	}
+
+	function isSelected(projectId: number): boolean {
+		return selectedIds.has(projectId);
 	}
 
 	// Filter and sort projects
@@ -187,6 +237,42 @@
 		}
 	}
 
+	// Bulk delete state
+	let showBulkDeleteDialog = $state(false);
+	let bulkDeleting = $state(false);
+
+	function handleBulkDelete() {
+		showBulkDeleteDialog = true;
+	}
+
+	async function confirmBulkDelete() {
+		bulkDeleting = true;
+		const projectsToDelete = projects.filter(p => selectedIds.has(p.id));
+		let successCount = 0;
+		let failCount = 0;
+
+		for (const project of projectsToDelete) {
+			try {
+				await deleteProject(project.slug);
+				successCount++;
+			} catch {
+				failCount++;
+			}
+		}
+
+		if (successCount > 0) {
+			toast.success(`${successCount} project${successCount > 1 ? 's' : ''} deleted`);
+		}
+		if (failCount > 0) {
+			toast.error(`Failed to delete ${failCount} project${failCount > 1 ? 's' : ''}`);
+		}
+
+		clearSelection();
+		await loadProjects();
+		bulkDeleting = false;
+		showBulkDeleteDialog = false;
+	}
+
 	function formatDate(dateStr: string): string {
 		return new Date(dateStr).toLocaleDateString("en-US", {
 			year: "numeric",
@@ -217,9 +303,21 @@
 		</div>
 	</BlurFade>
 
-	<!-- Sticky Toolbar: Search + Sort + Count -->
+	<!-- Sticky Toolbar: Select All + Search + Sort + Count -->
 	<div class="sticky top-0 z-10 -mx-4 md:-mx-6 px-4 md:px-6 py-3 bg-background/95 backdrop-blur-sm border-b border-border">
 		<div class="flex flex-col sm:flex-row gap-3 sm:items-center">
+			<!-- Select All Checkbox -->
+			{#if filteredProjects().length > 0}
+				<div class="flex items-center gap-2">
+					<Checkbox
+						data-testid="select-all-checkbox"
+						checked={allSelected()}
+						indeterminate={someSelected()}
+						onCheckedChange={toggleSelectAll}
+						aria-label="Select all projects"
+					/>
+				</div>
+			{/if}
 			<div class="flex-1 max-w-md">
 				<SearchInput
 					bind:value={searchQuery}
@@ -310,82 +408,98 @@
 		<BlurFade delay={100}>
 			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
 				{#each filteredProjects() as project, index}
-					<a
-						href="/projects/{project.slug}"
-						class="group block animate-in fade-in slide-in-from-bottom-2"
-						style="animation-delay: {index *
-							50}ms; animation-fill-mode: both;"
+					<div
+						class="group relative animate-in fade-in slide-in-from-bottom-2"
+						style="animation-delay: {index * 50}ms; animation-fill-mode: both;"
 					>
-						<Card.Root
-							class="h-full hover:shadow-lg hover:border-primary/50 transition-all duration-200 hover:-translate-y-1"
+						<!-- Selection Checkbox -->
+						<div
+							class="absolute top-3 left-3 z-10"
+							onclick={(e: Event) => toggleSelection(project.id, e)}
 						>
-							<Card.Content class="p-5 md:p-6">
-								<div
-									class="flex items-start justify-between mb-4"
-								>
-									<div class="flex items-center gap-3">
-										<div
-											class="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center group-hover:bg-primary/20 transition-colors"
-										>
-											<FolderKanban
-												class="h-5 w-5 text-primary"
-											/>
-										</div>
-										<div class="min-w-0">
-											<h3
-												class="font-semibold text-foreground truncate group-hover:text-primary transition-colors"
-											>
-												{project.human_key}
-											</h3>
-										</div>
-									</div>
-									<DropdownMenu.Root>
-										<DropdownMenu.Trigger>
-											{#snippet child({ props })}
-												<Button
-													{...props}
-													variant="ghost"
-													size="icon"
-													class="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-													onclick={(e: Event) => {
-														e.preventDefault();
-														e.stopPropagation();
-													}}
-												>
-													<MoreVertical class="h-4 w-4" />
-													<span class="sr-only">More options</span>
-												</Button>
-											{/snippet}
-										</DropdownMenu.Trigger>
-										<DropdownMenu.Content align="end">
-											<DropdownMenu.Item
-												class="text-destructive focus:text-destructive"
-												onclick={(e: Event) =>
-													handleDeleteClick(
-														e,
-														project,
-													)}
-											>
-												<Trash2 class="h-4 w-4 mr-2" />
-												Delete
-											</DropdownMenu.Item>
-										</DropdownMenu.Content>
-									</DropdownMenu.Root>
-								</div>
+							<Checkbox
+								data-testid="project-select-checkbox"
+								checked={isSelected(project.id)}
+								aria-label="Select project {project.human_key}"
+								class="bg-background/80 backdrop-blur-sm"
+							/>
+						</div>
 
-								<div
-									class="flex items-center gap-2 text-sm text-muted-foreground"
-								>
-									<Calendar class="h-4 w-4" />
-									<span
-										>Created {formatDate(
-											project.created_at,
-										)}</span
+						<a
+							href="/projects/{project.slug}"
+							class="block"
+						>
+							<Card.Root
+								class="h-full hover:shadow-lg hover:border-primary/50 transition-all duration-200 hover:-translate-y-1 {isSelected(project.id) ? 'ring-2 ring-primary border-primary' : ''}"
+							>
+								<Card.Content class="p-5 md:p-6 pl-12">
+									<div
+										class="flex items-start justify-between mb-4"
 									>
-								</div>
-							</Card.Content>
-						</Card.Root>
-					</a>
+										<div class="flex items-center gap-3">
+											<div
+												class="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center group-hover:bg-primary/20 transition-colors"
+											>
+												<FolderKanban
+													class="h-5 w-5 text-primary"
+												/>
+											</div>
+											<div class="min-w-0">
+												<h3
+													class="font-semibold text-foreground truncate group-hover:text-primary transition-colors"
+												>
+													{project.human_key}
+												</h3>
+											</div>
+										</div>
+										<DropdownMenu.Root>
+											<DropdownMenu.Trigger>
+												{#snippet child({ props })}
+													<Button
+														{...props}
+														variant="ghost"
+														size="icon"
+														class="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+														onclick={(e: Event) => {
+															e.preventDefault();
+															e.stopPropagation();
+														}}
+													>
+														<MoreVertical class="h-4 w-4" />
+														<span class="sr-only">More options</span>
+													</Button>
+												{/snippet}
+											</DropdownMenu.Trigger>
+											<DropdownMenu.Content align="end">
+												<DropdownMenu.Item
+													class="text-destructive focus:text-destructive"
+													onclick={(e: Event) =>
+														handleDeleteClick(
+															e,
+															project,
+														)}
+												>
+													<Trash2 class="h-4 w-4 mr-2" />
+													Delete
+												</DropdownMenu.Item>
+											</DropdownMenu.Content>
+										</DropdownMenu.Root>
+									</div>
+
+									<div
+										class="flex items-center gap-2 text-sm text-muted-foreground"
+									>
+										<Calendar class="h-4 w-4" />
+										<span
+											>Created {formatDate(
+												project.created_at,
+											)}</span
+										>
+									</div>
+								</Card.Content>
+							</Card.Root>
+						</a>
+					</div>
 				{/each}
 			</div>
 		</BlurFade>
@@ -528,6 +642,43 @@
 		</AlertDialog.Footer>
 	</AlertDialog.Content>
 </AlertDialog.Root>
+
+<!-- Bulk Delete Confirmation Dialog -->
+<AlertDialog.Root bind:open={showBulkDeleteDialog}>
+	<AlertDialog.Content>
+		<AlertDialog.Header>
+			<AlertDialog.Title>Delete {selectedCount} Projects</AlertDialog.Title>
+			<AlertDialog.Description>
+				Are you sure you want to delete {selectedCount} project{selectedCount > 1 ? 's' : ''}?
+				This action cannot be undone. All agents, messages, and data
+				associated with these projects will be permanently deleted.
+			</AlertDialog.Description>
+		</AlertDialog.Header>
+		<AlertDialog.Footer>
+			<AlertDialog.Cancel
+				onclick={() => {
+					showBulkDeleteDialog = false;
+				}}
+			>
+				Cancel
+			</AlertDialog.Cancel>
+			<AlertDialog.Action
+				class="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+				disabled={bulkDeleting}
+				onclick={confirmBulkDelete}
+			>
+				{bulkDeleting ? "Deleting..." : `Delete ${selectedCount} Project${selectedCount > 1 ? 's' : ''}`}
+			</AlertDialog.Action>
+		</AlertDialog.Footer>
+	</AlertDialog.Content>
+</AlertDialog.Root>
+
+<!-- Bulk Action Bar -->
+<BulkActionBar
+	{selectedCount}
+	onClear={clearSelection}
+	onDelete={handleBulkDelete}
+/>
 
 <style>
 	/* Staggered animation keyframes */
