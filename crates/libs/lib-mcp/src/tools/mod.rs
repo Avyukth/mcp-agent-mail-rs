@@ -21,9 +21,8 @@ use std::sync::Arc;
 use lib_core::{
     ctx::Ctx,
     model::{
-        ModelManager, agent::AgentBmc, agent_capabilities::AgentCapabilityBmc,
-        file_reservation::FileReservationBmc, message::MessageBmc, product::ProductBmc,
-        project::ProjectBmc,
+        ModelManager, agent::AgentBmc, file_reservation::FileReservationBmc, message::MessageBmc,
+        product::ProductBmc, project::ProjectBmc,
     },
 };
 
@@ -1969,42 +1968,7 @@ impl AgentMailService {
         &self,
         params: Parameters<EnsureProjectParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::project::ProjectBmc;
-        use lib_core::utils::validation::validate_project_key;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        // Validate inputs
-        validate_project_key(&p.slug).map_err(|e| {
-            McpError::invalid_params(
-                format!("{}", e),
-                Some(serde_json::json!({ "details": e.context() })),
-            )
-        })?;
-
-        // Check if project exists
-        match ProjectBmc::get_by_identifier(&ctx, &self.mm, &p.slug).await {
-            Ok(project) => {
-                let msg = format!(
-                    "Project '{}' already exists (id: {}, human_key: {})",
-                    project.slug, project.id, project.human_key
-                );
-                Ok(CallToolResult::success(vec![Content::text(msg)]))
-            }
-            Err(_) => {
-                // Create new project
-                let id = ProjectBmc::create(&ctx, &self.mm, &p.slug, &p.human_key)
-                    .await
-                    .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-                let msg = format!(
-                    "Created project '{}' with id {} and human_key '{}'",
-                    p.slug, id, p.human_key
-                );
-                Ok(CallToolResult::success(vec![Content::text(msg)]))
-            }
-        }
+        project::ensure_project_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// Register a new agent in a project
@@ -2013,65 +1977,7 @@ impl AgentMailService {
         &self,
         params: Parameters<RegisterAgentParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::agent::{AgentBmc, AgentForCreate};
-
-        use lib_core::utils::validation::{validate_agent_name, validate_project_key};
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        // Validate inputs
-        validate_project_key(&p.project_slug).map_err(|e| {
-            McpError::invalid_params(
-                format!("{}", e),
-                Some(serde_json::json!({ "details": e.context() })),
-            )
-        })?;
-
-        validate_agent_name(&p.name).map_err(|e| {
-            McpError::invalid_params(
-                format!("{}", e),
-                Some(serde_json::json!({ "details": e.context() })),
-            )
-        })?;
-
-        // Get project
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        // Check if agent exists
-        match AgentBmc::get_by_name(&ctx, &self.mm, project.id, &p.name).await {
-            Ok(agent) => {
-                let msg = format!(
-                    "Agent '{}' already exists (id: {}, program: {})",
-                    agent.name, agent.id, agent.program
-                );
-                Ok(CallToolResult::success(vec![Content::text(msg)]))
-            }
-            Err(_) => {
-                let agent_c = AgentForCreate {
-                    project_id: project.id,
-                    name: p.name.clone(),
-                    program: p.program,
-                    model: p.model,
-                    task_description: p.task_description,
-                };
-
-                let id = AgentBmc::create(&ctx, &self.mm, agent_c)
-                    .await
-                    .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-                // Auto-grant default capabilities for MCP tool usage
-                AgentCapabilityBmc::grant_defaults(&ctx, &self.mm, id)
-                    .await
-                    .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-                let msg = format!(
-                    "Registered agent '{}' with id {} (granted default capabilities)",
-                    p.name, id
-                );
-                Ok(CallToolResult::success(vec![Content::text(msg)]))
-            }
-        }
+        agent::register_agent_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// Send a message to one or more agents
@@ -2108,25 +2014,7 @@ impl AgentMailService {
         description = "Get information about an agent including their program, model, and task description."
     )]
     async fn whois(&self, params: Parameters<WhoisParams>) -> Result<CallToolResult, McpError> {
-        let ctx = self.ctx();
-        let p = params.0;
-
-        let (_project, agent) =
-            helpers::resolve_project_and_agent(&ctx, &self.mm, &p.project_slug, &p.agent_name)
-                .await?;
-
-        let output = format!(
-            "Agent: {}\nID: {}\nProgram: {}\nModel: {}\nTask: {}\nContact Policy: {}\nAttachments Policy: {}",
-            agent.name,
-            agent.id,
-            agent.program,
-            agent.model,
-            agent.task_description,
-            agent.contact_policy,
-            agent.attachments_policy
-        );
-
-        Ok(CallToolResult::success(vec![Content::text(output)]))
+        agent::whois_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// Search messages using full-text search
@@ -2172,23 +2060,7 @@ impl AgentMailService {
     /// List all projects
     #[tool(description = "List all available projects in the system.")]
     async fn list_projects(&self) -> Result<CallToolResult, McpError> {
-        use lib_core::model::project::ProjectBmc;
-
-        let ctx = self.ctx();
-
-        let projects = ProjectBmc::list_all(&ctx, &self.mm)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let mut output = format!("Projects ({}):\n\n", projects.len());
-        for p in &projects {
-            output.push_str(&format!(
-                "- {} (slug: {}, created: {})\n",
-                p.human_key, p.slug, p.created_at
-            ));
-        }
-
-        Ok(CallToolResult::success(vec![Content::text(output)]))
+        project::list_projects_impl(&self.ctx(), &self.mm).await
     }
 
     /// List all agents in a project
@@ -2197,26 +2069,7 @@ impl AgentMailService {
         &self,
         params: Parameters<ListAgentsParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::agent::AgentBmc;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        let agents = AgentBmc::list_all_for_project(&ctx, &self.mm, project.id)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let mut output = format!("Agents in '{}' ({}):\n\n", p.project_slug, agents.len());
-        for a in &agents {
-            output.push_str(&format!(
-                "- {} (program: {}, model: {})\n  Task: {}\n",
-                a.name, a.program, a.model, a.task_description
-            ));
-        }
-
-        Ok(CallToolResult::success(vec![Content::text(output)]))
+        agent::list_agents_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// Reserve a file path for an agent
@@ -2301,64 +2154,7 @@ impl AgentMailService {
         &self,
         params: Parameters<CreateAgentIdentityParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::agent::AgentBmc;
-
-        use std::collections::HashSet;
-
-        const ADJECTIVES: &[&str] = &[
-            "Blue", "Green", "Red", "Golden", "Silver", "Crystal", "Dark", "Bright", "Swift",
-            "Calm", "Bold", "Wise", "Noble", "Grand", "Mystic", "Ancient",
-        ];
-        const NOUNS: &[&str] = &[
-            "Mountain", "Castle", "River", "Forest", "Valley", "Harbor", "Tower", "Bridge",
-            "Falcon", "Phoenix", "Dragon", "Wolf", "Eagle", "Lion", "Hawk", "Owl",
-        ];
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        let existing_agents = AgentBmc::list_all_for_project(&ctx, &self.mm, project.id)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-        let existing_names: HashSet<String> =
-            existing_agents.iter().map(|a| a.name.clone()).collect();
-
-        let mut alternatives = Vec::new();
-        let mut rng_seed = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos() as usize;
-
-        let mut next_rand = || {
-            rng_seed = rng_seed.wrapping_mul(1103515245).wrapping_add(12345);
-            rng_seed
-        };
-
-        for _ in 0..10 {
-            let adj_idx = next_rand() % ADJECTIVES.len();
-            let noun_idx = next_rand() % NOUNS.len();
-            let name = format!("{}{}", ADJECTIVES[adj_idx], NOUNS[noun_idx]);
-
-            if !existing_names.contains(&name) && !alternatives.contains(&name) {
-                alternatives.push(name);
-                if alternatives.len() >= 5 {
-                    break;
-                }
-            }
-        }
-
-        let suggested = alternatives
-            .first()
-            .cloned()
-            .unwrap_or_else(|| "Agent1".to_string());
-        let output = format!(
-            "Suggested: {}\nAlternatives: {}",
-            suggested,
-            alternatives.join(", ")
-        );
-        Ok(CallToolResult::success(vec![Content::text(output)]))
+        agent::create_agent_identity_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// Update agent profile
@@ -2367,27 +2163,7 @@ impl AgentMailService {
         &self,
         params: Parameters<UpdateAgentProfileParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::agent::{AgentBmc, AgentProfileUpdate};
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        let (_project, agent) =
-            helpers::resolve_project_and_agent(&ctx, &self.mm, &p.project_slug, &p.agent_name)
-                .await?;
-
-        let update = AgentProfileUpdate {
-            task_description: p.task_description,
-            attachments_policy: p.attachments_policy,
-            contact_policy: p.contact_policy,
-        };
-
-        AgentBmc::update_profile(&ctx, &self.mm, agent.id, update)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let msg = format!("Updated profile for agent '{}'", p.agent_name);
-        Ok(CallToolResult::success(vec![Content::text(msg)]))
+        agent::update_agent_profile_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// Get project info
@@ -2396,32 +2172,7 @@ impl AgentMailService {
         &self,
         params: Parameters<GetProjectInfoParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::agent::AgentBmc;
-        use lib_core::model::project::ProjectBmc;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
-
-        let agents = AgentBmc::list_all_for_project(&ctx, &self.mm, project.id)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let message_count = ProjectBmc::count_messages(&ctx, &self.mm, project.id)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let output = format!(
-            "Project: {} ({})\nID: {}\nAgents: {}\nMessages: {}\nCreated: {}",
-            project.human_key,
-            project.slug,
-            project.id,
-            agents.len(),
-            message_count,
-            project.created_at
-        );
-        Ok(CallToolResult::success(vec![Content::text(output)]))
+        project::get_project_info_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// Get agent profile
@@ -2430,47 +2181,7 @@ impl AgentMailService {
         &self,
         params: Parameters<GetAgentProfileParams>,
     ) -> Result<CallToolResult, McpError> {
-        use lib_core::model::agent::AgentBmc;
-        use lib_core::model::file_reservation::FileReservationBmc;
-
-        let ctx = self.ctx();
-        let p = params.0;
-
-        let (project, agent) =
-            helpers::resolve_project_and_agent(&ctx, &self.mm, &p.project_slug, &p.agent_name)
-                .await?;
-
-        let sent_count = AgentBmc::count_messages_sent(&ctx, &self.mm, agent.id)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-        let received_count = AgentBmc::count_messages_received(&ctx, &self.mm, agent.id)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-
-        let reservations = FileReservationBmc::list_active_for_project(&ctx, &self.mm, project.id)
-            .await
-            .map_err(|e| McpError::internal_error(e.to_string(), None))?;
-        let active_reservations = reservations
-            .iter()
-            .filter(|r| r.agent_id == agent.id)
-            .count();
-
-        let output = format!(
-            "Agent: {}\nID: {}\nProgram: {}\nModel: {}\nTask: {}\nContact Policy: {}\nAttachments Policy: {}\nMessages Sent: {}\nMessages Received: {}\nActive Reservations: {}\nInception: {}\nLast Active: {}",
-            agent.name,
-            agent.id,
-            agent.program,
-            agent.model,
-            agent.task_description,
-            agent.contact_policy,
-            agent.attachments_policy,
-            sent_count,
-            received_count,
-            active_reservations,
-            agent.inception_ts,
-            agent.last_active_ts
-        );
-        Ok(CallToolResult::success(vec![Content::text(output)]))
+        agent::get_agent_profile_impl(&self.ctx(), &self.mm, params.0).await
     }
 
     /// List threads
