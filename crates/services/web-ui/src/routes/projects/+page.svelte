@@ -30,10 +30,25 @@
 	import { Input } from "$lib/components/ui/input";
 	import { Label } from "$lib/components/ui/label";
 	import { Textarea } from "$lib/components/ui/textarea";
+	import { SearchInput } from "$lib/components/ui/search-input";
 
 	let projects = $state<Project[]>([]);
 	let loading = $state(true);
 	let error = $state<string | null>(null);
+
+	// Search filter
+	let searchQuery = $state("");
+
+	// Filter projects by search query
+	let filteredProjects = $derived(() => {
+		if (!searchQuery.trim()) return projects;
+		const query = searchQuery.toLowerCase();
+		return projects.filter(
+			(p) =>
+				p.human_key.toLowerCase().includes(query) ||
+				p.slug.toLowerCase().includes(query)
+		);
+	});
 
 	// New project form
 	let showNewForm = $state(false);
@@ -156,21 +171,14 @@
 </script>
 
 <div class="space-y-4 md:space-y-6">
-	<!-- Header -->
+	<!-- Header (scrolls away) -->
 	<BlurFade delay={0}>
 		<div
 			class="flex flex-col sm:flex-row sm:items-center justify-between gap-4"
 		>
 			<div>
-				<h1
-					class="text-xl md:text-2xl font-bold text-foreground flex items-center gap-2"
-				>
+				<h1 class="text-xl md:text-2xl font-bold text-foreground">
 					Projects
-					{#if !loading}
-						<Badge variant="secondary">
-							<NumberTicker value={projects.length} delay={100} />
-						</Badge>
-					{/if}
 				</h1>
 				<p class="text-sm md:text-base text-muted-foreground">
 					Manage your agent mail projects
@@ -182,6 +190,25 @@
 			</ShimmerButton>
 		</div>
 	</BlurFade>
+
+	<!-- Sticky Toolbar: Search + Count -->
+	<div class="sticky top-0 z-10 -mx-4 md:-mx-6 px-4 md:px-6 py-3 bg-background/95 backdrop-blur-sm border-b border-border">
+		<div class="flex flex-col sm:flex-row gap-3 sm:items-center">
+			<div class="flex-1 max-w-md">
+				<SearchInput
+					bind:value={searchQuery}
+					placeholder="Search projects..."
+				/>
+			</div>
+		</div>
+
+		<!-- Stats (always visible when not loading) -->
+		{#if !loading}
+			<div class="flex items-center gap-4 text-sm text-muted-foreground mt-3">
+				<span>Showing {filteredProjects().length} of {projects.length} projects</span>
+			</div>
+		{/if}
+	</div>
 
 	<!-- Error Message -->
 	{#if error}
@@ -198,7 +225,7 @@
 	{#if loading}
 		<ProjectTableSkeleton rows={3} />
 	{:else if projects.length === 0}
-		<!-- Empty State -->
+		<!-- Empty State - No Projects -->
 		<BlurFade delay={100}>
 			<Card.Root class="p-8 md:p-12 text-center">
 				<div class="mb-4 flex justify-center">
@@ -217,11 +244,29 @@
 				</ShimmerButton>
 			</Card.Root>
 		</BlurFade>
+	{:else if filteredProjects().length === 0}
+		<!-- Empty State - No Matching Results -->
+		<BlurFade delay={100}>
+			<Card.Root class="p-8 md:p-12 text-center">
+				<div class="mb-4 flex justify-center">
+					<FolderKanban class="h-12 w-12 text-muted-foreground" />
+				</div>
+				<h3 class="text-lg font-semibold text-foreground mb-2">
+					No projects found
+				</h3>
+				<p class="text-muted-foreground mb-4">
+					No projects match "{searchQuery}". Try a different search term.
+				</p>
+				<Button variant="outline" onclick={() => (searchQuery = "")}>
+					Clear search
+				</Button>
+			</Card.Root>
+		</BlurFade>
 	{:else}
 		<!-- Projects Grid - Cards with hover effects -->
 		<BlurFade delay={100}>
 			<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-				{#each projects as project, index}
+				{#each filteredProjects() as project, index}
 					<a
 						href="/projects/{project.slug}"
 						class="group block animate-in fade-in slide-in-from-bottom-2"
