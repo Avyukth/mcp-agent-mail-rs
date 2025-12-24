@@ -25,15 +25,15 @@
 <InstallPrompt />
 <UpdatePrompt />
 
-<div class="min-h-screen flex">
+<div class="h-screen flex overflow-hidden">
 	<!-- Sidebar (handles both mobile sheet trigger and desktop sidebar) -->
 	<AppSidebar {unreadCount} />
 
 	<!-- Main content -->
-	<div class="flex-1 flex flex-col min-w-0">
+	<div class="flex-1 flex flex-col min-w-0 overflow-hidden">
 		<!-- Header with breadcrumbs (desktop only, mobile has header in sidebar) -->
 		<AppHeader />
-		<main class="flex-1 p-4 md:p-6 bg-background overflow-auto">
+		<main class="flex-1 p-4 md:p-6 bg-background overflow-y-auto">
 			{@render children()}
 		</main>
 	</div>

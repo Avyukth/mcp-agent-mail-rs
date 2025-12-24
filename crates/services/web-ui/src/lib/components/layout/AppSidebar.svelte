@@ -116,10 +116,10 @@
 
 <!-- Tablet/Desktop: Fixed sidebar (>= 768px) -->
 <aside
-	class="hidden md:flex flex-col border-r border-border bg-card transition-all duration-300 w-64"
+	class="hidden md:flex flex-col h-screen border-r border-border bg-card transition-all duration-300 w-64"
 >
 	<!-- Header - h-14 matches AppHeader -->
-	<div class="flex items-center gap-2 border-b border-border h-14 px-4">
+	<div class="flex items-center gap-2 border-b border-border h-14 px-4 flex-shrink-0">
 		<Mail class="h-5 w-5 text-primary" />
 		<div class="flex flex-col">
 			<span class="text-sm font-bold text-primary">Agent Mail</span>
@@ -128,7 +128,7 @@
 	</div>
 
 	<!-- Navigation -->
-	<nav class="flex-1 flex flex-col gap-1 p-2">
+	<nav class="flex-1 flex flex-col gap-1 p-2 overflow-y-auto">
 		{#each navItemsWithBadge as item}
 			<a
 				href={item.href}
@@ -147,8 +147,8 @@
 		{/each}
 	</nav>
 
-	<!-- Footer -->
-	<div class="border-t border-border p-2 flex items-center justify-end">
+	<!-- Footer - sticky at bottom -->
+	<div class="border-t border-border p-2 flex items-center justify-end flex-shrink-0 bg-card">
 		<Button onclick={toggleMode} variant="ghost" size="icon" class="min-h-[44px] min-w-[44px]">
 			<Sun class="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
 			<Moon class="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
