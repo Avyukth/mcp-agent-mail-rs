@@ -18,10 +18,11 @@ use lib_core::model::agent::{AgentBmc, AgentForCreate};
 use lib_core::model::attachment::{AttachmentBmc, AttachmentForCreate};
 use lib_core::model::message::{MessageBmc, MessageForCreate};
 use lib_core::model::project::ProjectBmc;
+use lib_core::types::ProjectId;
 use lib_core::utils::slugify;
 
 /// Helper to set up a project
-async fn setup_project(tc: &TestContext) -> (i64, String) {
+async fn setup_project(tc: &TestContext) -> (ProjectId, String) {
     let human_key = "Test Quota Project";
     let slug = slugify(human_key) + &uuid::Uuid::new_v4().to_string(); // Ensure unique
 
@@ -65,7 +66,7 @@ async fn test_quota_attachment_limit_exceeded() {
 
     // 1. Create attachment below limit (500 bytes)
     let att1 = AttachmentForCreate {
-        project_id: pid,
+        project_id: pid.into(),
         agent_id: None,
         filename: "small.txt".into(),
         stored_path: "/tmp/small.txt".into(),
@@ -78,7 +79,7 @@ async fn test_quota_attachment_limit_exceeded() {
 
     // 2. Create another that puts it over limit (500 + 600 = 1100 > 1000)
     let att2 = AttachmentForCreate {
-        project_id: pid,
+        project_id: pid.into(),
         agent_id: None,
         filename: "large.txt".into(),
         stored_path: "/tmp/large.txt".into(),
@@ -111,7 +112,7 @@ async fn test_quota_inbox_limit_exceeded() {
 
     // 1. Send first message
     let msg1 = MessageForCreate {
-        project_id: pid,
+        project_id: pid.into(),
         sender_id: aid_sender,
         recipient_ids: vec![aid_recipient],
         cc_ids: None,
@@ -128,7 +129,7 @@ async fn test_quota_inbox_limit_exceeded() {
 
     // 2. Send second message (Limit is 2, current count is 1. 1 >= 2 is False. Succeeds)
     let msg2 = MessageForCreate {
-        project_id: pid,
+        project_id: pid.into(),
         sender_id: aid_sender,
         recipient_ids: vec![aid_recipient],
         cc_ids: None,
@@ -145,7 +146,7 @@ async fn test_quota_inbox_limit_exceeded() {
 
     // 3. Send third message (Current count is 2. 2 >= 2 is True. Fails)
     let msg3 = MessageForCreate {
-        project_id: pid,
+        project_id: pid.into(),
         sender_id: aid_sender,
         recipient_ids: vec![aid_recipient],
         cc_ids: None,

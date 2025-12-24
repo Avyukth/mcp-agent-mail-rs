@@ -1171,7 +1171,7 @@ impl AgentMailService {
 
         let project = helpers::resolve_project(&ctx, &self.mm, &p.project_slug).await?;
 
-        let siblings = ProjectBmc::list_siblings(&ctx, &self.mm, project.id.get())
+        let siblings = ProjectBmc::list_siblings(&ctx, &self.mm, project.id)
             .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 

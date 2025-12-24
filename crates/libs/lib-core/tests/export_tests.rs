@@ -17,10 +17,11 @@ use lib_core::model::agent::{AgentBmc, AgentForCreate};
 use lib_core::model::export::{ExportBmc, ExportFormat, ScrubMode};
 use lib_core::model::message::{MessageBmc, MessageForCreate};
 use lib_core::model::project::ProjectBmc;
+use lib_core::types::ProjectId;
 use lib_core::utils::slugify;
 
 /// Helper to set up a project with messages for export tests
-async fn setup_project_with_messages(tc: &TestContext, suffix: &str) -> (i64, String) {
+async fn setup_project_with_messages(tc: &TestContext, suffix: &str) -> (ProjectId, String) {
     let human_key = format!("/test/export-repo-{}", suffix);
     let slug = slugify(&human_key);
 
@@ -55,9 +56,9 @@ async fn setup_project_with_messages(tc: &TestContext, suffix: &str) -> (i64, St
     // Create some messages
     for i in 1..=3 {
         let msg = MessageForCreate {
-            project_id,
-            sender_id,
-            recipient_ids: vec![recipient_id],
+            project_id: project_id.get(),
+            sender_id: sender_id.into(),
+            recipient_ids: vec![recipient_id.into()],
             cc_ids: None,
             bcc_ids: None,
             subject: format!("Test Message {}", i),
@@ -981,8 +982,8 @@ async fn test_export_html_xss_prevention() {
         &tc.ctx,
         &tc.mm,
         MessageForCreate {
-            project_id,
-            sender_id,
+            project_id: project_id.get(),
+            sender_id: sender_id.into(),
             recipient_ids: vec![],
             cc_ids: None,
             bcc_ids: None,
@@ -1054,8 +1055,8 @@ async fn test_export_unicode_content() {
         &tc.ctx,
         &tc.mm,
         MessageForCreate {
-            project_id,
-            sender_id,
+            project_id: project_id.get(),
+            sender_id: sender_id.into(),
             recipient_ids: vec![],
             cc_ids: None,
             bcc_ids: None,

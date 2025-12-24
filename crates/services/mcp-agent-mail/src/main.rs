@@ -2549,7 +2549,7 @@ async fn handle_products(args: ProductsArgs) -> anyhow::Result<()> {
             println!("Product: {} ({})", product.name, product.product_uid);
             println!("Linked Projects: {}", project_ids.len());
             for pid in project_ids {
-                if let Ok(proj) = lib_core::model::project::ProjectBmc::get(&ctx, &mm, pid).await {
+                if let Ok(proj) = lib_core::model::project::ProjectBmc::get(&ctx, &mm, lib_core::ProjectId::new(pid)).await {
                     println!("  - {} ({})", proj.human_key, proj.slug);
                 } else {
                     println!("  - Unknown Project ID: {}", pid);

@@ -109,7 +109,7 @@ impl ProjectBmc {
         mm: &ModelManager,
         slug: &str,
         human_key: &str,
-    ) -> Result<i64> {
+    ) -> Result<ProjectId> {
         let db = mm.db();
 
         // Execute insert
@@ -118,7 +118,7 @@ impl ProjectBmc {
             .await?;
         let mut rows = stmt.query([slug, human_key]).await?;
 
-        let id = if let Some(row) = rows.next().await? {
+        let id: i64 = if let Some(row) = rows.next().await? {
             row.get::<i64>(0)?
         } else {
             return Err(crate::Error::InvalidInput(
@@ -131,7 +131,7 @@ impl ProjectBmc {
         // Register built-in macros for this project
         let _ = super::macro_def::MacroDefBmc::ensure_builtin_macros(ctx, mm, id).await;
 
-        Ok(id)
+        Ok(ProjectId::new(id))
     }
 
     /// Lists all projects ordered by creation time (newest first).
@@ -386,13 +386,13 @@ impl ProjectBmc {
     pub async fn count_messages(
         _ctx: &crate::Ctx,
         mm: &ModelManager,
-        project_id: i64,
+        project_id: ProjectId,
     ) -> Result<i64> {
         let db = mm.db();
         let stmt = db
             .prepare("SELECT COUNT(*) FROM messages WHERE project_id = ?")
             .await?;
-        let mut rows = stmt.query([project_id]).await?;
+        let mut rows = stmt.query([project_id.get()]).await?;
         if let Some(row) = rows.next().await? {
             Ok(row.get(0)?)
         } else {
@@ -412,12 +412,12 @@ impl ProjectBmc {
     ///
     /// # Errors
     /// Returns `Error::ProjectNotFound` if ID doesn't exist
-    pub async fn get(_ctx: &crate::Ctx, mm: &ModelManager, id: i64) -> Result<Project> {
+    pub async fn get(_ctx: &crate::Ctx, mm: &ModelManager, id: ProjectId) -> Result<Project> {
         let db = mm.db();
         let stmt = db
             .prepare("SELECT id, slug, human_key, created_at FROM projects WHERE id = ?")
             .await?;
-        let mut rows = stmt.query([id]).await?;
+        let mut rows = stmt.query([id.get()]).await?;
 
         if let Some(row) = rows.next().await? {
             let created_at_str: String = row.get(3)?;
@@ -431,7 +431,7 @@ impl ProjectBmc {
                 created_at,
             })
         } else {
-            Err(crate::Error::project_not_found(format!("ID: {}", id)))
+            Err(crate::Error::project_not_found(format!("ID: {}", id.get())))
         }
     }
 
@@ -439,11 +439,11 @@ impl ProjectBmc {
     pub async fn list_siblings(
         ctx: &crate::Ctx,
         mm: &ModelManager,
-        project_id: i64,
+        project_id: ProjectId,
     ) -> Result<Vec<Project>> {
         // 1. Get products for this project
         let products =
-            crate::model::product::ProductBmc::list_for_project(ctx, mm, project_id).await?;
+            crate::model::product::ProductBmc::list_for_project(ctx, mm, project_id.get()).await?;
 
         let mut sibling_ids = std::collections::HashSet::new();
 
@@ -452,7 +452,7 @@ impl ProjectBmc {
             let linked_ids =
                 crate::model::product::ProductBmc::get_linked_projects(ctx, mm, product.id).await?;
             for pid in linked_ids {
-                if pid != project_id {
+                if pid != project_id.get() {
                     sibling_ids.insert(pid);
                 }
             }
@@ -463,7 +463,7 @@ impl ProjectBmc {
         for pid in sibling_ids {
             // We use get which might fail if project deleted but link remains?
             // DB constraint should prevent this, but safe to ignore error or handle
-            if let Ok(proj) = Self::get(ctx, mm, pid).await {
+            if let Ok(proj) = Self::get(ctx, mm, ProjectId::new(pid)).await {
                 siblings.push(proj);
             }
         }
@@ -480,7 +480,7 @@ impl ProjectBmc {
     pub async fn sync_to_archive(
         ctx: &crate::Ctx,
         mm: &ModelManager,
-        project_id: i64,
+        project_id: ProjectId,
         message: &str,
     ) -> Result<String> {
         // 1. Get project
@@ -498,7 +498,7 @@ impl ProjectBmc {
         let messages = crate::model::message::MessageBmc::list_recent(
             ctx,
             mm,
-            ProjectId::new(project_id),
+            project_id,
             1000,
         )
         .await?; // reasonable limit for archive?
@@ -510,7 +510,7 @@ impl ProjectBmc {
         let agents = crate::model::agent::AgentBmc::list_all_for_project(
             ctx,
             mm,
-            ProjectId::new(project_id),
+            project_id,
         )
         .await?;
         let agents_json = serde_json::to_string_pretty(&agents)?;
@@ -580,13 +580,15 @@ impl ProjectBmc {
     /// # use lib_core::model::project::ProjectBmc;
     /// # use lib_core::model::ModelManager;
     /// # use lib_core::ctx::Ctx;
+    /// # use lib_core::types::ProjectId;
     /// # async fn example(mm: &ModelManager) {
     /// let ctx = Ctx::root_ctx();
-    /// ProjectBmc::delete(&ctx, mm, 42).await.unwrap();
+    /// ProjectBmc::delete(&ctx, mm, ProjectId::new(42)).await.unwrap();
     /// # }
     /// ```
-    pub async fn delete(ctx: &crate::Ctx, mm: &ModelManager, project_id: i64) -> Result<()> {
+    pub async fn delete(ctx: &crate::Ctx, mm: &ModelManager, project_id: ProjectId) -> Result<()> {
         let db = mm.db();
+        let pid = project_id.get();
 
         // First, verify project exists and get slug for git cleanup
         let project = Self::get(ctx, mm, project_id).await?;
@@ -594,7 +596,7 @@ impl ProjectBmc {
 
         // Get all agent IDs for this project (needed for message_recipients cleanup)
         let agents =
-            super::agent::AgentBmc::list_all_for_project(ctx, mm, ProjectId::new(project_id))
+            super::agent::AgentBmc::list_all_for_project(ctx, mm, project_id)
                 .await?;
         let agent_ids: Vec<i64> = agents.iter().map(|a| a.id.get()).collect();
 
@@ -603,42 +605,42 @@ impl ProjectBmc {
         let stmt = db
             .prepare(
                 r#"
-                DELETE FROM message_recipients 
+                DELETE FROM message_recipients
                 WHERE message_id IN (SELECT id FROM messages WHERE project_id = ?)
                 "#,
             )
             .await?;
-        stmt.execute([project_id]).await?;
+        stmt.execute([pid]).await?;
 
         // 2. Delete messages (FTS5 trigger handles messages_fts automatically)
         let stmt = db
             .prepare("DELETE FROM messages WHERE project_id = ?")
             .await?;
-        stmt.execute([project_id]).await?;
+        stmt.execute([pid]).await?;
 
         // 3. Delete file_reservations
         let stmt = db
             .prepare("DELETE FROM file_reservations WHERE project_id = ?")
             .await?;
-        stmt.execute([project_id]).await?;
+        stmt.execute([pid]).await?;
 
         // 4. Delete build_slots
         let stmt = db
             .prepare("DELETE FROM build_slots WHERE project_id = ?")
             .await?;
-        stmt.execute([project_id]).await?;
+        stmt.execute([pid]).await?;
 
         // 5. Delete macros
         let stmt = db
             .prepare("DELETE FROM macros WHERE project_id = ?")
             .await?;
-        stmt.execute([project_id]).await?;
+        stmt.execute([pid]).await?;
 
         // 6. Delete overseer_messages
         let stmt = db
             .prepare("DELETE FROM overseer_messages WHERE project_id = ?")
             .await?;
-        stmt.execute([project_id]).await?;
+        stmt.execute([pid]).await?;
 
         // 7. Delete agent_links
         if !agent_ids.is_empty() {
@@ -660,23 +662,23 @@ impl ProjectBmc {
         let stmt = db
             .prepare("DELETE FROM project_sibling_suggestions WHERE project_a_id = ? OR project_b_id = ?")
             .await?;
-        stmt.execute([project_id, project_id]).await?;
+        stmt.execute([pid, pid]).await?;
 
         // 9. Delete agents
         let stmt = db
             .prepare("DELETE FROM agents WHERE project_id = ?")
             .await?;
-        stmt.execute([project_id]).await?;
+        stmt.execute([pid]).await?;
 
         // 10. Delete product_project_links
         let stmt = db
             .prepare("DELETE FROM product_project_links WHERE project_id = ?")
             .await?;
-        stmt.execute([project_id]).await?;
+        stmt.execute([pid]).await?;
 
         // 11. Delete the project itself
         let stmt = db.prepare("DELETE FROM projects WHERE id = ?").await?;
-        stmt.execute([project_id]).await?;
+        stmt.execute([pid]).await?;
 
         // 12. Clean up Git archive
         let project_dir = mm.repo_root.join("projects").join(&project_slug);
@@ -707,10 +709,12 @@ impl ProjectBmc {
     pub async fn adopt(
         ctx: &crate::Ctx,
         mm: &ModelManager,
-        from_project_id: i64,
-        to_project_id: i64,
+        from_project_id: ProjectId,
+        to_project_id: ProjectId,
     ) -> Result<()> {
         let db = mm.db();
+        let from_pid = from_project_id.get();
+        let to_pid = to_project_id.get();
 
         // 1. Move Agents
         // We use execute directly
@@ -718,26 +722,26 @@ impl ProjectBmc {
         let stmt = db
             .prepare("UPDATE agents SET project_id = ? WHERE project_id = ?")
             .await?;
-        stmt.execute([to_project_id, from_project_id]).await?;
+        stmt.execute([to_pid, from_pid]).await?;
 
         // 2. Move Messages
         let stmt = db
             .prepare("UPDATE messages SET project_id = ? WHERE project_id = ?")
             .await?;
-        stmt.execute([to_project_id, from_project_id]).await?;
+        stmt.execute([to_pid, from_pid]).await?;
 
         // 3. Move other entities (Optional but recommended for full adopt)
         // File Reservations
         let stmt = db
             .prepare("UPDATE file_reservations SET project_id = ? WHERE project_id = ?")
             .await?;
-        stmt.execute([to_project_id, from_project_id]).await?;
+        stmt.execute([to_pid, from_pid]).await?;
 
         // Build Slots
         let stmt = db
             .prepare("UPDATE build_slots SET project_id = ? WHERE project_id = ?")
             .await?;
-        stmt.execute([to_project_id, from_project_id]).await?;
+        stmt.execute([to_pid, from_pid]).await?;
 
         // 4. Sync destination to archive
         Self::sync_to_archive(ctx, mm, to_project_id, "Adopted artifacts").await?;

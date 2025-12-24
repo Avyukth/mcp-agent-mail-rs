@@ -12,7 +12,7 @@ use lib_core::model::orchestration::{OrchestrationBmc, OrchestrationState, parse
 use lib_core::model::project::ProjectBmc;
 use lib_core::types::ProjectId;
 
-async fn setup_project(tc: &TestContext, name: &str) -> (i64, String) {
+async fn setup_project(tc: &TestContext, name: &str) -> (ProjectId, String) {
     let slug = format!("test-project-{}", name);
     let human_key = format!("Test Project {}", name);
     let project_id = ProjectBmc::create(&tc.ctx, &tc.mm, &slug, &human_key)
@@ -21,9 +21,9 @@ async fn setup_project(tc: &TestContext, name: &str) -> (i64, String) {
     (project_id, slug)
 }
 
-async fn create_agent(tc: &TestContext, project_id: i64, name: &str, role: &str) -> i64 {
+async fn create_agent(tc: &TestContext, project_id: ProjectId, name: &str, role: &str) -> i64 {
     let agent = AgentForCreate {
-        project_id: ProjectId::from(project_id),
+        project_id,
         name: name.to_string(),
         program: "claude-code".to_string(),
         model: "claude-sonnet-4".to_string(),
@@ -37,7 +37,7 @@ async fn create_agent(tc: &TestContext, project_id: i64, name: &str, role: &str)
 
 async fn send_message(
     tc: &TestContext,
-    project_id: i64,
+    project_id: ProjectId,
     sender_id: i64,
     recipient_ids: Vec<i64>,
     cc_ids: Option<Vec<i64>>,
@@ -47,7 +47,7 @@ async fn send_message(
     ack_required: bool,
 ) -> i64 {
     let msg = MessageForCreate {
-        project_id,
+        project_id: project_id.get(),
         sender_id,
         recipient_ids,
         cc_ids,
@@ -90,7 +90,7 @@ async fn test_happy_path_worker_reviewer_approved() {
     )
     .await;
 
-    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id, &thread_id)
+    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id.get(), &thread_id)
         .await
         .expect("Failed to list thread messages");
     assert_eq!(parse_thread_state(&messages), OrchestrationState::Completed);
@@ -108,7 +108,7 @@ async fn test_happy_path_worker_reviewer_approved() {
     )
     .await;
 
-    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id, &thread_id)
+    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id.get(), &thread_id)
         .await
         .expect("Failed to list thread messages");
     assert_eq!(parse_thread_state(&messages), OrchestrationState::Reviewing);
@@ -126,7 +126,7 @@ async fn test_happy_path_worker_reviewer_approved() {
     )
     .await;
 
-    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id, &thread_id)
+    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id.get(), &thread_id)
         .await
         .expect("Failed to list thread messages");
     assert_eq!(parse_thread_state(&messages), OrchestrationState::Approved);
@@ -192,7 +192,7 @@ async fn test_fix_flow_reviewer_applies_fixes() {
     )
     .await;
 
-    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id, &thread_id)
+    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id.get(), &thread_id)
         .await
         .expect("Failed to list thread messages");
 
@@ -212,7 +212,7 @@ async fn test_single_agent_fallback_no_reviewer() {
     let human_id = create_agent(&tc, project_id, "human-solo", "human").await;
 
     let reviewer_exists =
-        AgentBmc::get_by_name(&tc.ctx, &tc.mm, ProjectId::from(project_id), "reviewer")
+        AgentBmc::get_by_name(&tc.ctx, &tc.mm, project_id, "reviewer")
             .await
             .is_ok();
     assert!(!reviewer_exists, "Reviewer should not exist in this test");
@@ -232,14 +232,14 @@ async fn test_single_agent_fallback_no_reviewer() {
     )
     .await;
 
-    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id, &thread_id)
+    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id.get(), &thread_id)
         .await
         .expect("Failed to list thread messages");
 
     assert_eq!(messages.len(), 1);
     assert_eq!(parse_thread_state(&messages), OrchestrationState::Completed);
 
-    let inbox = MessageBmc::list_inbox_for_agent(&tc.ctx, &tc.mm, project_id, human_id, 10)
+    let inbox = MessageBmc::list_inbox_for_agent(&tc.ctx, &tc.mm, project_id.get(), human_id, 10)
         .await
         .expect("Failed to list human inbox");
     assert_eq!(
@@ -289,7 +289,7 @@ async fn test_review_claim_prevents_duplicates() {
     )
     .await;
 
-    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id, &thread_id)
+    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id.get(), &thread_id)
         .await
         .expect("Failed to list thread messages");
 
@@ -330,7 +330,7 @@ async fn test_abandoned_task_detection() {
     )
     .await;
 
-    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id, &thread_id)
+    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id.get(), &thread_id)
         .await
         .expect("Failed to list thread messages");
 
@@ -339,7 +339,7 @@ async fn test_abandoned_task_detection() {
     let abandoned = OrchestrationBmc::find_abandoned_tasks(
         &tc.ctx,
         &tc.mm,
-        project_id,
+        project_id.get(),
         std::time::Duration::from_secs(0),
     )
     .await
@@ -378,7 +378,7 @@ async fn test_full_state_machine_transitions() {
     )
     .await;
 
-    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id, &thread_id)
+    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id.get(), &thread_id)
         .await
         .unwrap();
     assert_eq!(parse_thread_state(&messages), OrchestrationState::Started);
@@ -396,7 +396,7 @@ async fn test_full_state_machine_transitions() {
     )
     .await;
 
-    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id, &thread_id)
+    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id.get(), &thread_id)
         .await
         .unwrap();
     assert_eq!(parse_thread_state(&messages), OrchestrationState::Completed);
@@ -414,7 +414,7 @@ async fn test_full_state_machine_transitions() {
     )
     .await;
 
-    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id, &thread_id)
+    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id.get(), &thread_id)
         .await
         .unwrap();
     assert_eq!(parse_thread_state(&messages), OrchestrationState::Reviewing);
@@ -432,7 +432,7 @@ async fn test_full_state_machine_transitions() {
     )
     .await;
 
-    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id, &thread_id)
+    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id.get(), &thread_id)
         .await
         .unwrap();
     assert_eq!(parse_thread_state(&messages), OrchestrationState::Rejected);
@@ -450,7 +450,7 @@ async fn test_full_state_machine_transitions() {
     )
     .await;
 
-    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id, &thread_id)
+    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id.get(), &thread_id)
         .await
         .unwrap();
     assert_eq!(parse_thread_state(&messages), OrchestrationState::Fixed);
@@ -468,7 +468,7 @@ async fn test_full_state_machine_transitions() {
     )
     .await;
 
-    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id, &thread_id)
+    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id.get(), &thread_id)
         .await
         .unwrap();
     assert_eq!(parse_thread_state(&messages), OrchestrationState::Approved);
@@ -486,7 +486,7 @@ async fn test_full_state_machine_transitions() {
     )
     .await;
 
-    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id, &thread_id)
+    let messages = MessageBmc::list_by_thread(&tc.ctx, &tc.mm, project_id.get(), &thread_id)
         .await
         .unwrap();
     assert_eq!(
@@ -524,7 +524,7 @@ async fn test_cc_audit_trail_preserved() {
     )
     .await;
 
-    let human_inbox = MessageBmc::list_inbox_for_agent(&tc.ctx, &tc.mm, project_id, human_id, 10)
+    let human_inbox = MessageBmc::list_inbox_for_agent(&tc.ctx, &tc.mm, project_id.get(), human_id, 10)
         .await
         .expect("Failed to list human inbox");
 

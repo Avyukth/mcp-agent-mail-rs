@@ -22,7 +22,7 @@ use lib_core::types::ProjectId;
 use serial_test::serial;
 
 /// Helper to setup data for queries
-async fn setup_data(tc: &TestContext) -> (i64, i64) {
+async fn setup_data(tc: &TestContext) -> (ProjectId, i64) {
     let p_id = ProjectBmc::create(&tc.ctx, &tc.mm, "q-proj", "Query Project")
         .await
         .unwrap();
@@ -30,7 +30,7 @@ async fn setup_data(tc: &TestContext) -> (i64, i64) {
         &tc.ctx,
         &tc.mm,
         AgentForCreate {
-            project_id: ProjectId::from(p_id),
+            project_id: p_id,
             name: "q-agent".into(),
             program: "test".into(),
             model: "test".into(),
@@ -49,7 +49,7 @@ async fn setup_data(tc: &TestContext) -> (i64, i64) {
             &tc.ctx,
             &tc.mm,
             MessageForCreate {
-                project_id: p_id,
+                project_id: p_id.into(),
                 sender_id: a_id_i64,
                 recipient_ids: vec![],
                 cc_ids: None,

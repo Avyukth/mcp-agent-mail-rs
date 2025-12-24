@@ -48,7 +48,7 @@ async fn create_test_mm() -> (ModelManager, TempDir) {
 }
 
 /// Setup a project with agents for testing
-async fn setup_test_project(mm: &ModelManager) -> (i64, Vec<i64>) {
+async fn setup_test_project(mm: &ModelManager) -> (ProjectId, Vec<i64>) {
     let ctx = Ctx::root_ctx();
     let project_id = ProjectBmc::create(&ctx, mm, "concurrent-test", "/concurrent/test")
         .await
@@ -57,7 +57,7 @@ async fn setup_test_project(mm: &ModelManager) -> (i64, Vec<i64>) {
     let mut agent_ids = Vec::new();
     for i in 0..5 {
         let agent = AgentForCreate {
-            project_id: ProjectId::from(project_id),
+            project_id,
             name: format!("agent-{}", i),
             program: "test".to_string(),
             model: "test".to_string(),
@@ -75,7 +75,7 @@ async fn setup_test_project(mm: &ModelManager) -> (i64, Vec<i64>) {
 
 /// Helper to create a MessageForCreate with all required fields
 fn make_message(
-    project_id: i64,
+    project_id: ProjectId,
     sender_id: i64,
     recipient_ids: Vec<i64>,
     subject: String,
@@ -83,7 +83,7 @@ fn make_message(
     thread_id: Option<String>,
 ) -> MessageForCreate {
     MessageForCreate {
-        project_id,
+        project_id: project_id.get(),
         sender_id,
         recipient_ids,
         cc_ids: None,
@@ -98,12 +98,12 @@ fn make_message(
 
 /// Helper to create a FileReservationForCreate
 fn make_reservation(
-    project_id: i64,
+    project_id: ProjectId,
     agent_id: i64,
     path_pattern: String,
 ) -> FileReservationForCreate {
     FileReservationForCreate {
-        project_id: ProjectId::from(project_id),
+        project_id,
         agent_id: AgentId::from(agent_id),
         path_pattern,
         exclusive: true,
@@ -362,7 +362,7 @@ async fn test_concurrent_inbox_fetches() {
 
             tokio::spawn(async move {
                 let ctx = Ctx::root_ctx();
-                MessageBmc::list_inbox_for_agent(&ctx, &mm, pid, agent_id, 100)
+                MessageBmc::list_inbox_for_agent(&ctx, &mm, pid.get(), agent_id, 100)
                     .await
                     .is_ok()
             })
@@ -423,7 +423,7 @@ async fn test_concurrent_inbox_fetch_during_message_send() {
 
         handles.push(tokio::spawn(async move {
             let ctx = Ctx::root_ctx();
-            MessageBmc::list_inbox_for_agent(&ctx, &mm, pid, agent_id, 100)
+            MessageBmc::list_inbox_for_agent(&ctx, &mm, pid.get(), agent_id, 100)
                 .await
                 .is_ok()
         }));
@@ -500,7 +500,7 @@ async fn test_concurrent_agent_registration() {
             tokio::spawn(async move {
                 let ctx = Ctx::root_ctx();
                 let agent = AgentForCreate {
-                    project_id: ProjectId::from(project_id),
+                    project_id,
                     name,
                     program: "test".to_string(),
                     model: "test".to_string(),

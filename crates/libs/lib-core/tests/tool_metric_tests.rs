@@ -20,7 +20,7 @@ use lib_core::types::ProjectId;
 use lib_core::utils::slugify;
 
 /// Helper to set up a project for tool metric tests
-async fn setup_project(tc: &TestContext) -> i64 {
+async fn setup_project(tc: &TestContext) -> ProjectId {
     let human_key = "/test/metrics-repo";
     let slug = slugify(human_key);
 
@@ -39,7 +39,7 @@ async fn test_create_tool_metric() {
     let project_id = setup_project(&tc).await;
 
     let metric_c = ToolMetricForCreate {
-        project_id: Some(project_id),
+        project_id: Some(project_id.get()),
         agent_id: None,
         tool_name: "send_message".to_string(),
         args_json: Some(r#"{"recipient": "agent-2"}"#.to_string()),
@@ -65,7 +65,7 @@ async fn test_create_tool_metric_with_error() {
     let project_id = setup_project(&tc).await;
 
     let metric_c = ToolMetricForCreate {
-        project_id: Some(project_id),
+        project_id: Some(project_id.get()),
         agent_id: None,
         tool_name: "check_inbox".to_string(),
         args_json: None,
@@ -93,7 +93,7 @@ async fn test_list_recent_for_project() {
     // Create multiple metrics
     for tool_name in &["ensure_project", "register_agent", "send_message"] {
         let metric_c = ToolMetricForCreate {
-            project_id: Some(project_id),
+            project_id: Some(project_id.get()),
             agent_id: None,
             tool_name: tool_name.to_string(),
             args_json: None,
@@ -106,7 +106,7 @@ async fn test_list_recent_for_project() {
             .expect("Failed to create metric");
     }
 
-    let metrics = ToolMetricBmc::list_recent(&tc.ctx, &tc.mm, Some(project_id), 10)
+    let metrics = ToolMetricBmc::list_recent(&tc.ctx, &tc.mm, Some(project_id.get()), 10)
         .await
         .expect("Failed to list metrics");
 
@@ -125,7 +125,7 @@ async fn test_list_recent_with_limit() {
     // Create 5 metrics
     for i in 0..5 {
         let metric_c = ToolMetricForCreate {
-            project_id: Some(project_id),
+            project_id: Some(project_id.get()),
             agent_id: None,
             tool_name: format!("tool_{}", i),
             args_json: None,
@@ -139,7 +139,7 @@ async fn test_list_recent_with_limit() {
     }
 
     // Limit to 3
-    let metrics = ToolMetricBmc::list_recent(&tc.ctx, &tc.mm, Some(project_id), 3)
+    let metrics = ToolMetricBmc::list_recent(&tc.ctx, &tc.mm, Some(project_id.get()), 3)
         .await
         .expect("Failed to list metrics");
 
@@ -193,7 +193,7 @@ async fn test_get_stats_for_project() {
     // Create metrics for different tools
     for _ in 0..3 {
         let metric_c = ToolMetricForCreate {
-            project_id: Some(project_id),
+            project_id: Some(project_id.get()),
             agent_id: None,
             tool_name: "send_message".to_string(),
             args_json: None,
@@ -208,7 +208,7 @@ async fn test_get_stats_for_project() {
 
     for _ in 0..2 {
         let metric_c = ToolMetricForCreate {
-            project_id: Some(project_id),
+            project_id: Some(project_id.get()),
             agent_id: None,
             tool_name: "check_inbox".to_string(),
             args_json: None,
@@ -223,7 +223,7 @@ async fn test_get_stats_for_project() {
 
     // One error
     let metric_c = ToolMetricForCreate {
-        project_id: Some(project_id),
+        project_id: Some(project_id.get()),
         agent_id: None,
         tool_name: "check_inbox".to_string(),
         args_json: None,
@@ -235,7 +235,7 @@ async fn test_get_stats_for_project() {
         .await
         .expect("Failed to create metric");
 
-    let stats = ToolMetricBmc::get_stats(&tc.ctx, &tc.mm, Some(project_id))
+    let stats = ToolMetricBmc::get_stats(&tc.ctx, &tc.mm, Some(project_id.get()))
         .await
         .expect("Failed to get stats");
 
@@ -298,7 +298,7 @@ async fn test_tool_metric_with_agent() {
     let project_id = setup_project(&tc).await;
 
     let agent = AgentForCreate {
-        project_id: ProjectId(project_id),
+        project_id,
         name: "metrics-agent".to_string(),
         program: "claude-code".to_string(),
         model: "claude-3".to_string(),
@@ -309,7 +309,7 @@ async fn test_tool_metric_with_agent() {
         .expect("Failed to create agent");
 
     let metric_c = ToolMetricForCreate {
-        project_id: Some(project_id),
+        project_id: Some(project_id.get()),
         agent_id: Some(agent_id.into()),
         tool_name: "reserve_file".to_string(),
         args_json: Some(r#"{"path": "src/**"}"#.to_string()),
@@ -322,7 +322,7 @@ async fn test_tool_metric_with_agent() {
         .await
         .expect("Failed to create metric");
 
-    let metrics = ToolMetricBmc::list_recent(&tc.ctx, &tc.mm, Some(project_id), 1)
+    let metrics = ToolMetricBmc::list_recent(&tc.ctx, &tc.mm, Some(project_id.get()), 1)
         .await
         .expect("Failed to list metrics");
 

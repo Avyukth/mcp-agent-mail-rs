@@ -4,7 +4,6 @@ use lib_core::model::agent::{AgentBmc, AgentForCreate};
 use lib_core::model::export::{ExportBmc, ExportFormat, ScrubMode};
 use lib_core::model::message::{MessageBmc, MessageForCreate};
 use lib_core::model::project::ProjectBmc;
-use lib_core::types::ProjectId;
 use uuid::Uuid;
 
 #[tokio::test]
@@ -21,7 +20,7 @@ async fn test_export_scrubbing() -> lib_core::Result<()> {
         &ctx,
         &mm,
         AgentForCreate {
-            project_id: ProjectId::from(project_id),
+            project_id,
             name: "sender".to_string(),
             program: "default".to_string(),
             model: "gpt-4".to_string(),
@@ -35,7 +34,7 @@ async fn test_export_scrubbing() -> lib_core::Result<()> {
         &ctx,
         &mm,
         AgentForCreate {
-            project_id: ProjectId::from(project_id),
+            project_id,
             name: "recipient".to_string(),
             program: "default".to_string(),
             model: "gpt-4".to_string(),
@@ -50,7 +49,7 @@ async fn test_export_scrubbing() -> lib_core::Result<()> {
     let body = "Please process credit card 4111-1111-1111-1111 and SSN 123-45-6789. Contact support@company.com.";
 
     let msg = MessageForCreate {
-        project_id,
+        project_id: project_id.into(),
         sender_id: sender,
         recipient_ids: vec![recipient],
         cc_ids: None,

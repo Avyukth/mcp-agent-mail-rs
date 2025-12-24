@@ -39,7 +39,7 @@ async fn setup_project_and_agent(tc: &TestContext, suffix: &str) -> (i64, i64) {
         .await
         .expect("Failed to create agent");
 
-    (project_id, agent_id)
+    (project_id.get(), agent_id.get())
 }
 
 /// Test acquiring a build slot
@@ -288,8 +288,8 @@ async fn test_different_agents_different_slots() {
 
     // Agent 1 acquires slot-x
     let slot_c1 = BuildSlotForCreate {
-        project_id,
-        agent_id: agent1_id,
+        project_id: project_id.get(),
+        agent_id: agent1_id.get(),
         slot_name: "slot-x".to_string(),
         ttl_seconds: 3600,
     };
@@ -299,8 +299,8 @@ async fn test_different_agents_different_slots() {
 
     // Agent 2 acquires slot-y (different slot, should work)
     let slot_c2 = BuildSlotForCreate {
-        project_id,
-        agent_id: agent2_id,
+        project_id: project_id.get(),
+        agent_id: agent2_id.get(),
         slot_name: "slot-y".to_string(),
         ttl_seconds: 3600,
     };
@@ -310,8 +310,8 @@ async fn test_different_agents_different_slots() {
 
     // Agent 2 tries to acquire slot-x (same slot as agent 1, should fail)
     let slot_c3 = BuildSlotForCreate {
-        project_id,
-        agent_id: agent2_id,
+        project_id: project_id.get(),
+        agent_id: agent2_id.get(),
         slot_name: "slot-x".to_string(),
         ttl_seconds: 3600,
     };

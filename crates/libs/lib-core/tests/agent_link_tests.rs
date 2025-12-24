@@ -16,10 +16,11 @@ use crate::common::TestContext;
 use lib_core::model::agent::{AgentBmc, AgentForCreate};
 use lib_core::model::agent_link::{AgentLinkBmc, AgentLinkForCreate};
 use lib_core::model::project::ProjectBmc;
+use lib_core::types::ProjectId;
 use lib_core::utils::slugify;
 
 /// Helper to set up a project with two agents
-async fn setup_project_with_agents(tc: &TestContext, suffix: &str) -> (i64, i64, i64) {
+async fn setup_project_with_agents(tc: &TestContext, suffix: &str) -> (ProjectId, i64, i64) {
     let human_key = format!("/test/link-repo-{}", suffix);
     let slug = slugify(&human_key);
 
@@ -49,7 +50,7 @@ async fn setup_project_with_agents(tc: &TestContext, suffix: &str) -> (i64, i64,
         .await
         .expect("Failed to create agent B");
 
-    (project_id, agent_a_id, agent_b_id)
+    (project_id, agent_a_id.into(), agent_b_id.into())
 }
 
 /// Test requesting contact between agents
@@ -62,9 +63,9 @@ async fn test_request_contact() {
     let (project_id, agent_a_id, agent_b_id) = setup_project_with_agents(&tc, "request").await;
 
     let link_c = AgentLinkForCreate {
-        a_project_id: project_id,
+        a_project_id: project_id.get(),
         a_agent_id: agent_a_id,
-        b_project_id: project_id,
+        b_project_id: project_id.get(),
         b_agent_id: agent_b_id,
         reason: "Collaboration on feature X".to_string(),
     };
@@ -87,9 +88,9 @@ async fn test_accept_contact() {
 
     // Agent A requests contact with Agent B
     let link_c = AgentLinkForCreate {
-        a_project_id: project_id,
+        a_project_id: project_id.get(),
         a_agent_id: agent_a_id,
-        b_project_id: project_id,
+        b_project_id: project_id.get(),
         b_agent_id: agent_b_id,
         reason: "Working together".to_string(),
     };
@@ -104,7 +105,7 @@ async fn test_accept_contact() {
         .expect("Failed to accept contact");
 
     // Verify A can see B in contacts
-    let contacts = AgentLinkBmc::list_contacts(&tc.ctx, &tc.mm, project_id, agent_a_id)
+    let contacts = AgentLinkBmc::list_contacts(&tc.ctx, &tc.mm, project_id.get(), agent_a_id)
         .await
         .expect("Failed to list contacts");
 
@@ -123,9 +124,9 @@ async fn test_reject_contact() {
 
     // Agent A requests contact
     let link_c = AgentLinkForCreate {
-        a_project_id: project_id,
+        a_project_id: project_id.get(),
         a_agent_id: agent_a_id,
-        b_project_id: project_id,
+        b_project_id: project_id.get(),
         b_agent_id: agent_b_id,
         reason: "Collaboration request".to_string(),
     };
@@ -140,7 +141,7 @@ async fn test_reject_contact() {
         .expect("Failed to reject contact");
 
     // Verify A has no contacts (rejected links don't show in contacts)
-    let contacts = AgentLinkBmc::list_contacts(&tc.ctx, &tc.mm, project_id, agent_a_id)
+    let contacts = AgentLinkBmc::list_contacts(&tc.ctx, &tc.mm, project_id.get(), agent_a_id)
         .await
         .expect("Failed to list contacts");
 
@@ -161,9 +162,9 @@ async fn test_list_pending_requests() {
 
     // Agent A requests contact with Agent B
     let link_c = AgentLinkForCreate {
-        a_project_id: project_id,
+        a_project_id: project_id.get(),
         a_agent_id: agent_a_id,
-        b_project_id: project_id,
+        b_project_id: project_id.get(),
         b_agent_id: agent_b_id,
         reason: "Want to collaborate".to_string(),
     };
@@ -173,7 +174,7 @@ async fn test_list_pending_requests() {
         .expect("Failed to request contact");
 
     // Agent B checks pending requests
-    let pending = AgentLinkBmc::list_pending_requests(&tc.ctx, &tc.mm, project_id, agent_b_id)
+    let pending = AgentLinkBmc::list_pending_requests(&tc.ctx, &tc.mm, project_id.get(), agent_b_id)
         .await
         .expect("Failed to list pending requests");
 
@@ -194,9 +195,9 @@ async fn test_bidirectional_contacts() {
 
     // Create and accept contact
     let link_c = AgentLinkForCreate {
-        a_project_id: project_id,
+        a_project_id: project_id.get(),
         a_agent_id: agent_a_id,
-        b_project_id: project_id,
+        b_project_id: project_id.get(),
         b_agent_id: agent_b_id,
         reason: "Mutual collaboration".to_string(),
     };
@@ -210,11 +211,11 @@ async fn test_bidirectional_contacts() {
         .expect("Failed to accept contact");
 
     // Both agents should see the contact
-    let a_contacts = AgentLinkBmc::list_contacts(&tc.ctx, &tc.mm, project_id, agent_a_id)
+    let a_contacts = AgentLinkBmc::list_contacts(&tc.ctx, &tc.mm, project_id.get(), agent_a_id)
         .await
         .expect("Failed to list A's contacts");
 
-    let b_contacts = AgentLinkBmc::list_contacts(&tc.ctx, &tc.mm, project_id, agent_b_id)
+    let b_contacts = AgentLinkBmc::list_contacts(&tc.ctx, &tc.mm, project_id.get(), agent_b_id)
         .await
         .expect("Failed to list B's contacts");
 
@@ -262,10 +263,10 @@ async fn test_multiple_pending_requests() {
             .expect("Failed to create requester");
 
         let link_c = AgentLinkForCreate {
-            a_project_id: project_id,
-            a_agent_id: requester_id,
-            b_project_id: project_id,
-            b_agent_id: target_id,
+            a_project_id: project_id.get(),
+            a_agent_id: requester_id.into(),
+            b_project_id: project_id.get(),
+            b_agent_id: target_id.into(),
             reason: format!("Request from agent {}", i),
         };
         AgentLinkBmc::request_contact(&tc.ctx, &tc.mm, link_c)
@@ -274,7 +275,7 @@ async fn test_multiple_pending_requests() {
     }
 
     // Target should have 3 pending requests
-    let pending = AgentLinkBmc::list_pending_requests(&tc.ctx, &tc.mm, project_id, target_id)
+    let pending = AgentLinkBmc::list_pending_requests(&tc.ctx, &tc.mm, project_id.get(), target_id.into())
         .await
         .expect("Failed to list pending requests");
 
@@ -290,7 +291,7 @@ async fn test_empty_contacts() {
 
     let (project_id, agent_a_id, _) = setup_project_with_agents(&tc, "empty").await;
 
-    let contacts = AgentLinkBmc::list_contacts(&tc.ctx, &tc.mm, project_id, agent_a_id)
+    let contacts = AgentLinkBmc::list_contacts(&tc.ctx, &tc.mm, project_id.get(), agent_a_id)
         .await
         .expect("Failed to list contacts");
 

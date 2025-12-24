@@ -131,11 +131,12 @@ pub async fn product_inbox_impl(
     );
 
     for project_id in project_ids {
-        let project = ProjectBmc::get(ctx, mm, project_id)
+        let pid = ProjectId::new(project_id);
+        let project = ProjectBmc::get(ctx, mm, pid)
             .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let messages = MessageBmc::list_recent(ctx, mm, ProjectId::new(project_id), limit)
+        let messages = MessageBmc::list_recent(ctx, mm, pid, limit)
             .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
@@ -178,11 +179,12 @@ pub async fn search_messages_product_impl(
 
     let mut total_matches = 0;
     for project_id in project_ids {
-        let project = ProjectBmc::get(ctx, mm, project_id)
+        let pid = ProjectId::new(project_id);
+        let project = ProjectBmc::get(ctx, mm, pid)
             .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-        let messages = MessageBmc::search(ctx, mm, project_id, &params.query, limit)
+        let messages = MessageBmc::search(ctx, mm, pid.get(), &params.query, limit)
             .await
             .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
@@ -236,11 +238,12 @@ pub async fn summarize_thread_product_impl(
 
         // Collect messages from all projects
         for &project_id in &project_ids {
-            let project = ProjectBmc::get(ctx, mm, project_id)
+            let pid = ProjectId::new(project_id);
+            let project = ProjectBmc::get(ctx, mm, pid)
                 .await
                 .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-            match MessageBmc::list_by_thread(ctx, mm, project_id, thread_id).await {
+            match MessageBmc::list_by_thread(ctx, mm, pid.get(), thread_id).await {
                 Ok(messages) if !messages.is_empty() => {
                     project_sources.push(project.slug.clone());
                     aggregated_messages.extend(messages);

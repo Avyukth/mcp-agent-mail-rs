@@ -9,6 +9,7 @@
 use crate::common::TestContext;
 use lib_core::model::macro_def::{MacroDefBmc, MacroDefForCreate};
 use lib_core::model::project::ProjectBmc;
+use lib_core::types::ProjectId;
 
 mod common;
 
@@ -24,7 +25,7 @@ async fn test_builtin_macros_registration() {
         .unwrap();
 
     // Verify automatic registration via ProjectBmc::create
-    let listed = MacroDefBmc::list(c, mm, project_id).await.unwrap();
+    let listed = MacroDefBmc::list(c, mm, project_id.get()).await.unwrap();
     assert_eq!(
         listed.len(),
         5,
@@ -40,7 +41,7 @@ async fn test_builtin_macros_registration() {
     assert!(names.contains(&"broadcast_message".to_string()));
 
     // Verify idempotency
-    let created_again = MacroDefBmc::ensure_builtin_macros(c, mm, project_id)
+    let created_again = MacroDefBmc::ensure_builtin_macros(c, mm, project_id.get())
         .await
         .unwrap();
     assert_eq!(
@@ -61,7 +62,7 @@ async fn test_builtin_macro_contents() {
         .unwrap();
 
     // Test start_session macro structure
-    let start_session = MacroDefBmc::get_by_name(c, mm, project_id, "start_session")
+    let start_session = MacroDefBmc::get_by_name(c, mm, project_id.get(), "start_session")
         .await
         .unwrap();
     assert_eq!(start_session.name, "start_session");
@@ -71,7 +72,7 @@ async fn test_builtin_macro_contents() {
     assert_eq!(start_session.steps[1]["tool"], "check_inbox");
 
     // Test prepare_thread macro structure
-    let prepare_thread = MacroDefBmc::get_by_name(c, mm, project_id, "prepare_thread")
+    let prepare_thread = MacroDefBmc::get_by_name(c, mm, project_id.get(), "prepare_thread")
         .await
         .unwrap();
     assert_eq!(prepare_thread.name, "prepare_thread");
@@ -81,7 +82,7 @@ async fn test_builtin_macro_contents() {
     assert_eq!(prepare_thread.steps[1]["tool"], "reserve_file");
 
     // Test file_reservation_cycle macro structure
-    let file_res = MacroDefBmc::get_by_name(c, mm, project_id, "file_reservation_cycle")
+    let file_res = MacroDefBmc::get_by_name(c, mm, project_id.get(), "file_reservation_cycle")
         .await
         .unwrap();
     assert_eq!(file_res.name, "file_reservation_cycle");
@@ -91,7 +92,7 @@ async fn test_builtin_macro_contents() {
     assert_eq!(file_res.steps[2]["tool"], "release_reservation");
 
     // Test contact_handshake macro structure
-    let contact = MacroDefBmc::get_by_name(c, mm, project_id, "contact_handshake")
+    let contact = MacroDefBmc::get_by_name(c, mm, project_id.get(), "contact_handshake")
         .await
         .unwrap();
     assert_eq!(contact.name, "contact_handshake");
@@ -100,7 +101,7 @@ async fn test_builtin_macro_contents() {
     assert_eq!(contact.steps[1]["tool"], "respond_contact");
 
     // Test broadcast_message macro structure
-    let broadcast = MacroDefBmc::get_by_name(c, mm, project_id, "broadcast_message")
+    let broadcast = MacroDefBmc::get_by_name(c, mm, project_id.get(), "broadcast_message")
         .await
         .unwrap();
     assert_eq!(broadcast.name, "broadcast_message");
@@ -124,8 +125,8 @@ async fn test_builtin_macros_per_project_isolation() {
         .unwrap();
 
     // Both should have 5 built-in macros
-    let p1_macros = MacroDefBmc::list(c, mm, project1_id).await.unwrap();
-    let p2_macros = MacroDefBmc::list(c, mm, project2_id).await.unwrap();
+    let p1_macros = MacroDefBmc::list(c, mm, project1_id.get()).await.unwrap();
+    let p2_macros = MacroDefBmc::list(c, mm, project2_id.get()).await.unwrap();
 
     assert_eq!(p1_macros.len(), 5);
     assert_eq!(p2_macros.len(), 5);
@@ -163,7 +164,7 @@ async fn test_builtin_macros_have_timestamps() {
     let project_id = ProjectBmc::create(c, mm, "timestamp-test", "/path/ts")
         .await
         .unwrap();
-    let macros = MacroDefBmc::list(c, mm, project_id).await.unwrap();
+    let macros = MacroDefBmc::list(c, mm, project_id.get()).await.unwrap();
 
     for macro_def in macros {
         // Verify timestamps are not default/zero
@@ -191,7 +192,7 @@ async fn test_macro_registration_order() {
         .unwrap();
 
     // List returns macros ordered by name ASC
-    let macros = MacroDefBmc::list(c, mm, project_id).await.unwrap();
+    let macros = MacroDefBmc::list(c, mm, project_id.get()).await.unwrap();
     let names: Vec<String> = macros.iter().map(|m| m.name.clone()).collect();
 
     let mut sorted_names = names.clone();
@@ -215,7 +216,7 @@ async fn test_macro_crud() {
 
     // Create
     let macro_c = MacroDefForCreate {
-        project_id,
+        project_id: project_id.get(),
         name: "custom_macro".to_string(),
         description: "A custom test macro".to_string(),
         steps: vec![serde_json::json!({"action": "test"})],
@@ -223,24 +224,24 @@ async fn test_macro_crud() {
     let mid = MacroDefBmc::create(c, mm, macro_c).await.unwrap();
 
     // Get
-    let m = MacroDefBmc::get_by_name(c, mm, project_id, "custom_macro")
+    let m = MacroDefBmc::get_by_name(c, mm, project_id.get(), "custom_macro")
         .await
         .unwrap();
     assert_eq!(m.id, mid);
     assert_eq!(m.description, "A custom test macro");
 
     // List
-    let list = MacroDefBmc::list(c, mm, project_id).await.unwrap();
+    let list = MacroDefBmc::list(c, mm, project_id.get()).await.unwrap();
     assert!(list.iter().any(|x| x.name == "custom_macro"));
 
     // Delete
-    let deleted = MacroDefBmc::delete(c, mm, project_id, "custom_macro")
+    let deleted = MacroDefBmc::delete(c, mm, project_id.get(), "custom_macro")
         .await
         .unwrap();
     assert!(deleted);
 
     // Verify gone
-    let list_after = MacroDefBmc::list(c, mm, project_id).await.unwrap();
+    let list_after = MacroDefBmc::list(c, mm, project_id.get()).await.unwrap();
     assert!(!list_after.iter().any(|x| x.name == "custom_macro"));
 }
 
@@ -255,12 +256,12 @@ async fn test_register_custom_macro() {
         .unwrap();
 
     // Initially has 5 built-in macros
-    let initial = MacroDefBmc::list(c, mm, project_id).await.unwrap();
+    let initial = MacroDefBmc::list(c, mm, project_id.get()).await.unwrap();
     assert_eq!(initial.len(), 5);
 
     // Register a custom macro with complex steps
     let custom = MacroDefForCreate {
-        project_id,
+        project_id: project_id.get(),
         name: "deploy_workflow".to_string(),
         description: "Deploy workflow with testing and notification".to_string(),
         steps: vec![
@@ -286,11 +287,11 @@ async fn test_register_custom_macro() {
     assert!(custom_id > 0);
 
     // Verify it appears in the list (now 6 total)
-    let after = MacroDefBmc::list(c, mm, project_id).await.unwrap();
+    let after = MacroDefBmc::list(c, mm, project_id.get()).await.unwrap();
     assert_eq!(after.len(), 6);
 
     // Verify we can retrieve it
-    let retrieved = MacroDefBmc::get_by_name(c, mm, project_id, "deploy_workflow")
+    let retrieved = MacroDefBmc::get_by_name(c, mm, project_id.get(), "deploy_workflow")
         .await
         .unwrap();
     assert_eq!(retrieved.id, custom_id);
@@ -308,7 +309,7 @@ async fn test_list_registered_macros() {
         .unwrap();
 
     // List all macros
-    let all_macros = MacroDefBmc::list(c, mm, project_id).await.unwrap();
+    let all_macros = MacroDefBmc::list(c, mm, project_id.get()).await.unwrap();
 
     // Should have exactly 5 built-in macros
     assert_eq!(all_macros.len(), 5);
@@ -317,7 +318,7 @@ async fn test_list_registered_macros() {
     for macro_def in &all_macros {
         assert!(macro_def.id > 0, "Macro ID should be positive");
         assert_eq!(
-            macro_def.project_id, project_id,
+            macro_def.project_id, project_id.get(),
             "Macro should belong to correct project"
         );
         assert!(!macro_def.name.is_empty(), "Macro name should not be empty");
@@ -334,7 +335,7 @@ async fn test_list_registered_macros() {
     // Add custom macros
     for i in 1..=3 {
         let custom = MacroDefForCreate {
-            project_id,
+            project_id: project_id.get(),
             name: format!("custom_{}", i),
             description: format!("Custom macro number {}", i),
             steps: vec![serde_json::json!({"action": format!("step_{}", i)})],
@@ -343,7 +344,7 @@ async fn test_list_registered_macros() {
     }
 
     // Should now have 8 macros
-    let updated = MacroDefBmc::list(c, mm, project_id).await.unwrap();
+    let updated = MacroDefBmc::list(c, mm, project_id.get()).await.unwrap();
     assert_eq!(updated.len(), 8);
 }
 
@@ -359,7 +360,7 @@ async fn test_unregister_macro() {
 
     // Create a custom macro
     let custom = MacroDefForCreate {
-        project_id,
+        project_id: project_id.get(),
         name: "temp_macro".to_string(),
         description: "Temporary macro for testing".to_string(),
         steps: vec![serde_json::json!({"action": "temp"})],
@@ -367,21 +368,21 @@ async fn test_unregister_macro() {
     MacroDefBmc::create(c, mm, custom).await.unwrap();
 
     // Verify it exists
-    let before = MacroDefBmc::list(c, mm, project_id).await.unwrap();
+    let before = MacroDefBmc::list(c, mm, project_id.get()).await.unwrap();
     assert_eq!(before.len(), 6); // 5 built-in + 1 custom
 
     // Delete it
-    let deleted = MacroDefBmc::delete(c, mm, project_id, "temp_macro")
+    let deleted = MacroDefBmc::delete(c, mm, project_id.get(), "temp_macro")
         .await
         .unwrap();
     assert!(deleted, "Delete should return true");
 
     // Verify it's gone
-    let after = MacroDefBmc::list(c, mm, project_id).await.unwrap();
+    let after = MacroDefBmc::list(c, mm, project_id.get()).await.unwrap();
     assert_eq!(after.len(), 5); // back to just built-in
 
     // Deleting again should return false
-    let deleted_again = MacroDefBmc::delete(c, mm, project_id, "temp_macro")
+    let deleted_again = MacroDefBmc::delete(c, mm, project_id.get(), "temp_macro")
         .await
         .unwrap();
     assert!(
@@ -401,7 +402,7 @@ async fn test_macro_get_nonexistent() {
         .unwrap();
 
     // Try to get a macro that doesn't exist
-    let result = MacroDefBmc::get_by_name(c, mm, project_id, "does_not_exist").await;
+    let result = MacroDefBmc::get_by_name(c, mm, project_id.get(), "does_not_exist").await;
     assert!(
         result.is_err(),
         "Getting non-existent macro should return error"
@@ -419,7 +420,7 @@ async fn test_builtin_macros_parameter_structure() {
         .unwrap();
 
     // Test that each built-in macro has proper parameter structure
-    let start_session = MacroDefBmc::get_by_name(c, mm, project_id, "start_session")
+    let start_session = MacroDefBmc::get_by_name(c, mm, project_id.get(), "start_session")
         .await
         .unwrap();
     assert!(
@@ -429,7 +430,7 @@ async fn test_builtin_macros_parameter_structure() {
     let params = start_session.steps[0]["params"].as_array().unwrap();
     assert!(!params.is_empty(), "Params should not be empty");
 
-    let prepare = MacroDefBmc::get_by_name(c, mm, project_id, "prepare_thread")
+    let prepare = MacroDefBmc::get_by_name(c, mm, project_id.get(), "prepare_thread")
         .await
         .unwrap();
     for step in &prepare.steps {
@@ -465,7 +466,7 @@ async fn test_macro_steps_serialization() {
     })];
 
     let custom = MacroDefForCreate {
-        project_id,
+        project_id: project_id.get(),
         name: "complex_macro".to_string(),
         description: "Macro with complex step structure".to_string(),
         steps: complex_steps.clone(),
@@ -474,7 +475,7 @@ async fn test_macro_steps_serialization() {
     MacroDefBmc::create(c, mm, custom).await.unwrap();
 
     // Retrieve and verify structure is preserved
-    let retrieved = MacroDefBmc::get_by_name(c, mm, project_id, "complex_macro")
+    let retrieved = MacroDefBmc::get_by_name(c, mm, project_id.get(), "complex_macro")
         .await
         .unwrap();
     assert_eq!(retrieved.steps.len(), 1);

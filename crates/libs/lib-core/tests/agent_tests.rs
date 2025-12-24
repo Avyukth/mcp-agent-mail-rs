@@ -28,10 +28,9 @@ async fn create_test_project(tc: &TestContext, name: &str) -> ProjectId {
         return project.id;
     }
 
-    let id = ProjectBmc::create(&tc.ctx, &tc.mm, &slug, &human_key)
+    ProjectBmc::create(&tc.ctx, &tc.mm, &slug, &human_key)
         .await
-        .expect("Failed to create project");
-    ProjectId(id)
+        .expect("Failed to create project")
 }
 
 /// Test registering a new agent
@@ -194,7 +193,7 @@ async fn test_delete_agent_cascade() {
     let result = AgentBmc::get(&tc.ctx, &tc.mm, agent_id).await;
     assert!(result.is_err(), "Agent should not exist after deletion");
 
-    let project = ProjectBmc::get(&tc.ctx, &tc.mm, project_id.get()).await;
+    let project = ProjectBmc::get(&tc.ctx, &tc.mm, project_id).await;
     assert!(
         project.is_ok(),
         "Project should still exist after agent deletion"

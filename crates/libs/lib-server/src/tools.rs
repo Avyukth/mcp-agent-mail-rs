@@ -484,7 +484,7 @@ pub async fn delete_project(
     let project =
         lib_core::model::project::ProjectBmc::get_by_identifier(&ctx, mm, &project_slug).await?;
 
-    lib_core::model::project::ProjectBmc::delete(&ctx, mm, project.id.get()).await?;
+    lib_core::model::project::ProjectBmc::delete(&ctx, mm, project.id).await?;
 
     Ok(Json(DeleteResponse {
         success: true,
@@ -1000,7 +1000,7 @@ pub async fn list_all_locks(State(app_state): State<AppState>) -> crate::error::
 
     for res in reservations {
         // Get project slug
-        let project = lib_core::model::project::ProjectBmc::get(&ctx, mm, res.project_id.get())
+        let project = lib_core::model::project::ProjectBmc::get(&ctx, mm, res.project_id)
             .await
             .ok();
         let project_slug = project
@@ -1369,7 +1369,7 @@ pub async fn get_project_info(
 
     // Count messages
     let message_count =
-        lib_core::model::project::ProjectBmc::count_messages(&ctx, mm, project.id.get()).await?;
+        lib_core::model::project::ProjectBmc::count_messages(&ctx, mm, project.id).await?;
 
     Ok(Json(ProjectInfoResponse {
         id: project.id.get(),

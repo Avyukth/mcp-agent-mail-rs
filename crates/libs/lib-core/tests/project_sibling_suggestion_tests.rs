@@ -26,14 +26,16 @@ async fn setup_two_projects(tc: &TestContext, suffix: &str) -> (i64, i64) {
 
     let project_a_id = ProjectBmc::create(&tc.ctx, &tc.mm, &slug_a, &human_key_a)
         .await
-        .expect("Failed to create project A");
+        .expect("Failed to create project A")
+        .get();
 
     let human_key_b = format!("/test/sibling-repo-b-{}", suffix);
     let slug_b = slugify(&human_key_b);
 
     let project_b_id = ProjectBmc::create(&tc.ctx, &tc.mm, &slug_b, &human_key_b)
         .await
-        .expect("Failed to create project B");
+        .expect("Failed to create project B")
+        .get();
 
     (project_a_id, project_b_id)
 }
@@ -188,7 +190,8 @@ async fn test_empty_suggestions() {
 
     let project_id = ProjectBmc::create(&tc.ctx, &tc.mm, &slug, human_key)
         .await
-        .expect("Failed to create project");
+        .expect("Failed to create project")
+        .get();
 
     let suggestions = ProjectSiblingSuggestionBmc::list(&tc.ctx, &tc.mm, project_id)
         .await
@@ -212,19 +215,22 @@ async fn test_suggestions_sorted_by_score() {
     let slug_a = slugify(human_key_a);
     let project_a_id = ProjectBmc::create(&tc.ctx, &tc.mm, &slug_a, human_key_a)
         .await
-        .expect("Failed to create project A");
+        .expect("Failed to create project A")
+        .get();
 
     let human_key_b = "/test/sibling-repo-high";
     let slug_b = slugify(human_key_b);
     let project_b_id = ProjectBmc::create(&tc.ctx, &tc.mm, &slug_b, human_key_b)
         .await
-        .expect("Failed to create project B");
+        .expect("Failed to create project B")
+        .get();
 
     let human_key_c = "/test/sibling-repo-low";
     let slug_c = slugify(human_key_c);
     let project_c_id = ProjectBmc::create(&tc.ctx, &tc.mm, &slug_c, human_key_c)
         .await
-        .expect("Failed to create project C");
+        .expect("Failed to create project C")
+        .get();
 
     // Create suggestions with different scores (insert low score first)
     let low_suggestion = ProjectSiblingSuggestionForCreate {

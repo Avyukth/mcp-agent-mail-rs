@@ -15,10 +15,11 @@ mod common;
 use crate::common::TestContext;
 use lib_core::model::attachment::{AttachmentBmc, AttachmentForCreate};
 use lib_core::model::project::ProjectBmc;
+use lib_core::types::ProjectId;
 use lib_core::utils::slugify;
 
 /// Helper to set up a project for attachment tests
-async fn setup_project(tc: &TestContext) -> i64 {
+async fn setup_project(tc: &TestContext) -> ProjectId {
     let human_key = "/test/attachment-repo";
     let slug = slugify(human_key);
 
@@ -37,7 +38,7 @@ async fn test_create_attachment() {
     let project_id = setup_project(&tc).await;
 
     let attachment_c = AttachmentForCreate {
-        project_id,
+        project_id: project_id.get(),
         agent_id: None,
         filename: "design.png".to_string(),
         stored_path: "/data/attachments/abc123.png".to_string(),
@@ -62,7 +63,7 @@ async fn test_get_attachment() {
     let project_id = setup_project(&tc).await;
 
     let attachment_c = AttachmentForCreate {
-        project_id,
+        project_id: project_id.get(),
         agent_id: None,
         filename: "report.pdf".to_string(),
         stored_path: "/data/attachments/def456.pdf".to_string(),
@@ -79,7 +80,7 @@ async fn test_get_attachment() {
         .expect("Failed to get attachment");
 
     assert_eq!(attachment.id, attachment_id);
-    assert_eq!(attachment.project_id, project_id);
+    assert_eq!(attachment.project_id, project_id.get());
     assert_eq!(attachment.filename, "report.pdf");
     assert_eq!(attachment.stored_path, "/data/attachments/def456.pdf");
     assert_eq!(attachment.media_type, "application/pdf");
@@ -104,7 +105,7 @@ async fn test_list_by_project() {
 
     for (filename, media_type, size) in &files {
         let attachment_c = AttachmentForCreate {
-            project_id,
+            project_id: project_id.get(),
             agent_id: None,
             filename: filename.to_string(),
             stored_path: format!("/data/attachments/{}", filename),
@@ -116,7 +117,7 @@ async fn test_list_by_project() {
             .expect("Failed to create attachment");
     }
 
-    let attachments = AttachmentBmc::list_by_project(&tc.ctx, &tc.mm, project_id)
+    let attachments = AttachmentBmc::list_by_project(&tc.ctx, &tc.mm, project_id.get())
         .await
         .expect("Failed to list attachments");
 
@@ -153,7 +154,7 @@ async fn test_empty_attachment_list() {
 
     let project_id = setup_project(&tc).await;
 
-    let attachments = AttachmentBmc::list_by_project(&tc.ctx, &tc.mm, project_id)
+    let attachments = AttachmentBmc::list_by_project(&tc.ctx, &tc.mm, project_id.get())
         .await
         .expect("Failed to list attachments");
 
@@ -181,7 +182,7 @@ async fn test_various_media_types() {
 
     for (filename, media_type) in media_types {
         let attachment_c = AttachmentForCreate {
-            project_id,
+            project_id: project_id.get(),
             agent_id: None,
             filename: filename.to_string(),
             stored_path: format!("/data/{}", filename),

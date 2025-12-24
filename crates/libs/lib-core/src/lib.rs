@@ -23,13 +23,14 @@
 //! ```no_run
 //! use lib_core::model::{ModelManager, agent::AgentBmc};
 //! use lib_core::ctx::Ctx;
+//! use lib_core::types::ProjectId;
 //!
 //! async fn example() -> lib_core::Result<()> {
 //!     let mm = ModelManager::new(std::sync::Arc::new(lib_common::config::AppConfig::default())).await?;
 //!     let ctx = Ctx::root_ctx();
-//!     
+//!
 //!     // List all agents in a project
-//!     let agents = AgentBmc::list_all_for_project(&ctx, &mm, 1).await?;
+//!     let agents = AgentBmc::list_all_for_project(&ctx, &mm, ProjectId::new(1)).await?;
 //!     println!("Found {} agents", agents.len());
 //!     Ok(())
 //! }

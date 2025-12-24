@@ -15,7 +15,6 @@ mod common;
 use crate::common::TestContext;
 use lib_core::model::agent::{AgentBmc, AgentForCreate};
 use lib_core::model::project::ProjectBmc;
-use lib_core::types::ProjectId;
 use lib_core::utils::slugify;
 
 /// Test creating a new project
@@ -32,7 +31,7 @@ async fn test_create_project() {
         .await
         .expect("Failed to create project");
 
-    assert!(project_id > 0, "Project ID should be positive");
+    assert!(project_id.get() > 0, "Project ID should be positive");
 }
 
 /// Test getting project by slug
@@ -132,7 +131,7 @@ async fn test_adopt_project() {
 
     // 2. Add an Agent to Source
     let agent_c = AgentForCreate {
-        project_id: ProjectId(src_id),
+        project_id: src_id,
         name: "test-agent".into(),
         program: "test".into(),
         model: "test".into(),
@@ -142,7 +141,7 @@ async fn test_adopt_project() {
 
     // 3. Add a Message to Source
     let msg_c = lib_core::model::message::MessageForCreate {
-        project_id: src_id,
+        project_id: src_id.get(),
         sender_id: agent_id.into(),
         recipient_ids: vec![agent_id.into()],
         cc_ids: None,
@@ -174,7 +173,7 @@ async fn test_adopt_project() {
     let agent = AgentBmc::get(&tc.ctx, &tc.mm, agent_id).await.unwrap();
     assert_eq!(
         agent.project_id,
-        ProjectId(dest_id),
+        dest_id,
         "Agent should be moved to dest project"
     );
 
@@ -183,7 +182,7 @@ async fn test_adopt_project() {
         .await
         .unwrap();
     assert_eq!(
-        msg.project_id, dest_id,
+        msg.project_id, dest_id.get(),
         "Message should be moved to dest project"
     );
 }
@@ -201,7 +200,7 @@ async fn test_delete_project_cascade() {
         .expect("Failed to create project");
 
     let agent = AgentForCreate {
-        project_id: ProjectId(project_id),
+        project_id,
         name: "doomed-agent".into(),
         program: "test".into(),
         model: "test".into(),
@@ -212,7 +211,7 @@ async fn test_delete_project_cascade() {
         .expect("Failed to create agent");
 
     let msg = lib_core::model::message::MessageForCreate {
-        project_id,
+        project_id: project_id.get(),
         sender_id: agent_id.into(),
         recipient_ids: vec![agent_id.into()],
         cc_ids: None,
@@ -247,6 +246,6 @@ async fn test_delete_nonexistent_project() {
         .await
         .expect("Failed to create test context");
 
-    let result = ProjectBmc::delete(&tc.ctx, &tc.mm, 99999).await;
+    let result = ProjectBmc::delete(&tc.ctx, &tc.mm, lib_core::types::ProjectId(99999)).await;
     assert!(result.is_err(), "Deleting nonexistent project should fail");
 }

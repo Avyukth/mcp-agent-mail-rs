@@ -31,7 +31,7 @@ async fn setup_project_and_agent(tc: &TestContext) -> (i64, i64) {
         .expect("Failed to create project");
 
     let agent = AgentForCreate {
-        project_id: ProjectId::from(project_id),
+        project_id,
         name: "activity-agent".to_string(),
         program: "claude-code".to_string(),
         model: "claude-3".to_string(),
@@ -43,7 +43,7 @@ async fn setup_project_and_agent(tc: &TestContext) -> (i64, i64) {
         .expect("Failed to create agent")
         .into();
 
-    (project_id, agent_id)
+    (project_id.get(), agent_id)
 }
 
 /// Test listing recent activity with messages
@@ -57,7 +57,7 @@ async fn test_list_activity_with_messages() {
 
     // Create a second agent as recipient
     let agent2 = AgentForCreate {
-        project_id: ProjectId::from(project_id),
+        project_id: ProjectId(project_id),
         name: "recipient-agent".to_string(),
         program: "cursor".to_string(),
         model: "gpt-4".to_string(),
@@ -151,7 +151,7 @@ async fn test_list_activity_with_agents() {
     // Create multiple agents
     for name in &["agent-alpha", "agent-beta", "agent-gamma"] {
         let agent = AgentForCreate {
-            project_id: ProjectId::from(project_id),
+            project_id,
             name: name.to_string(),
             program: "test-program".to_string(),
             model: "test-model".to_string(),
@@ -163,7 +163,7 @@ async fn test_list_activity_with_agents() {
     }
 
     // List activity
-    let activity = ActivityBmc::list_recent(&tc.ctx, &tc.mm, project_id, 10)
+    let activity = ActivityBmc::list_recent(&tc.ctx, &tc.mm, project_id.get(), 10)
         .await
         .expect("Failed to list activity");
 
@@ -265,7 +265,7 @@ async fn test_empty_activity() {
 
     // No agents, messages, or metrics created
 
-    let activity = ActivityBmc::list_recent(&tc.ctx, &tc.mm, project_id, 10)
+    let activity = ActivityBmc::list_recent(&tc.ctx, &tc.mm, project_id.get(), 10)
         .await
         .expect("Failed to list activity");
 

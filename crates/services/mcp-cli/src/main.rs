@@ -335,7 +335,7 @@ async fn handle_projects_command(
             if dry_run {
                 println!("Dry run: No changes made.");
             } else {
-                lib_core::model::project::ProjectBmc::adopt(ctx, mm, src.id.get(), dest.id.get())
+                lib_core::model::project::ProjectBmc::adopt(ctx, mm, src.id, dest.id)
                     .await?;
                 println!("Adoption complete.");
             }

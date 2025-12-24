@@ -60,11 +60,12 @@ impl FileReservationBmc {
     /// # use lib_core::model::file_reservation::*;
     /// # use lib_core::model::ModelManager;
     /// # use lib_core::ctx::Ctx;
+    /// # use lib_core::types::{ProjectId, AgentId};
     /// # async fn example(mm: &ModelManager) {
     /// let ctx = Ctx::root_ctx();
     /// let reservation = FileReservationForCreate {
-    ///     project_id: 1,
-    ///     agent_id: 1,
+    ///     project_id: ProjectId::new(1),
+    ///     agent_id: AgentId::new(1),
     ///     path_pattern: "src/**/*.rs".to_string(),
     ///     exclusive: true,
     ///     reason: "Refactoring module".to_string(),

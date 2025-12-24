@@ -16,11 +16,11 @@ use crate::common::TestContext;
 use lib_core::model::agent::{AgentBmc, AgentForCreate};
 use lib_core::model::overseer_message::{OverseerMessageBmc, OverseerMessageForCreate};
 use lib_core::model::project::ProjectBmc;
-use lib_core::types::ProjectId;
+use lib_core::types::{ProjectId, AgentId};
 use lib_core::utils::slugify;
 
 /// Helper to set up a project with an agent
-async fn setup_project_and_agent(tc: &TestContext, suffix: &str) -> (i64, i64) {
+async fn setup_project_and_agent(tc: &TestContext, suffix: &str) -> (ProjectId, AgentId) {
     let human_key = format!("/test/overseer-repo-{}", suffix);
     let slug = slugify(&human_key);
 
@@ -29,7 +29,7 @@ async fn setup_project_and_agent(tc: &TestContext, suffix: &str) -> (i64, i64) {
         .expect("Failed to create project");
 
     let agent = AgentForCreate {
-        project_id: ProjectId(project_id),
+        project_id,
         name: format!("overseer-{}", suffix),
         program: "human".to_string(),
         model: "human".to_string(),
@@ -40,7 +40,7 @@ async fn setup_project_and_agent(tc: &TestContext, suffix: &str) -> (i64, i64) {
         .await
         .expect("Failed to create agent");
 
-    (project_id, agent_id.into())
+    (project_id, agent_id)
 }
 
 /// Test creating an overseer message
@@ -53,8 +53,8 @@ async fn test_create_overseer_message() {
     let (project_id, sender_id) = setup_project_and_agent(&tc, "create").await;
 
     let msg_c = OverseerMessageForCreate {
-        project_id,
-        sender_id,
+        project_id: project_id.into(),
+        sender_id: sender_id.into(),
         subject: "Priority Change".to_string(),
         body_md: "Please focus on the security fixes first.".to_string(),
         importance: "high".to_string(),
@@ -79,8 +79,8 @@ async fn test_list_unread_messages() {
     // Create multiple messages
     for i in 1..=3 {
         let msg_c = OverseerMessageForCreate {
-            project_id,
-            sender_id,
+            project_id: project_id.into(),
+            sender_id: sender_id.into(),
             subject: format!("Guidance {}", i),
             body_md: format!("Instruction {} details.", i),
             importance: "normal".to_string(),
@@ -90,7 +90,7 @@ async fn test_list_unread_messages() {
             .expect("Failed to create message");
     }
 
-    let unread = OverseerMessageBmc::list_unread(&tc.ctx, &tc.mm, project_id)
+    let unread = OverseerMessageBmc::list_unread(&tc.ctx, &tc.mm, project_id.into())
         .await
         .expect("Failed to list unread messages");
 
@@ -110,8 +110,8 @@ async fn test_message_importance_levels() {
 
     for importance in &importance_levels {
         let msg_c = OverseerMessageForCreate {
-            project_id,
-            sender_id,
+            project_id: project_id.into(),
+            sender_id: sender_id.into(),
             subject: format!("{} priority message", importance),
             body_md: "Test body".to_string(),
             importance: importance.to_string(),
@@ -121,7 +121,7 @@ async fn test_message_importance_levels() {
             .expect("Failed to create message");
     }
 
-    let unread = OverseerMessageBmc::list_unread(&tc.ctx, &tc.mm, project_id)
+    let unread = OverseerMessageBmc::list_unread(&tc.ctx, &tc.mm, project_id.into())
         .await
         .expect("Failed to list messages");
 
@@ -147,7 +147,7 @@ async fn test_empty_unread_list() {
 
     let (project_id, _) = setup_project_and_agent(&tc, "empty").await;
 
-    let unread = OverseerMessageBmc::list_unread(&tc.ctx, &tc.mm, project_id)
+    let unread = OverseerMessageBmc::list_unread(&tc.ctx, &tc.mm, project_id.into())
         .await
         .expect("Failed to list unread messages");
 
@@ -169,8 +169,8 @@ async fn test_message_ordering() {
     // Create messages in sequence
     for i in 1..=3 {
         let msg_c = OverseerMessageForCreate {
-            project_id,
-            sender_id,
+            project_id: project_id.into(),
+            sender_id: sender_id.into(),
             subject: format!("Message {}", i),
             body_md: format!("Body {}", i),
             importance: "normal".to_string(),
@@ -180,7 +180,7 @@ async fn test_message_ordering() {
             .expect("Failed to create message");
     }
 
-    let unread = OverseerMessageBmc::list_unread(&tc.ctx, &tc.mm, project_id)
+    let unread = OverseerMessageBmc::list_unread(&tc.ctx, &tc.mm, project_id.into())
         .await
         .expect("Failed to list messages");
 
@@ -204,8 +204,8 @@ async fn test_message_structure() {
     let (project_id, sender_id) = setup_project_and_agent(&tc, "structure").await;
 
     let msg_c = OverseerMessageForCreate {
-        project_id,
-        sender_id,
+        project_id: project_id.into(),
+        sender_id: sender_id.into(),
         subject: "Important Update".to_string(),
         body_md: "Please review the changes in PR #123.".to_string(),
         importance: "high".to_string(),
@@ -215,14 +215,14 @@ async fn test_message_structure() {
         .await
         .expect("Failed to create message");
 
-    let unread = OverseerMessageBmc::list_unread(&tc.ctx, &tc.mm, project_id)
+    let unread = OverseerMessageBmc::list_unread(&tc.ctx, &tc.mm, project_id.into())
         .await
         .expect("Failed to list messages");
 
     let msg = &unread[0];
     assert_eq!(msg.id, msg_id);
-    assert_eq!(msg.project_id, project_id);
-    assert_eq!(msg.sender_id, sender_id);
+    assert_eq!(msg.project_id, project_id.get());
+    assert_eq!(msg.sender_id, sender_id.get());
     assert_eq!(msg.subject, "Important Update");
     assert_eq!(msg.body_md, "Please review the changes in PR #123.");
     assert_eq!(msg.importance, "high");
