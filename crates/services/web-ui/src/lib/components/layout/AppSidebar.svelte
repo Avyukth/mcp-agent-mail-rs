@@ -29,9 +29,9 @@
 
 	const navItems: NavItem[] = [
 		{ href: '/', label: 'Dashboard', icon: LayoutDashboard },
+		{ href: '/mail', label: 'Mail', icon: Mail },
 		{ href: '/projects', label: 'Projects', icon: FolderKanban },
 		{ href: '/agents', label: 'Agents', icon: Bot },
-		{ href: '/mail', label: 'Mail', icon: Mail },
 		{ href: '/inbox', label: 'Inbox', icon: Inbox }
 	];
 

@@ -1,12 +1,33 @@
 # MCP Agent Mail (Rust)
 
-> "It's like Gmail for your coding agents!"
+> "Gmail for your coding agents" — High-performance async messaging for AI agent coordination
 
-A high-performance Rust implementation of a mail-like coordination layer for AI coding agents, exposed as both REST API and MCP (Model Context Protocol) server. Enables asynchronous communication between multiple agents working on shared codebases with full audit trails.
+[![Rust](https://img.shields.io/badge/rust-1.85+-orange.svg)](https://www.rust-lang.org)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**44.6x faster than Python** - 15,200 req/s vs 341 req/s in original implementation.
+A production-grade Rust implementation of a mail-like coordination layer for AI coding agents, exposed as both REST API and MCP (Model Context Protocol) server. Enables asynchronous communication between multiple agents working on shared codebases with full audit trails.
+
+**44.6x faster than Python** — 15,200 req/s vs 341 req/s in original implementation.
 
 **Ported from**: [mcp_agent_mail (Python)](https://github.com/Dicklesworthstone/mcp_agent_mail)
+
+---
+
+## Table of Contents
+
+- [Why This Exists](#why-this-exists)
+- [Architecture Overview](#architecture-overview)
+- [Agent Communication Flow](#agent-communication-flow)
+- [Quick Start](#quick-start)
+- [Project Structure](#project-structure)
+- [API Reference](#api-reference)
+- [MCP Protocol](#mcp-protocol)
+- [Configuration](#configuration)
+- [Development](#development)
+- [Performance](#performance)
+- [References](#references)
+
+---
 
 ## Why This Exists
 
@@ -18,14 +39,255 @@ Modern projects often run multiple coding agents simultaneously (backend, fronte
 
 MCP Agent Mail provides:
 
-- **Agent Identity**: Memorable adjective+noun names (BlueMountain, GreenCastle)
-- **Messaging**: GitHub-Flavored Markdown messages with threading, To/CC/BCC
-- **File Reservations**: Advisory locks to prevent edit conflicts
-- **Contact Management**: Explicit approval for cross-project messaging
-- **Searchable Archives**: FTS5 full-text search across message bodies
-- **Git-Backed Audit Trail**: All messages persisted for human review
-- **Build Slot Management**: Exclusive build resource locks
-- **Macro System**: Reusable workflow definitions
+| Feature | Description |
+|---------|-------------|
+| **Agent Identity** | Memorable adjective+noun names (BlueMountain, GreenCastle) |
+| **Messaging** | GitHub-Flavored Markdown messages with threading, To/CC/BCC |
+| **File Reservations** | Advisory locks to prevent edit conflicts (pathspec support) |
+| **Contact Management** | Explicit approval for cross-project messaging |
+| **Searchable Archives** | FTS5 full-text search across message bodies |
+| **Git-Backed Audit Trail** | All messages persisted for human review |
+| **Build Slot Management** | Exclusive build resource locks |
+| **Macro System** | Reusable workflow definitions |
+| **Product Aggregation** | Cross-project inbox for related repositories |
+
+---
+
+## Architecture Overview
+
+### System Layers
+
+```mermaid
+flowchart TB
+    subgraph Clients["Client Layer"]
+        MCP[/"MCP Clients<br/>(Claude, Cline, VS Code)"/]
+        REST[/"REST Clients<br/>(curl, Postman, Apps)"/]
+        WebUI[/"Web UI<br/>(Leptos WASM)"/]
+        CLI[/"CLI<br/>(mcp-cli)"/]
+    end
+
+    subgraph Transport["Transport Layer"]
+        STDIO["MCP STDIO<br/>(mcp-stdio)"]
+        SSE["MCP SSE<br/>(rmcp)"]
+        HTTP["REST API<br/>(Axum 0.8)"]
+    end
+
+    subgraph App["Application Layer (lib-server)"]
+        MW["Middleware Stack"]
+        Handlers["Route Handlers"]
+        Tools["MCP Tool Router<br/>(50+ tools)"]
+    end
+
+    subgraph Business["Business Layer (lib-core)"]
+        BMC["Backend Model Controllers"]
+        MM["ModelManager"]
+        Val["Validation Layer"]
+    end
+
+    subgraph Data["Data Layer"]
+        SQLite[("SQLite<br/>(libsql + FTS5)")]
+        Git[("Git Archive<br/>(git2)")]
+    end
+
+    MCP --> STDIO
+    MCP --> SSE
+    REST --> HTTP
+    WebUI --> HTTP
+    CLI --> HTTP
+
+    STDIO --> Tools
+    SSE --> Tools
+    HTTP --> MW --> Handlers
+
+    Handlers --> BMC
+    Tools --> BMC
+
+    BMC --> MM
+    MM --> Val
+    Val --> SQLite
+    Val --> Git
+```
+
+### Middleware Stack
+
+```mermaid
+flowchart LR
+    subgraph Request["Incoming Request"]
+        REQ[HTTP Request]
+    end
+
+    subgraph Middleware["Middleware Chain"]
+        TRACE["TraceLayer<br/>(tower-http)"]
+        RATE["Rate Limiter<br/>(governor)"]
+        AUTH["Authentication<br/>(Bearer/JWT)"]
+        CORS["CORS Handler"]
+    end
+
+    subgraph Handler["Route Handler"]
+        AXUM["Axum Router"]
+        STATE["State Extraction"]
+        BODY["JSON Deserialization"]
+    end
+
+    REQ --> TRACE --> RATE --> AUTH --> CORS --> AXUM --> STATE --> BODY
+```
+
+### Backend Model Controller (BMC) Pattern
+
+The BMC pattern separates concerns for each entity with stateless controllers:
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Data Structures                               │
+├─────────────────────────────────────────────────────────────────┤
+│  Agent          │  AgentForCreate    │  AgentForUpdate          │
+│  ├─ id: i64     │  ├─ name           │  ├─ program             │
+│  ├─ name        │  ├─ project_id     │  └─ model               │
+│  ├─ project_id  │  ├─ program        │                          │
+│  └─ created_at  │  └─ model          │                          │
+├─────────────────────────────────────────────────────────────────┤
+│                    BMC Controller (Stateless)                    │
+├─────────────────────────────────────────────────────────────────┤
+│  AgentBmc::create(ctx, mm, data) -> Result<i64>                 │
+│  AgentBmc::get(ctx, mm, id) -> Result<Agent>                    │
+│  AgentBmc::get_by_name(ctx, mm, project_id, name) -> Result<Agent> │
+│  AgentBmc::list_for_project(ctx, mm, project_id) -> Result<Vec<Agent>> │
+│  AgentBmc::update(ctx, mm, id, data) -> Result<()>              │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Dual Persistence Model
+
+All data is stored in both systems for query performance and audit trail:
+
+```mermaid
+flowchart LR
+    subgraph Write["Write Path"]
+        BMC[BMC Layer]
+    end
+
+    subgraph Primary["Primary Storage"]
+        DB[("SQLite (libsql)<br/>━━━━━━━━━━━━━━<br/>• Fast queries<br/>• FTS5 search<br/>• Transactions")]
+    end
+
+    subgraph Audit["Audit Trail"]
+        GIT[("Git Archive (git2)<br/>━━━━━━━━━━━━━━<br/>• Human-readable<br/>• Version history<br/>• Markdown files")]
+    end
+
+    BMC -->|"sync"| DB
+    BMC -->|"async"| GIT
+```
+
+**Git Archive Structure:**
+```
+data/archive/projects/{slug}/
+├── agents/{name}/
+│   ├── profile.json
+│   ├── inbox/YYYY/MM/{message}.md
+│   └── outbox/YYYY/MM/{message}.md
+├── messages/YYYY/MM/{timestamp}__{subject}__{id}.md
+└── threads/{thread_id}/
+    └── {message_id}.md
+```
+
+---
+
+## Agent Communication Flow
+
+### Typical Multi-Agent Workflow
+
+```mermaid
+sequenceDiagram
+    participant H as Human Overseer
+    participant A as Agent BlueMountain<br/>(Backend)
+    participant S as MCP Server
+    participant B as Agent GreenCastle<br/>(Frontend)
+
+    Note over H,B: Phase 1: Project Setup
+
+    A->>S: register_agent(project, "BlueMountain", "claude", "opus")
+    S-->>A: {id: 1, name: "BlueMountain", capabilities: [...]}
+
+    B->>S: register_agent(project, "GreenCastle", "claude", "sonnet")
+    S-->>B: {id: 2, name: "GreenCastle", capabilities: [...]}
+
+    Note over H,B: Phase 2: File Coordination
+
+    A->>S: reserve_file_paths(["src/api/**", "src/models/**"])
+    S-->>A: {reserved: true, expires_at: "..."}
+
+    B->>S: reserve_file_paths(["src/components/**"])
+    S-->>B: {reserved: true, expires_at: "..."}
+
+    Note over H,B: Phase 3: Work & Communication
+
+    A->>S: send_message(to: "GreenCastle", subject: "API Schema Ready")
+    S->>B: (message delivered to inbox)
+
+    B->>S: check_inbox()
+    S-->>B: [{from: "BlueMountain", subject: "API Schema Ready"}]
+
+    B->>S: reply_message(thread_id, "Starting UI integration")
+    S->>A: (reply delivered)
+
+    Note over H,B: Phase 4: Human Oversight
+
+    H->>S: overseer_send(to: "all", "Please add logging")
+    S->>A: (overseer message)
+    S->>B: (overseer message)
+
+    A->>S: acknowledge_message(msg_id)
+    B->>S: acknowledge_message(msg_id)
+
+    Note over H,B: Phase 5: Cleanup
+
+    A->>S: release_file_paths(["src/api/**", "src/models/**"])
+    B->>S: release_file_paths(["src/components/**"])
+```
+
+### Message Threading
+
+```mermaid
+flowchart TB
+    subgraph Thread["Thread: RFC-Authentication"]
+        M1["Message 1<br/>━━━━━━━━━━━━━━<br/>From: BlueMountain<br/>Subject: Proposing JWT auth<br/>Priority: high"]
+        M2["Message 2<br/>━━━━━━━━━━━━━━<br/>From: GreenCastle<br/>Subject: Re: Proposing JWT auth<br/>Status: read"]
+        M3["Message 3<br/>━━━━━━━━━━━━━━<br/>From: RedForest<br/>Subject: Re: Proposing JWT auth<br/>Status: unread"]
+    end
+
+    M1 --> M2
+    M2 --> M3
+```
+
+### File Reservation Conflict Detection
+
+```mermaid
+flowchart TD
+    A["Agent A: reserve 'src/**/*.ts'"]
+    B["Agent B: reserve 'src/api/auth.ts'"]
+
+    A --> Check{Pathspec<br/>Conflict?}
+    B --> Check
+
+    Check -->|Yes| Reject["❌ Conflict!<br/>Agent A owns 'src/**/*.ts'"]
+    Check -->|No| Grant["✓ Reserved"]
+```
+
+### Build Slot Coordination
+
+```mermaid
+stateDiagram-v2
+    [*] --> Available: slot_type=build
+
+    Available --> Acquired: acquire_build_slot()
+    Acquired --> Renewed: renew_build_slot()
+    Renewed --> Acquired
+    Acquired --> Available: release_build_slot()
+    Acquired --> Expired: TTL exceeded
+    Expired --> Available: auto-release
+```
+
+---
 
 ## Quick Start
 
@@ -70,84 +332,23 @@ make build-prod
 cargo run -p mcp-server --release
 ```
 
-### Building for Your Platform
-
-CI only builds Linux binaries to reduce costs. Build locally for your platform:
-
-```bash
-# macOS (Apple Silicon)
-cargo build --release
-# Binary: target/release/mcp-agent-mail
-
-# macOS (Intel)
-rustup target add x86_64-apple-darwin
-cargo build --release --target x86_64-apple-darwin
-# Binary: target/x86_64-apple-darwin/release/mcp-agent-mail
-
-# Linux (x86_64)
-cargo build --release
-# Binary: target/release/mcp-agent-mail
-
-# Linux (ARM64)
-rustup target add aarch64-unknown-linux-gnu
-cargo build --release --target aarch64-unknown-linux-gnu
-# Binary: target/aarch64-unknown-linux-gnu/release/mcp-agent-mail
-
-# Windows (cross-compile from Linux/macOS)
-rustup target add x86_64-pc-windows-gnu
-cargo build --release --target x86_64-pc-windows-gnu
-# Binary: target/x86_64-pc-windows-gnu/release/mcp-agent-mail.exe
-```
-
-**Build Requirements:**
-- Rust 1.85+ (install via [rustup](https://rustup.rs))
-- For cross-compilation: appropriate linker/toolchain for target
-
-### Using the Unified CLI
+### Unified CLI
 
 ```bash
 # Install globally
 cargo install --path crates/services/mcp-agent-mail
 
-# Or run directly
-mcp-agent-mail serve http         # Start REST API server
-mcp-agent-mail serve mcp          # Start MCP stdio server
-mcp-agent-mail tools              # List MCP tools
-mcp-agent-mail schema             # Export JSON schema
+# Server modes
+mcp-agent-mail serve http              # REST API server
+mcp-agent-mail serve mcp               # MCP stdio server
+mcp-agent-mail serve mcp --transport sse --port 3000  # SSE server
+
+# Utilities
+mcp-agent-mail tools                   # List MCP tools
+mcp-agent-mail schema                  # Export JSON schema
 ```
 
-### Sidecar Deployment
-
-Build a single binary with optional embedded web UI:
-
-```bash
-# Build with embedded UI (~18MB)
-make build-sidecar
-
-# Build minimal binary without UI (~8MB)
-make build-sidecar-minimal
-
-# Binary location
-./target/release/mcp-agent-mail
-```
-
-**Deployment Modes:**
-
-```bash
-# 1. Claude Desktop (MCP stdio)
-mcp-agent-mail serve mcp --transport stdio
-
-# 2. REST API with embedded web UI
-mcp-agent-mail serve http --port 8765
-
-# 3. Headless API server (no UI)
-mcp-agent-mail serve http --port 8765 --no-ui
-
-# 4. SSE MCP server (for web clients)
-mcp-agent-mail serve mcp --transport sse --port 3000
-```
-
-**Claude Desktop Integration:**
+### Claude Desktop Integration
 
 Add to `~/.config/claude/claude_desktop_config.json`:
 
@@ -162,7 +363,9 @@ Add to `~/.config/claude/claude_desktop_config.json`:
 }
 ```
 
-## Architecture
+---
+
+## Project Structure
 
 ```
 mcp-agent-mail-rs/
@@ -171,10 +374,16 @@ mcp-agent-mail-rs/
 │   │   ├── lib-core/             # Domain logic, BMC pattern, storage
 │   │   │   ├── src/model/        # 15+ entities (Agent, Message, Project, etc.)
 │   │   │   ├── src/store/        # Database (libsql) + Git (git2) storage
-│   │   │   └── tests/            # Integration tests
+│   │   │   ├── src/types.rs      # Strong newtypes (ProjectId, AgentId, etc.)
+│   │   │   └── src/utils/        # Validation, pathspec matching
 │   │   ├── lib-common/           # Config, errors, tracing
 │   │   ├── lib-server/           # Axum REST API, middleware, OpenAPI
-│   │   └── lib-mcp/              # MCP tool definitions (45 tools)
+│   │   │   ├── src/api.rs        # 70+ REST endpoints
+│   │   │   ├── src/auth.rs       # Bearer/JWT authentication
+│   │   │   └── src/ratelimit.rs  # Rate limiting (governor)
+│   │   └── lib-mcp/              # MCP tool definitions
+│   │       ├── src/lib.rs        # AgentMailService with #[tool_router]
+│   │       └── src/tools/        # Tool modules (50+ tools)
 │   ├── services/
 │   │   ├── mcp-server/           # REST API server binary
 │   │   ├── mcp-stdio/            # MCP protocol server (stdio + SSE)
@@ -201,52 +410,7 @@ mcp-agent-mail-rs/
 | **Metrics** | Prometheus (metrics-exporter-prometheus) |
 | **Quality** | cargo-deny, clippy, pmat |
 
-### Design Patterns
-
-#### Backend Model Controller (BMC) Pattern
-
-Separates concerns for each entity:
-
-```rust
-// Entity struct (database row)
-pub struct Agent {
-    pub id: i64,
-    pub name: String,
-    pub project_id: i64,
-    // ...
-}
-
-// Creation input
-pub struct AgentForCreate {
-    pub name: String,
-    pub project_id: i64,
-    // ...
-}
-
-// Business logic (stateless)
-pub struct AgentBmc;
-impl AgentBmc {
-    pub async fn create(ctx: &Ctx, mm: &ModelManager, data: AgentForCreate) -> Result<i64>;
-    pub async fn get(ctx: &Ctx, mm: &ModelManager, id: i64) -> Result<Agent>;
-    pub async fn get_by_name(ctx: &Ctx, mm: &ModelManager, project_id: i64, name: &str) -> Result<Agent>;
-    // ...
-}
-```
-
-#### Dual Persistence
-
-All data stored in both:
-1. **SQLite** (libsql): Fast queries, FTS5 search, transactions
-2. **Git Repository**: Human-readable audit trail
-
-```
-data/archive/projects/{slug}/
-├── agents/{name}/
-│   ├── profile.json
-│   ├── inbox/YYYY/MM/{message}.md
-│   └── outbox/YYYY/MM/{message}.md
-└── messages/YYYY/MM/{timestamp}__{subject}__{id}.md
-```
+---
 
 ## API Reference
 
@@ -258,7 +422,7 @@ data/archive/projects/{slug}/
 | `/api/ready` | GET | Readiness probe (DB connectivity) |
 | `/api/metrics` | GET | Prometheus metrics |
 
-### Projects (5 endpoints)
+### Projects
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -266,9 +430,8 @@ data/archive/projects/{slug}/
 | `/api/projects` | GET | List all projects |
 | `/api/projects/{slug}/agents` | GET | List agents for project |
 | `/api/project/info` | POST | Get project details |
-| `/api/list_project_siblings` | POST | Find related projects |
 
-### Agent Management (6 endpoints)
+### Agent Management
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -276,36 +439,30 @@ data/archive/projects/{slug}/
 | `/api/agent/whois` | POST | Lookup agent by name |
 | `/api/agent/create_identity` | POST | Create with auto-generated name |
 | `/api/agent/profile` | POST | Get agent profile |
-| `/api/agent/profile/update` | POST | Update agent settings |
 | `/api/agent/capabilities` | POST | Check/grant capabilities |
 
-### Messaging (13 endpoints)
+### Messaging
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/message/send` | POST | Send message (to/cc/bcc) |
 | `/api/message/reply` | POST | Reply to thread |
-| `/api/message/read` | POST | Mark as read |
 | `/api/message/acknowledge` | POST | Acknowledge receipt |
-| `/api/messages/{id}` | GET | Get single message |
 | `/api/messages/search` | POST | Full-text search |
 | `/api/inbox` | POST | List inbox messages |
 | `/api/outbox` | POST | List sent messages |
-| `/api/thread` | POST | Get thread messages |
-| `/api/threads` | POST | List all threads |
 | `/api/thread/summarize` | POST | Summarize thread |
 
-### File Reservations (5 endpoints)
+### File Reservations
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/file_reservations/paths` | POST | Reserve file paths |
+| `/api/file_reservations/paths` | POST | Reserve file paths (pathspec) |
 | `/api/file_reservations/list` | POST | List active reservations |
 | `/api/file_reservations/release` | POST | Release reservations |
 | `/api/file_reservations/renew` | POST | Extend TTL |
-| `/api/file_reservations/force_release` | POST | Force release (admin) |
 
-### Build Slots (3 endpoints)
+### Build Slots
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
@@ -313,77 +470,65 @@ data/archive/projects/{slug}/
 | `/api/build_slots/renew` | POST | Extend TTL |
 | `/api/build_slots/release` | POST | Release slot |
 
-### Contacts (4 endpoints)
+### Products (Multi-Project)
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/contacts/request` | POST | Request to add contact |
-| `/api/contacts/respond` | POST | Accept/reject request |
-| `/api/contacts/list` | POST | List all contacts |
-| `/api/contacts/policy` | POST | Set contact policy |
+| `/api/product/ensure` | POST | Create or get product |
+| `/api/product/link_project` | POST | Link project to product |
+| `/api/product/inbox` | POST | Cross-project inbox |
 
-### Macros (4 endpoints)
+---
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/macros/list` | POST | List macros |
-| `/api/macros/register` | POST | Create macro |
-| `/api/macros/unregister` | POST | Delete macro |
-| `/api/macros/invoke` | POST | Execute macro |
+## MCP Protocol
 
-### Advanced Features
+### Tool Categories (50+ tools)
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/export` | POST | Export mailbox (HTML/JSON/MD/CSV) |
-| `/api/attachments/add` | POST | Upload attachment |
-| `/api/attachments/{id}` | GET | Download attachment |
-| `/api/tool_metrics` | POST | Get tool usage metrics |
-| `/api/activity` | POST | List activity log |
-| `/api/overseer/send` | POST | Send human guidance |
+| Category | Tools | Description |
+|----------|-------|-------------|
+| **Infrastructure** | `health`, `ready`, `metrics` | Server health and monitoring |
+| **Project** | `ensure_project`, `list_projects`, `get_project_info` | Project lifecycle |
+| **Agent** | `register_agent`, `whois`, `list_agents` | Agent identity |
+| **Messaging** | `send_message`, `check_inbox`, `reply_message`, `search_messages` | Core messaging |
+| **Threads** | `list_threads`, `get_thread`, `summarize_thread` | Conversations |
+| **Files** | `reserve_file_paths`, `release_file_paths`, `check_paths` | File coordination |
+| **Build** | `acquire_build_slot`, `release_build_slot` | Build coordination |
+| **Products** | `ensure_product`, `link_project`, `product_inbox` | Multi-project |
+| **Contacts** | `add_contact`, `list_contacts`, `block_contact` | Agent routing |
+| **Macros** | `register_macro`, `invoke_macro` | Workflow automation |
+| **Overseer** | `overseer_send`, `overseer_inbox` | Human guidance |
 
-**Note:** Python-compatible aliases available (e.g., `/api/send_message`, `/api/fetch_inbox`)
+### Request Flow
 
-### MCP Protocol (45 tools)
+```mermaid
+sequenceDiagram
+    participant C as MCP Client
+    participant S as STDIO Transport
+    participant R as Tool Router
+    participant H as ServerHandler
+    participant B as BMC Layer
+    participant D as Database
 
-```bash
-# Run MCP server for Claude Desktop integration
-cargo run -p mcp-stdio -- serve
+    C->>S: JSON-RPC request
+    S->>H: list_tools() / call_tool()
 
-# Or with SSE transport
-cargo run -p mcp-stdio -- serve --transport sse --port 3000
+    alt list_tools
+        H->>R: get_tool_schemas()
+        R-->>H: [Tool schemas with descriptions]
+    else call_tool
+        H->>R: dispatch(tool_name, params)
+        R->>B: BMC method call
+        B->>D: SQL query
+        D-->>B: Result rows
+        B-->>R: Domain objects
+        R-->>H: JSON response
+    end
 
-# List all available tools
-cargo run -p mcp-stdio -- tools
-
-# Export JSON schema
-cargo run -p mcp-stdio -- schema
+    H-->>S: JSON-RPC response
+    S-->>C: Result / Error
 ```
 
-## Database Schema
-
-SQLite with FTS5 full-text search. **15 tables** across 4 migrations:
-
-| Table | Description |
-|-------|-------------|
-| `projects` | Project registry (slug, human_key) |
-| `agents` | Agent profiles per project with policies |
-| `messages` | Message content with threading |
-| `message_recipients` | To/CC/BCC with read/ack tracking |
-| `messages_fts` | FTS5 index for full-text search |
-| `file_reservations` | Advisory file locks with TTL |
-| `build_slots` | Exclusive build resource locks |
-| `agent_links` | Cross-project contact approval |
-| `agent_capabilities` | Per-agent capability grants |
-| `macros` | Reusable workflow definitions |
-| `products` | Multi-repo coordination |
-| `product_project_links` | Project grouping |
-| `project_sibling_suggestions` | Auto-discovery |
-| `overseer_messages` | Human guidance messages |
-| `tool_metrics` | Tool usage tracking |
-| `attachments` | File attachment metadata |
-
-See `migrations/` for full schema.
+---
 
 ## Configuration
 
@@ -421,159 +566,46 @@ See `migrations/` for full schema.
 | `RATE_LIMIT_RPS` | 1000 | Requests per second |
 | `RATE_LIMIT_BURST` | 2000 | Burst allowance |
 
-**File Reservations:**
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `FILE_RESERVATION_DEFAULT_TTL` | 3600 | Default TTL (seconds) |
-| `FILE_RESERVATION_MAX_TTL` | 86400 | Max TTL (seconds) |
-
 **MCP Protocol:**
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `MOUCHAK_MCP__TRANSPORT` | stdio | Transport (stdio, sse) |
 | `MOUCHAK_MCP__PORT` | 3000 | SSE port |
 
-See `.env.example` for complete list (35+ variables).
+---
 
-## Development Commands
+## Development
 
-### Using make (recommended)
+### Commands (make)
 
 ```bash
 make dev            # Run API + Web UI (parallel)
 make dev-api        # Run API server only
-make dev-web        # Run Web UI only
 make dev-mcp        # Run MCP stdio server
-make build          # Build debug
 make build-release  # Build release with LTO
-make build-web      # Build Leptos WASM frontend
 make build-prod     # Full production build
 make test           # Run all tests
 make test-fast      # Run unit tests only
-make coverage       # Generate coverage report
-make audit          # Run security audits (cargo audit + deny)
-make lint           # Run clippy lints
-make fmt            # Format code
+make audit          # Run security audits
 make quality-gate   # Run all quality gates
-make clean          # Clean all artifacts
 ```
 
-### Using cargo directly
+### Quality Gates
 
-```bash
-# Build
-cargo build --workspace
-cargo build --workspace --release
+**Workspace Lints:**
+- `unsafe_code = "deny"` — No unsafe code allowed
+- `unused_must_use = "deny"` — Enforce error handling
 
-# Test
-cargo test --workspace --exclude e2e-tests
-cargo test -p lib-core --test integration -- --test-threads=1
-
-# Lint
-cargo clippy --workspace --all-targets -- -D warnings
-cargo fmt --all --check
-
-# Security
-cargo audit
-cargo deny check
-```
-
-## Quality Gates
-
-This project enforces strict quality standards:
-
-**Workspace Lints (Cargo.toml):**
-- `unsafe_code = "deny"` - No unsafe code allowed
-- `unused_must_use = "deny"` - Enforce error handling
-- `inefficient_to_string = "deny"` - Performance
-
-**Clippy Configuration (.clippy.toml):**
+**Clippy Configuration:**
 - Cognitive complexity threshold: 30
 - Max function lines: 200
-- Max arguments: 10
 - MSRV: 1.85
 
 **Dependency Policy (deny.toml):**
-- License allowlist (MIT, Apache-2.0, BSD, ISC, etc.)
+- License allowlist (MIT, Apache-2.0, BSD, ISC)
 - Security advisory checks
-- Known advisory ignores with justification
 
-## Integration with AI Agents
-
-### Claude Desktop (MCP)
-
-Add to `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "agent-mail": {
-      "command": "/path/to/mcp-agent-mail-rs/target/release/mcp-stdio",
-      "args": ["serve"]
-    }
-  }
-}
-```
-
-### Claude Code / Codex CLI
-
-AGENTS.md is automatically read. Start with:
-
-```bash
-cd /path/to/mcp-agent-mail-rs
-# Then: "Run bd ready --json and start the first task"
-```
-
-### Gemini CLI
-
-```bash
-# Symlink AGENTS.md
-ln -s ../AGENTS.md .gemini/GEMINI.md
-```
-
-## Typical Workflow
-
-### For Agents
-
-```bash
-# 1. Register identity
-curl -X POST http://localhost:8765/api/agent/register \
-  -H "Content-Type: application/json" \
-  -d '{"project_key": "/path/to/project", "name": "BlueMountain", "program": "claude", "model": "opus"}'
-
-# 2. Reserve files before editing
-curl -X POST http://localhost:8765/api/file_reservations/paths \
-  -H "Content-Type: application/json" \
-  -d '{"project_slug": "my-project", "agent_name": "BlueMountain", "paths": ["src/**"], "ttl_seconds": 3600}'
-
-# 3. Send progress message
-curl -X POST http://localhost:8765/api/message/send \
-  -H "Content-Type: application/json" \
-  -d '{"project_slug": "my-project", "from_agent": "BlueMountain", "to_agents": ["GreenCastle"], "subject": "Starting refactor", "body_md": "Working on auth module..."}'
-
-# 4. Release reservation when done
-curl -X POST http://localhost:8765/api/file_reservations/release \
-  -H "Content-Type: application/json" \
-  -d '{"project_slug": "my-project", "agent_name": "BlueMountain", "paths": ["src/**"]}'
-```
-
-### For Humans
-
-1. **Web UI**: http://localhost:8080 (Leptos frontend)
-2. **CLI**: `cargo run -p mcp-cli -- inbox --project my-project --agent BlueMountain`
-3. **Git**: Browse `data/archive/` for full audit trail
-
-## Project Status
-
-| Phase | Status | Description |
-|-------|--------|-------------|
-| 1 | COMPLETE | Core Architecture (BMC, storage) |
-| 1.5 | COMPLETE | API Layer (Axum REST, 60+ endpoints) |
-| 2 | COMPLETE | Leptos WASM Frontend |
-| 3 | COMPLETE | Full Feature Parity (32+ MCP tools) |
-| 4 | COMPLETE | MCP Protocol Integration (stdio + SSE) |
-| 5 | COMPLETE | Production Hardening (deny.toml, quality gates) |
-| 6 | IN PROGRESS | Performance Optimization |
+---
 
 ## Performance
 
@@ -586,17 +618,47 @@ Benchmarked against Python reference implementation:
 | Memory (idle) | 12MB | 180MB | **15x** |
 | Startup time | 50ms | 2.1s | **42x** |
 
+**Key Optimizations:**
+- Shared `ModelManager` across MCP sessions
+- Connection pooling with libsql
+- Zero-copy JSON serialization
+- Async I/O throughout with tokio
+- LRU repo cache (8 repos) for concurrent agents
+
+---
+
+## Database Schema
+
+SQLite with FTS5 full-text search. **15 tables** across 4 migrations:
+
+| Table | Description |
+|-------|-------------|
+| `projects` | Project registry (slug, human_key) |
+| `agents` | Agent profiles with capabilities |
+| `messages` | Message content with threading |
+| `message_recipients` | To/CC/BCC with read/ack tracking |
+| `messages_fts` | FTS5 index for full-text search |
+| `file_reservations` | Advisory file locks with TTL |
+| `build_slots` | Exclusive build resource locks |
+| `agent_capabilities` | Per-agent capability grants |
+| `products` | Multi-repo coordination |
+| `tool_metrics` | Tool usage tracking |
+
+---
+
 ## References
 
-- [Python Original](https://github.com/Dicklesworthstone/mcp_agent_mail) - Source implementation
-- [MCP Tools Reference](https://glama.ai/mcp/servers/@Dicklesworthstone/mcp_agent_mail) - 28 MCP tools specification
-- [Beads Issue Tracker](https://github.com/steveyegge/beads) - Task tracking via `bd` CLI
-- [MCP Protocol](https://modelcontextprotocol.io) - Model Context Protocol specification
-- [PMAT Quality Gates](https://paiml.github.io/pmat-book/) - Production maturity analysis
+- [Python Original](https://github.com/Dicklesworthstone/mcp_agent_mail) — Source implementation
+- [MCP Tools Reference](https://glama.ai/mcp/servers/@Dicklesworthstone/mcp_agent_mail) — MCP tools specification
+- [MCP Protocol](https://modelcontextprotocol.io) — Model Context Protocol specification
+- [Beads Issue Tracker](https://github.com/steveyegge/beads) — Task tracking via `bd` CLI
+- [PMAT Quality Gates](https://paiml.github.io/pmat-book/) — Production maturity analysis
+
+---
 
 ## License
 
-MIT License - See LICENSE file for details.
+MIT License — See LICENSE file for details.
 
 ---
 
