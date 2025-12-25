@@ -442,19 +442,6 @@
 						class="group relative animate-in fade-in slide-in-from-bottom-2"
 						style="animation-delay: calc({index} * var(--delay-stagger)); animation-fill-mode: both;"
 					>
-						<!-- Selection Checkbox -->
-						<div
-							class="absolute top-3 left-3 z-10"
-							onclick={(e: Event) => toggleSelection(project.id, e)}
-						>
-							<Checkbox
-								data-testid="project-select-checkbox"
-								checked={isSelected(project.id)}
-								aria-label="Select project {project.human_key}"
-								class="bg-background/80 backdrop-blur-sm"
-							/>
-						</div>
-
 						<a
 							href="/projects/{project.slug}"
 							class="block"
@@ -462,9 +449,21 @@
 							<Card.Root
 								class="h-full hover:shadow-lg hover:border-primary/50 transition-all duration-200 hover:-translate-y-1 {isSelected(project.id) ? 'ring-2 ring-primary border-primary' : ''}"
 							>
-								<Card.Content class="p-5 md:p-6 pl-12">
+								<Card.Content class="p-5 md:p-6 relative">
+									<!-- Selection Checkbox - inside card content -->
 									<div
-										class="flex items-start justify-between mb-4"
+										class="absolute top-3 left-3 z-20"
+										onclick={(e: Event) => toggleSelection(project.id, e)}
+									>
+										<Checkbox
+											data-testid="project-select-checkbox"
+											checked={isSelected(project.id)}
+											aria-label="Select project {project.human_key}"
+											class="bg-background/80 backdrop-blur-sm border-muted-foreground/50"
+										/>
+									</div>
+									<div
+										class="flex items-center justify-between mb-4 ml-8"
 									>
 										<div class="flex items-center gap-3">
 											<div
@@ -483,18 +482,18 @@
 											</div>
 										</div>
 										<DropdownMenu.Root
-										open={openDropdownId === project.id}
-										onOpenChange={(open) => {
-											openDropdownId = open ? project.id : null;
-										}}
-									>
+											open={openDropdownId === project.id}
+											onOpenChange={(open) => {
+												openDropdownId = open ? project.id : null;
+											}}
+										>
 											<DropdownMenu.Trigger>
 												{#snippet child({ props })}
 													<Button
 														{...props}
 														variant="ghost"
 														size="icon"
-														class="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+														class="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
 														onclick={(e: Event) => {
 															e.preventDefault();
 															e.stopPropagation();
@@ -522,7 +521,7 @@
 									</div>
 
 									<div
-										class="flex items-center gap-2 text-sm text-muted-foreground"
+										class="flex items-center gap-2 text-sm text-muted-foreground ml-8"
 									>
 										<Calendar class="h-4 w-4" />
 										<span
