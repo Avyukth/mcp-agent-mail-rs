@@ -52,7 +52,7 @@ mod tools_tests {
         let id = ProjectBmc::create(&ctx, &mm, "test-project", "/path/to/project")
             .await
             .expect("Failed to create project");
-        assert!(id > 0);
+        assert!(i64::from(id) > 0);
 
         // Get project
         let project = ProjectBmc::get_by_slug(&ctx, &mm, "test-project")
@@ -88,7 +88,7 @@ mod tools_tests {
         let agent_id = AgentBmc::create(&ctx, &mm, agent_c)
             .await
             .expect("Failed to register agent");
-        assert!(agent_id > 0);
+        assert!(i64::from(agent_id) > 0);
 
         // Verify agent exists
         let agent = AgentBmc::get_by_name(&ctx, &mm, project_id, "TestAgent")
@@ -135,7 +135,7 @@ mod tools_tests {
         let res_id = FileReservationBmc::create(&ctx, &mm, fr_c)
             .await
             .expect("Failed to create reservation");
-        assert!(res_id > 0);
+        assert!(i64::from(res_id) > 0);
 
         // List active reservations
         let active = FileReservationBmc::list_active_for_project(&ctx, &mm, project_id)
@@ -202,7 +202,7 @@ mod tools_tests {
         let res_a_id = FileReservationBmc::create(&ctx, &mm, fr_a)
             .await
             .expect("Agent A should reserve successfully");
-        assert!(res_a_id > 0);
+        assert!(i64::from(res_a_id) > 0);
 
         // Agent B tries to reserve overlapping path (should still succeed in advisory model)
         let fr_b = FileReservationForCreate {
@@ -216,7 +216,7 @@ mod tools_tests {
         let res_b_id = FileReservationBmc::create(&ctx, &mm, fr_b)
             .await
             .expect("Agent B reservation should succeed (advisory model allows conflicts)");
-        assert!(res_b_id > 0);
+        assert!(i64::from(res_b_id) > 0);
 
         // Both reservations should be active
         let active = FileReservationBmc::list_active_for_project(&ctx, &mm, project_id)
@@ -267,8 +267,8 @@ mod tools_tests {
 
         // Acquire build slot (uses ttl_seconds, not expires_ts)
         let slot_c = BuildSlotForCreate {
-            project_id,
-            agent_id,
+            project_id: project_id.into(),
+            agent_id: agent_id.into(),
             slot_name: "ci-main".to_string(),
             ttl_seconds: 1800, // 30 minutes
         };
@@ -276,10 +276,10 @@ mod tools_tests {
         let slot_id = BuildSlotBmc::acquire(&ctx, &mm, slot_c)
             .await
             .expect("Failed to acquire build slot");
-        assert!(slot_id > 0);
+        assert!(i64::from(slot_id) > 0);
 
         // Verify slot exists via list_active
-        let active = BuildSlotBmc::list_active(&ctx, &mm, project_id)
+        let active = BuildSlotBmc::list_active(&ctx, &mm, project_id.into())
             .await
             .expect("Failed to list active slots");
         assert_eq!(active.len(), 1);
@@ -291,7 +291,7 @@ mod tools_tests {
             .expect("Failed to release slot");
 
         // Verify released
-        let active_after = BuildSlotBmc::list_active(&ctx, &mm, project_id)
+        let active_after = BuildSlotBmc::list_active(&ctx, &mm, project_id.into())
             .await
             .unwrap();
         assert_eq!(active_after.len(), 0);
@@ -335,19 +335,19 @@ mod tools_tests {
 
         // Request contact using struct
         let link_c = AgentLinkForCreate {
-            a_project_id: project_a_id,
-            a_agent_id: agent_a_id,
-            b_project_id: project_b_id,
-            b_agent_id: agent_b_id,
+            a_project_id: project_a_id.into(),
+            a_agent_id: agent_a_id.into(),
+            b_project_id: project_b_id.into(),
+            b_agent_id: agent_b_id.into(),
             reason: "Want to collaborate".to_string(),
         };
         let link_id = AgentLinkBmc::request_contact(&ctx, &mm, link_c)
             .await
             .expect("Failed to request contact");
-        assert!(link_id > 0);
+        assert!(i64::from(link_id) > 0);
 
         // Check pending requests for Agent B
-        let pending = AgentLinkBmc::list_pending_requests(&ctx, &mm, project_b_id, agent_b_id)
+        let pending = AgentLinkBmc::list_pending_requests(&ctx, &mm, project_b_id.into(), agent_b_id.into())
             .await
             .expect("Failed to list pending requests");
         assert_eq!(pending.len(), 1);
@@ -359,7 +359,7 @@ mod tools_tests {
             .expect("Failed to accept contact");
 
         // Verify accepted - check contacts list
-        let contacts = AgentLinkBmc::list_contacts(&ctx, &mm, project_a_id, agent_a_id)
+        let contacts = AgentLinkBmc::list_contacts(&ctx, &mm, project_a_id.into(), agent_a_id.into())
             .await
             .expect("Failed to list contacts");
         assert_eq!(contacts.len(), 1);
@@ -387,7 +387,7 @@ mod tools_tests {
         ]);
 
         let macro_c = MacroDefForCreate {
-            project_id,
+            project_id: project_id.into(),
             name: "start_review".to_string(),
             description: "Start a code review workflow".to_string(),
             steps: vec![steps],
@@ -396,10 +396,10 @@ mod tools_tests {
         let macro_id = MacroDefBmc::create(&ctx, &mm, macro_c)
             .await
             .expect("Failed to create macro");
-        assert!(macro_id > 0);
+        assert!(i64::from(macro_id) > 0);
 
         // List macros
-        let macros = MacroDefBmc::list(&ctx, &mm, project_id)
+        let macros = MacroDefBmc::list(&ctx, &mm, project_id.into())
             .await
             .expect("Failed to list macros");
         assert_eq!(macros.len(), 6);
@@ -431,12 +431,12 @@ mod tools_tests {
             .unwrap();
 
         // Link both projects to the product
-        let link_a = ProductBmc::link_project(&ctx, &mm, product.id, project_a_id)
+        let link_a = ProductBmc::link_project(&ctx, &mm, product.id, project_a_id.into())
             .await
             .expect("Failed to link frontend");
         assert!(link_a > 0);
 
-        let link_b = ProductBmc::link_project(&ctx, &mm, product.id, project_b_id)
+        let link_b = ProductBmc::link_project(&ctx, &mm, product.id, project_b_id.into())
             .await
             .expect("Failed to link backend");
         assert!(link_b > 0);
@@ -446,8 +446,8 @@ mod tools_tests {
             .await
             .expect("Failed to get linked projects");
         assert_eq!(linked.len(), 2);
-        assert!(linked.contains(&project_a_id));
-        assert!(linked.contains(&project_b_id));
+        assert!(linked.contains(&project_a_id.into()));
+        assert!(linked.contains(&project_b_id.into()));
 
         // List all products with their linked projects
         let all_products = ProductBmc::list_all(&ctx, &mm)
@@ -457,7 +457,7 @@ mod tools_tests {
         assert_eq!(all_products[0].project_ids.len(), 2);
 
         // Unlink a project
-        let unlinked = ProductBmc::unlink_project(&ctx, &mm, product.id, project_a_id)
+        let unlinked = ProductBmc::unlink_project(&ctx, &mm, product.id, project_a_id.into())
             .await
             .expect("Failed to unlink");
         assert!(unlinked);
@@ -467,7 +467,7 @@ mod tools_tests {
             .await
             .unwrap();
         assert_eq!(linked_after.len(), 1);
-        assert_eq!(linked_after[0], project_b_id);
+        assert_eq!(linked_after[0], i64::from(project_b_id));
     }
 
     #[tokio::test]
@@ -506,9 +506,9 @@ mod tools_tests {
 
         // Send a message
         let msg_c = MessageForCreate {
-            project_id,
-            sender_id,
-            recipient_ids: vec![recipient_id],
+            project_id: project_id.into(),
+            sender_id: sender_id.into(),
+            recipient_ids: vec![recipient_id.into()],
             cc_ids: None,
             bcc_ids: None,
             subject: "Test Export Message".to_string(),
@@ -591,9 +591,9 @@ mod tools_tests {
         let agent_id = AgentBmc::create(&ctx, &mm, agent_c).await.unwrap();
 
         let msg_c = MessageForCreate {
-            project_id,
-            sender_id: agent_id,
-            recipient_ids: vec![agent_id], // self
+            project_id: project_id.into(),
+            sender_id: agent_id.into(),
+            recipient_ids: vec![agent_id.into()], // self
             cc_ids: None,
             bcc_ids: None,
             subject: "Archive Me".to_string(),

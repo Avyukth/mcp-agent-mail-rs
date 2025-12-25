@@ -43,8 +43,8 @@ async fn test_search_messages_product() -> anyhow::Result<()> {
     let project1_id = ProjectBmc::create(&ctx, &mm, &project1_slug, "Search Project 1").await?;
     let project2_id = ProjectBmc::create(&ctx, &mm, &project2_slug, "Search Project 2").await?;
 
-    ProductBmc::link_project(&ctx, &mm, product.id, project1_id).await?;
-    ProductBmc::link_project(&ctx, &mm, product.id, project2_id).await?;
+    ProductBmc::link_project(&ctx, &mm, product.id, project1_id.into()).await?;
+    ProductBmc::link_project(&ctx, &mm, product.id, project2_id.into()).await?;
 
     // Create agents in each project
     let agent1_id = AgentBmc::create(
@@ -78,9 +78,9 @@ async fn test_search_messages_product() -> anyhow::Result<()> {
         &ctx,
         &mm,
         MessageForCreate {
-            project_id: project1_id,
-            sender_id: agent1_id,
-            recipient_ids: vec![agent1_id],
+            project_id: project1_id.into(),
+            sender_id: agent1_id.into(),
+            recipient_ids: vec![agent1_id.into()],
             cc_ids: None,
             bcc_ids: None,
             subject: "Message in project one".to_string(),
@@ -96,9 +96,9 @@ async fn test_search_messages_product() -> anyhow::Result<()> {
         &ctx,
         &mm,
         MessageForCreate {
-            project_id: project2_id,
-            sender_id: agent2_id,
-            recipient_ids: vec![agent2_id],
+            project_id: project2_id.into(),
+            sender_id: agent2_id.into(),
+            recipient_ids: vec![agent2_id.into()],
             cc_ids: None,
             bcc_ids: None,
             subject: "Message in project two".to_string(),
@@ -160,8 +160,8 @@ async fn test_summarize_thread_product() -> anyhow::Result<()> {
     let project1_id = ProjectBmc::create(&ctx, &mm, &project1_slug, "Summary Project 1").await?;
     let project2_id = ProjectBmc::create(&ctx, &mm, &project2_slug, "Summary Project 2").await?;
 
-    ProductBmc::link_project(&ctx, &mm, product.id, project1_id).await?;
-    ProductBmc::link_project(&ctx, &mm, product.id, project2_id).await?;
+    ProductBmc::link_project(&ctx, &mm, product.id, project1_id.into()).await?;
+    ProductBmc::link_project(&ctx, &mm, product.id, project2_id.into()).await?;
 
     // Create agents
     let agent1_id = AgentBmc::create(
@@ -197,9 +197,9 @@ async fn test_summarize_thread_product() -> anyhow::Result<()> {
         &ctx,
         &mm,
         MessageForCreate {
-            project_id: project1_id,
-            sender_id: agent1_id,
-            recipient_ids: vec![agent1_id],
+            project_id: project1_id.into(),
+            sender_id: agent1_id.into(),
+            recipient_ids: vec![agent1_id.into()],
             cc_ids: None,
             bcc_ids: None,
             subject: "Cross-Project Thread Message".to_string(),
@@ -215,9 +215,9 @@ async fn test_summarize_thread_product() -> anyhow::Result<()> {
         &ctx,
         &mm,
         MessageForCreate {
-            project_id: project2_id,
-            sender_id: agent2_id,
-            recipient_ids: vec![agent2_id],
+            project_id: project2_id.into(),
+            sender_id: agent2_id.into(),
+            recipient_ids: vec![agent2_id.into()],
             cc_ids: None,
             bcc_ids: None,
             subject: "Cross-Project Thread Reply".to_string(),
@@ -275,7 +275,7 @@ async fn test_search_messages_product_no_matches() -> anyhow::Result<()> {
 
     let project_slug = format!("nomatch-{}", Uuid::new_v4());
     let project_id = ProjectBmc::create(&ctx, &mm, &project_slug, "No Match Project").await?;
-    ProductBmc::link_project(&ctx, &mm, product.id, project_id).await?;
+    ProductBmc::link_project(&ctx, &mm, product.id, project_id.into()).await?;
 
     let service = AgentMailService::new_with_mm(mm.clone(), false);
     let result = service
@@ -311,7 +311,7 @@ async fn test_summarize_thread_product_not_found() -> anyhow::Result<()> {
 
     let project_slug = format!("nothread-{}", Uuid::new_v4());
     let project_id = ProjectBmc::create(&ctx, &mm, &project_slug, "No Thread Project").await?;
-    ProductBmc::link_project(&ctx, &mm, product.id, project_id).await?;
+    ProductBmc::link_project(&ctx, &mm, product.id, project_id.into()).await?;
 
     let service = AgentMailService::new_with_mm(mm.clone(), false);
     let result = service

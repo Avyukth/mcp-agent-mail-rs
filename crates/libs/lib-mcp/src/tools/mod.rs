@@ -1415,7 +1415,7 @@ mod tests {
 
         // 2. Grant capability
         let cap_c = AgentCapabilityForCreate {
-            agent_id: sender_id,
+            agent_id: sender_id.into(),
             capability: "send_message".into(),
             granted_by: None,
             expires_at: None,
@@ -1460,10 +1460,10 @@ mod tests {
         let product = ProductBmc::ensure(&ctx, &mm, "prod-p", "Product P")
             .await
             .unwrap();
-        ProductBmc::link_project(&ctx, &mm, product.id, id_a)
+        ProductBmc::link_project(&ctx, &mm, product.id, id_a.into())
             .await
             .unwrap();
-        ProductBmc::link_project(&ctx, &mm, product.id, id_b)
+        ProductBmc::link_project(&ctx, &mm, product.id, id_b.into())
             .await
             .unwrap();
 
@@ -1508,7 +1508,7 @@ mod tests {
         let sender_id = AgentBmc::create(&ctx, &mm, sender_c).await.unwrap();
         // Recipient
         let recv_c = AgentForCreate {
-            project_id: pid,
+            project_id: pid.into(),
             name: "Recv".into(),
             program: "test".into(),
             model: "test".into(),
@@ -1517,7 +1517,7 @@ mod tests {
         let recv_id = AgentBmc::create(&ctx, &mm, recv_c).await.unwrap();
         // CC
         let cc_c = AgentForCreate {
-            project_id: pid,
+            project_id: pid.into(),
             name: "CCAgent".into(),
             program: "test".into(),
             model: "test".into(),
@@ -1526,7 +1526,7 @@ mod tests {
         let cc_id = AgentBmc::create(&ctx, &mm, cc_c).await.unwrap();
         // BCC
         let bcc_c = AgentForCreate {
-            project_id: pid,
+            project_id: pid.into(),
             name: "BCCAgent".into(),
             program: "test".into(),
             model: "test".into(),
@@ -1536,7 +1536,7 @@ mod tests {
 
         // Grant Capability
         let cap = AgentCapabilityForCreate {
-            agent_id: sender_id,
+            agent_id: sender_id.into(),
             capability: "send_message".into(),
             granted_by: None,
             expires_at: None,
@@ -1575,18 +1575,18 @@ mod tests {
         // We can't access mm.db().
         // BUT we can use `list_inbox` for each agent to verify delivery!
 
-        let inbox_recv = MessageBmc::list_inbox_for_agent(&ctx, &mm, pid, recv_id, 10)
+        let inbox_recv = MessageBmc::list_inbox_for_agent(&ctx, &mm, pid.into(), recv_id.into(), 10)
             .await
             .unwrap();
         assert_eq!(inbox_recv.len(), 1);
 
         // Correct verification of CC/BCC delivery:
-        let inbox_cc = MessageBmc::list_inbox_for_agent(&ctx, &mm, pid, cc_id, 10)
+        let inbox_cc = MessageBmc::list_inbox_for_agent(&ctx, &mm, pid.into(), cc_id.into(), 10)
             .await
             .unwrap();
         assert_eq!(inbox_cc.len(), 1, "CC agent should have message in inbox");
 
-        let inbox_bcc = MessageBmc::list_inbox_for_agent(&ctx, &mm, pid, bcc_id, 10)
+        let inbox_bcc = MessageBmc::list_inbox_for_agent(&ctx, &mm, pid.into(), bcc_id.into(), 10)
             .await
             .unwrap();
         assert_eq!(inbox_bcc.len(), 1, "BCC agent should have message in inbox");
@@ -1627,9 +1627,9 @@ mod tests {
 
         // Send a message
         let msg_c = MessageForCreate {
-            project_id: pid,
-            sender_id,
-            recipient_ids: vec![recv_id],
+            project_id: pid.into(),
+            sender_id: sender_id.into(),
+            recipient_ids: vec![recv_id.into()],
             cc_ids: None,
             bcc_ids: None,
             subject: "Outbox Check".into(),
@@ -1672,7 +1672,7 @@ mod tests {
             .await
             .unwrap();
         let agent_c = AgentForCreate {
-            project_id,
+            project_id: project_id.into(),
             name: "MetricAgent".into(),
             program: "test".into(),
             model: "test".into(),
@@ -1704,7 +1704,7 @@ mod tests {
             .await;
 
         // 4. Verify DB
-        let metrics = ToolMetricBmc::list_recent(&ctx, &mm, Some(project_id), 10)
+        let metrics = ToolMetricBmc::list_recent(&ctx, &mm, Some(project_id.into()), 10)
             .await
             .unwrap();
         assert_eq!(metrics.len(), 1);
@@ -1713,8 +1713,8 @@ mod tests {
         assert_eq!(m.tool_name, "test_tool");
         assert_eq!(m.duration_ms, 123);
         assert_eq!(m.status, "success");
-        assert_eq!(m.project_id, Some(project_id));
-        assert_eq!(m.agent_id, Some(agent_id));
+        assert_eq!(m.project_id, Some(project_id.into()));
+        assert_eq!(m.agent_id, Some(agent_id.into()));
     }
 
     // ==========================================================================

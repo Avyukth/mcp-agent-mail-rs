@@ -63,9 +63,9 @@ mod tests {
         // 3. Send Message (Activity 2)
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         let msg_c = MessageForCreate {
-            project_id: pid,
-            sender_id: aid,
-            recipient_ids: vec![aid],
+            project_id: pid.into(),
+            sender_id: aid.into(),
+            recipient_ids: vec![aid.into()],
             cc_ids: None,
             bcc_ids: None,
             subject: "Act Msg".into(),
@@ -79,8 +79,8 @@ mod tests {
         // 4. Record Tool Metric (Activity 3)
         tokio::time::sleep(std::time::Duration::from_millis(10)).await;
         let metric = ToolMetricForCreate {
-            project_id: Some(pid),
-            agent_id: Some(aid),
+            project_id: Some(pid.into()),
+            agent_id: Some(aid.into()),
             tool_name: "test_tool".into(),
             args_json: Some("{}".into()),
             status: "success".into(),
@@ -90,7 +90,7 @@ mod tests {
         ToolMetricBmc::create(&ctx, &mm, metric).await.unwrap();
 
         // 5. Query Activity
-        let activities = ActivityBmc::list_recent(&ctx, &mm, pid, 10).await.unwrap();
+        let activities = ActivityBmc::list_recent(&ctx, &mm, pid.into(), 10).await.unwrap();
 
         // Verify count
         assert_eq!(activities.len(), 3);

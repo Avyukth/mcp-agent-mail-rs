@@ -54,7 +54,7 @@ async fn test_unregister_macro_removes_from_database() {
         .unwrap();
 
     let macro_c = MacroDefForCreate {
-        project_id,
+        project_id: project_id.into(),
         name: "test-workflow".to_string(),
         description: "Test workflow".to_string(),
         steps: vec![serde_json::json!({"action": "test"})],
@@ -62,17 +62,17 @@ async fn test_unregister_macro_removes_from_database() {
     let _macro_id = MacroDefBmc::create(&ctx, &mm, macro_c).await.unwrap();
 
     // Verify macro exists (along with 5 built-in macros = 6 total)
-    let macros = MacroDefBmc::list(&ctx, &mm, project_id).await.unwrap();
+    let macros = MacroDefBmc::list(&ctx, &mm, project_id.into()).await.unwrap();
     assert_eq!(macros.len(), 6, "Should have 5 built-in + 1 test macro");
 
     // GREEN: Call MacroDefBmc::delete directly
-    let deleted = MacroDefBmc::delete(&ctx, &mm, project_id, "test-workflow")
+    let deleted = MacroDefBmc::delete(&ctx, &mm, project_id.into(), "test-workflow")
         .await
         .unwrap();
     assert!(deleted, "delete should return true");
 
     // Verify custom macro is gone (5 built-in macros remain)
-    let macros = MacroDefBmc::list(&ctx, &mm, project_id).await.unwrap();
+    let macros = MacroDefBmc::list(&ctx, &mm, project_id.into()).await.unwrap();
     assert_eq!(
         macros.len(),
         5,
@@ -91,7 +91,7 @@ async fn test_unregister_nonexistent_macro_returns_false() {
         .unwrap();
 
     // Try to delete a macro that doesn't exist
-    let deleted = MacroDefBmc::delete(&ctx, &mm, project_id, "nonexistent-macro")
+    let deleted = MacroDefBmc::delete(&ctx, &mm, project_id.into(), "nonexistent-macro")
         .await
         .unwrap();
     assert!(!deleted, "Should return false for nonexistent macro");
@@ -109,7 +109,7 @@ async fn test_list_returns_correct_macros() {
 
     // Register 2 macros using BMC directly
     let macro1 = MacroDefForCreate {
-        project_id,
+        project_id: project_id.into(),
         name: "workflow-1".to_string(),
         description: "First workflow".to_string(),
         steps: vec![serde_json::json!({"action": "step1"})],
@@ -117,7 +117,7 @@ async fn test_list_returns_correct_macros() {
     MacroDefBmc::create(&ctx, &mm, macro1).await.unwrap();
 
     let macro2 = MacroDefForCreate {
-        project_id,
+        project_id: project_id.into(),
         name: "workflow-2".to_string(),
         description: "Second workflow".to_string(),
         steps: vec![serde_json::json!({"action": "step2"})],
@@ -125,7 +125,7 @@ async fn test_list_returns_correct_macros() {
     MacroDefBmc::create(&ctx, &mm, macro2).await.unwrap();
 
     // Use lib-core list method directly (5 built-in + 2 custom = 7)
-    let macros = MacroDefBmc::list(&ctx, &mm, project_id).await.unwrap();
+    let macros = MacroDefBmc::list(&ctx, &mm, project_id.into()).await.unwrap();
 
     assert_eq!(macros.len(), 7, "Should have 5 built-in + 2 custom macros");
     assert!(macros.iter().any(|m| m.name == "workflow-1"));
@@ -143,7 +143,7 @@ async fn test_create_and_get_macro_by_name() {
         .unwrap();
 
     let macro_c = MacroDefForCreate {
-        project_id,
+        project_id: project_id.into(),
         name: "new-workflow".to_string(),
         description: "New workflow".to_string(),
         steps: vec![serde_json::json!({"action": "deploy"})],
@@ -153,7 +153,7 @@ async fn test_create_and_get_macro_by_name() {
     assert!(macro_id > 0);
 
     // Verify it exists via get_by_name
-    let retrieved = MacroDefBmc::get_by_name(&ctx, &mm, project_id, "new-workflow")
+    let retrieved = MacroDefBmc::get_by_name(&ctx, &mm, project_id.into(), "new-workflow")
         .await
         .unwrap();
     assert_eq!(retrieved.name, "new-workflow");
@@ -171,7 +171,7 @@ async fn test_get_macro_returns_correct_steps() {
         .unwrap();
 
     let macro_c = MacroDefForCreate {
-        project_id,
+        project_id: project_id.into(),
         name: "deploy-workflow".to_string(),
         description: "Deployment workflow".to_string(),
         steps: vec![
@@ -182,7 +182,7 @@ async fn test_get_macro_returns_correct_steps() {
     };
     MacroDefBmc::create(&ctx, &mm, macro_c).await.unwrap();
 
-    let retrieved = MacroDefBmc::get_by_name(&ctx, &mm, project_id, "deploy-workflow")
+    let retrieved = MacroDefBmc::get_by_name(&ctx, &mm, project_id.into(), "deploy-workflow")
         .await
         .unwrap();
 

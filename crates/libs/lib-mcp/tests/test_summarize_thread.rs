@@ -71,9 +71,9 @@ async fn setup_test_data(mm: &ModelManager) -> (i64, i64, i64) {
     let agent2_id = AgentBmc::create(&ctx, mm, agent2_c).await.unwrap();
 
     let msg1 = MessageForCreate {
-        project_id,
-        sender_id: agent1_id,
-        recipient_ids: vec![agent2_id],
+        project_id: project_id.into(),
+        sender_id: agent1_id.into(),
+        recipient_ids: vec![agent2_id.into()],
         cc_ids: None,
         bcc_ids: None,
         subject: "Thread 1 Subject".to_string(),
@@ -85,9 +85,9 @@ async fn setup_test_data(mm: &ModelManager) -> (i64, i64, i64) {
     MessageBmc::create(&ctx, mm, msg1).await.unwrap();
 
     let msg2 = MessageForCreate {
-        project_id,
-        sender_id: agent2_id,
-        recipient_ids: vec![agent1_id],
+        project_id: project_id.into(),
+        sender_id: agent2_id.into(),
+        recipient_ids: vec![agent1_id.into()],
         cc_ids: None,
         bcc_ids: None,
         subject: "Re: Thread 1 Subject".to_string(),
@@ -99,9 +99,9 @@ async fn setup_test_data(mm: &ModelManager) -> (i64, i64, i64) {
     MessageBmc::create(&ctx, mm, msg2).await.unwrap();
 
     let msg3 = MessageForCreate {
-        project_id,
-        sender_id: agent1_id,
-        recipient_ids: vec![agent2_id],
+        project_id: project_id.into(),
+        sender_id: agent1_id.into(),
+        recipient_ids: vec![agent2_id.into()],
         cc_ids: None,
         bcc_ids: None,
         subject: "Thread 2 Subject".to_string(),
@@ -112,7 +112,7 @@ async fn setup_test_data(mm: &ModelManager) -> (i64, i64, i64) {
     };
     MessageBmc::create(&ctx, mm, msg3).await.unwrap();
 
-    (project_id, agent1_id, agent2_id)
+    (project_id.into(), agent1_id.into(), agent2_id.into())
 }
 
 #[test]
