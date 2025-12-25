@@ -2,7 +2,7 @@
     import { onMount } from "svelte";
     import { page } from "$app/stores";
     import { goto } from "$app/navigation";
-    import { getThread, type Thread, type Message } from "$lib/api/client";
+    import { dataProvider, type Thread, type Message } from "$lib/data";
     import {
         ArrowLeft,
         ChevronDown,
@@ -65,7 +65,7 @@
         error = null;
 
         try {
-            thread = await getThread(projectSlug, threadId);
+            thread = await dataProvider.getThread(projectSlug, threadId);
             // Expand first message by default
             if (thread?.messages?.[0]) {
                 expandedStates.set(thread.messages[0].id, true);

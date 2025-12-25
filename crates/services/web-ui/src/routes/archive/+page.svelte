@@ -1,6 +1,6 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import { listArchiveCommits, type ArchiveCommit } from "$lib/api/client";
+    import { dataProvider, type ArchiveCommit } from "$lib/data";
     import {
         GitBranch,
         GitCommit,
@@ -27,7 +27,7 @@
         error = null;
 
         try {
-            commits = await listArchiveCommits(50);
+            commits = await dataProvider.listArchiveCommits(50);
         } catch (e) {
             error = e instanceof Error ? e.message : "Failed to load commits";
         } finally {

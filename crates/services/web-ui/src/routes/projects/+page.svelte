@@ -1,11 +1,8 @@
 <script lang="ts">
 	import { browser } from "$app/environment";
-	import {
-		getProjectsWithStats,
-		ensureProject,
-		deleteProject,
-		type Project,
-	} from "$lib/api/client";
+	import { dataProvider, type Project } from "$lib/data";
+	// Write operations still use direct API client
+	import { ensureProject, deleteProject } from "$lib/api/client";
 	import { slugify } from "$lib/utils/slugify";
 	import { toast } from "svelte-sonner";
 	import FolderKanban from "lucide-svelte/icons/folder-kanban";
@@ -182,7 +179,7 @@
 		loading = true;
 		error = null;
 		try {
-			projects = await getProjectsWithStats();
+			projects = await dataProvider.getProjectsWithStats();
 		} catch (e) {
 			error = e instanceof Error ? e.message : "Failed to load projects";
 		} finally {

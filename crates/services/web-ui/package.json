@@ -4,8 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "vite dev",
-    "build": "vite build",
+    "build": "VITE_DATA_MODE=api VITE_BUILD_MODE=embedded vite build",
+    "build:static": "VITE_DATA_MODE=static VITE_BUILD_MODE=static vite build",
     "preview": "vite preview",
+    "preview:static": "VITE_BUILD_MODE=static vite preview --outDir build-static",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "test": "playwright test",

@@ -2,7 +2,7 @@
 	import { browser } from '$app/environment';
 	import { slide } from 'svelte/transition';
 	import { get } from 'svelte/store';
-	import { fetchUnifiedInbox } from '$lib/api/client';
+	import { dataProvider } from '$lib/data';
 	import {
 		allMessages,
 		autoRefreshEnabled,
@@ -151,7 +151,7 @@
 		error = null;
 		isRefreshing.set(true);
 		try {
-			const response = await fetchUnifiedInbox();
+			const response = await dataProvider.fetchUnifiedInbox();
 			allMessages.set(response.messages ?? []);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load unified inbox';

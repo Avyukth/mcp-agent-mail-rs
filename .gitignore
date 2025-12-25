@@ -2,12 +2,13 @@ target/
 **/*.db
 **/*.db-shm
 **/*.db-wal
-data/
+/data/
 .DS_Store
 .env
 node_modules/
 .svelte-kit/
 build/
+build-static/
 .vercel/
 .output/
 
