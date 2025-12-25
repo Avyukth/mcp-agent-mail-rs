@@ -248,8 +248,7 @@ export-static-data:
 ## Build SvelteKit for static GitHub Pages deployment
 build-web-static: export-static-data
 	@echo "🌐 Building SvelteKit for static deployment..."
-	cd crates/services/web-ui && \
-		VITE_DATA_MODE=static VITE_BUILD_MODE=static bun run build
+	cd crates/services/web-ui && bun run build:static
 	@echo "✅ Static build complete (web-ui/build-static)"
 
 ## Push static build to GitHub Pages (git-based, single commit)
