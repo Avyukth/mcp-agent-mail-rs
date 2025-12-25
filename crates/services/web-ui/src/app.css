@@ -25,7 +25,7 @@
 		--border: 220 10% 80%;
 		--input: 220 10% 85%;
 		--ring: 18 86% 56%;
-		--radius: 0px;
+		--radius: 0.5rem;
 
 		/* === Spacing Scale (8px grid) === */
 		--space-1: 0.25rem;  /* 4px */
