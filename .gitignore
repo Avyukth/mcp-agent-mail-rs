@@ -50,3 +50,4 @@ AGENTS copy.md
 .codex/
 mutants.out/
 mutants.out.old/
+mutants-*.log
