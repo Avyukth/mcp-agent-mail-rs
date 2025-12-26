@@ -2,7 +2,7 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
-	import { getMessage, getAgents, getThreadMessages, type Message, type Agent } from '$lib/api/client';
+	import { dataProvider, type Message, type Agent } from '$lib/data';
 	import ComposeMessage from '$lib/components/ComposeMessage.svelte';
 
 	// shadcn/ui components
@@ -69,11 +69,12 @@
 		loading = true;
 		error = null;
 		try {
-			message = await getMessage(messageId);
+			message = await dataProvider.getMessage(messageId);
 			// Load thread messages if this message is part of a thread
 			if (message?.thread_id && projectSlug && agentName) {
 				try {
-					threadMessages = await getThreadMessages(projectSlug, agentName, message.thread_id);
+					const thread = await dataProvider.getThread(projectSlug, message.thread_id);
+					threadMessages = thread.messages;
 				} catch {
 					// Thread loading failed - just show single message
 					threadMessages = [message];
@@ -90,7 +91,7 @@
 
 	async function loadAgents() {
 		try {
-			agents = await getAgents(projectSlug);
+			agents = await dataProvider.getAgents(projectSlug);
 		} catch {
 			// Silently fail - reply functionality won't work but message display will
 		}

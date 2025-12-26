@@ -6,6 +6,7 @@
 	import CommandPalette from '$lib/components/CommandPalette.svelte';
 	import TutorialModal from '$lib/components/TutorialModal.svelte';
 	import { InstallPrompt, UpdatePrompt } from '$lib/components/pwa/index.js';
+	import DemoModeBanner from '$lib/components/DemoModeBanner.svelte';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -25,16 +26,21 @@
 <InstallPrompt />
 <UpdatePrompt />
 
-<div class="h-screen flex overflow-hidden">
-	<!-- Sidebar (handles both mobile sheet trigger and desktop sidebar) -->
-	<AppSidebar {unreadCount} />
+<div class="h-screen flex flex-col overflow-hidden">
+	<!-- Demo mode banner (only visible in static builds) -->
+	<DemoModeBanner />
 
-	<!-- Main content -->
-	<div class="flex-1 flex flex-col min-w-0 overflow-hidden">
-		<!-- Header with breadcrumbs (desktop only, mobile has header in sidebar) -->
-		<AppHeader />
-		<main class="flex-1 px-4 md:px-6 pt-[61px] md:pt-0 bg-background overflow-y-auto">
-			{@render children()}
-		</main>
+	<div class="flex-1 flex overflow-hidden">
+		<!-- Sidebar (handles both mobile sheet trigger and desktop sidebar) -->
+		<AppSidebar {unreadCount} />
+
+		<!-- Main content -->
+		<div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+			<!-- Header with breadcrumbs (desktop only, mobile has header in sidebar) -->
+			<AppHeader />
+			<main class="flex-1 px-4 md:px-6 pt-[61px] md:pt-0 bg-background overflow-y-auto">
+				{@render children()}
+			</main>
+		</div>
 	</div>
 </div>

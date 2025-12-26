@@ -1,11 +1,6 @@
 <script lang="ts">
     import { onMount } from "svelte";
-    import {
-        listAttachments,
-        getProjects,
-        type Attachment,
-        type Project,
-    } from "$lib/api/client";
+    import { dataProvider, type Attachment, type Project } from "$lib/data";
     import {
         Paperclip,
         Download,
@@ -80,8 +75,8 @@
 
         try {
             const [attachmentsData, projectsData] = await Promise.all([
-                listAttachments(selectedProject || undefined),
-                getProjects(),
+                dataProvider.listAttachments(selectedProject || undefined),
+                dataProvider.getProjects(),
             ]);
             attachments = attachmentsData;
             projects = projectsData;

@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { page } from '$app/stores';
 	import { browser } from '$app/environment';
-	import { getAgents, registerAgent, getProjectInfo, deleteAgent, type Agent, type Project } from '$lib/api/client';
+	import { dataProvider, type Agent, type Project } from '$lib/data';
+	// Write operations still use direct API client
+	import { registerAgent, deleteAgent } from '$lib/api/client';
 	import { toast } from 'svelte-sonner';
 	import Bot from 'lucide-svelte/icons/bot';
 	import ArrowRight from 'lucide-svelte/icons/arrow-right';
@@ -50,8 +52,8 @@
 		error = null;
 		try {
 			const [projectInfo, agentList] = await Promise.all([
-				getProjectInfo($page.params.slug ?? ''),
-				getAgents($page.params.slug ?? '')
+				dataProvider.getProjectInfo($page.params.slug ?? ''),
+				dataProvider.getAgents($page.params.slug ?? '')
 			]);
 			project = projectInfo;
 			agents = agentList;

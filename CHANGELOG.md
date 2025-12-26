@@ -8,19 +8,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Comprehensive rustdoc documentation for public APIs
-- 4 convenience workflow tools (list_builtin_workflows, quick_standup_workflow, quick_handoff_workflow, quick_review_workflow)
-- TDD tests for macro tools (test_macro_tools.rs)
-- Pre-commit guard MCP tools (install_precommit_guard, uninstall_precommit_guard)
-- Rust-native pre-commit hooks via cargo-husky
+- **Testing Infrastructure**
+  - Archive and attachments tool tests (archive_tests.rs, attachments_tests.rs)
+  - Comprehensive tests for macros, export, reviews, files, precommit modules
+  - TDD tests for macro tools (test_macro_tools.rs)
+  - Schema auto-generation tests for MCP tools
+  - Cargo-mutants configuration for mutation testing
+
+- **Web UI Enhancements**
+  - GitHub Pages static deployment support with git-based workflow
+  - Factory.ai design system adoption with spotlight effects
+  - Bulk selection and actions for projects
+  - Sorting controls for project and agent list views
+  - Content-aware loading skeleton screens
+  - Reusable EmptyState component with consistent CTAs
+  - Delete UI for agents with dropdown menu and confirmation
+  - Export button in bulk action bar
+
+- **API & Server**
+  - Readiness probe with database connectivity check (`/api/ready`)
+  - Request body size limits for DoS protection
+  - NTM compatibility alias schemas for MCP tools
+
+- **Code Quality**
+  - PMAT-recommended lints enabled workspace-wide
+  - Comprehensive rustdoc documentation for public APIs
+  - 4 convenience workflow tools (list_builtin_workflows, quick_standup_workflow, quick_handoff_workflow, quick_review_workflow)
+  - Pre-commit guard MCP tools (install_precommit_guard, uninstall_precommit_guard)
+  - Rust-native pre-commit hooks via cargo-husky
+
+- **Documentation**
+  - GitHub Pages deployment environment variables in .env.example
+  - Improved rustdoc coverage to 90% for lib-core
 
 ### Changed
+- **Type Safety**: Migrated to ProjectId/AgentId newtypes across entire codebase
 - Theme toggle button now uses inline SVG instead of Lucide icons for better reliability
+- Seamless sticky toolbar implementation across all viewports
+- Button and project card layout improvements
+- Restored 8px rounded corners for softer aesthetic
 
 ### Fixed
+- Disabled autobenches to prevent duplicate target warning
+- MessageForCreate API usage in attachments tests (correct Option types)
 - Reduced commit_message_to_git complexity from 12 to 6
 - Eliminated panic risk in static_files.rs
 - Theme button functionality after embedding
+- Import ordering in test modules
+- Dropdown menu closes before opening delete confirmation dialog
+- .nojekyll added to prevent Jekyll from ignoring _app folder
+- Svelte 5 runes compatibility (mode.current usage)
+- Newtype ID conversions across test files
 
 ## [0.1.0] - 2025-12-17
 

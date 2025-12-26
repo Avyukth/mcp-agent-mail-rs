@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import { getProjects, getAgents, type Project, type Agent } from '$lib/api/client';
+	import { dataProvider, type Project, type Agent } from '$lib/data';
 	import Bot from 'lucide-svelte/icons/bot';
 	import Search from 'lucide-svelte/icons/search';
 	import ArrowRight from 'lucide-svelte/icons/arrow-right';
@@ -48,11 +48,11 @@
 		loading = true;
 		error = null;
 		try {
-			projects = await getProjects();
+			projects = await dataProvider.getProjects();
 
 			// Load agents for each project
 			const agentPromises = projects.map(async (project) => {
-				const agents = await getAgents(project.slug);
+				const agents = await dataProvider.getAgents(project.slug);
 				return agents.map(agent => ({ ...agent, projectSlug: project.slug }));
 			});
 

@@ -56,7 +56,9 @@ async fn test_list_builtin_workflows_returns_5_workflows() {
     // RED: This should list the 5 built-in workflow names
     // We're testing the CONTENT, not the tool (tool will call this logic)
     use lib_core::model::macro_def::MacroDefBmc;
-    let macros = MacroDefBmc::list(&ctx, &mm, project_id).await.unwrap();
+    let macros = MacroDefBmc::list(&ctx, &mm, project_id.into())
+        .await
+        .unwrap();
 
     // Should have exactly 5 built-ins
     assert_eq!(macros.len(), 5, "Should have 5 built-in workflows");
@@ -97,17 +99,17 @@ async fn test_quick_standup_sends_to_all_agents() {
     }
 
     // RED: Test that we can list all agents (needed for standup broadcast)
-    let agents = AgentBmc::list_all_for_project(&ctx, &mm, project_id)
+    let agents = AgentBmc::list_all_for_project(&ctx, &mm, project_id.into())
         .await
         .unwrap();
     assert_eq!(agents.len(), 3, "Should have 3 agents");
 
     // Test we can send a message to all of them
     use lib_core::model::message::{MessageBmc, MessageForCreate};
-    let agent_ids: Vec<i64> = agents.iter().map(|a| a.id).collect();
+    let agent_ids: Vec<i64> = agents.iter().map(|a| a.id.into()).collect();
 
     let msg_c = MessageForCreate {
-        project_id,
+        project_id: project_id.into(),
         sender_id: agent_ids[0],          // First agent sends
         recipient_ids: agent_ids.clone(), // To all agents
         cc_ids: None,
@@ -160,9 +162,9 @@ async fn test_quick_handoff_sends_message() {
     use lib_core::model::message::{MessageBmc, MessageForCreate};
 
     let handoff_msg = MessageForCreate {
-        project_id,
-        sender_id: agent1_id,
-        recipient_ids: vec![agent2_id],
+        project_id: project_id.into(),
+        sender_id: agent1_id.into(),
+        recipient_ids: vec![agent2_id.into()],
         cc_ids: None,
         bcc_ids: None,
         subject: "Task Handoff: Feature X".to_string(),
@@ -213,8 +215,8 @@ async fn test_quick_review_reserves_files_and_sends_message() {
     use lib_core::model::file_reservation::{FileReservationBmc, FileReservationForCreate};
 
     let res_c = FileReservationForCreate {
-        project_id,
-        agent_id: reviewer_id,
+        project_id: project_id.into(),
+        agent_id: reviewer_id.into(),
         path_pattern: "src/main.rs".to_string(),
         exclusive: false, // Non-exclusive for review
         reason: "Code review".to_string(),
@@ -228,9 +230,9 @@ async fn test_quick_review_reserves_files_and_sends_message() {
     use lib_core::model::message::{MessageBmc, MessageForCreate};
 
     let review_msg = MessageForCreate {
-        project_id,
-        sender_id: requester_id,
-        recipient_ids: vec![reviewer_id],
+        project_id: project_id.into(),
+        sender_id: requester_id.into(),
+        recipient_ids: vec![reviewer_id.into()],
         cc_ids: None,
         bcc_ids: None,
         subject: "Code Review Request".to_string(),

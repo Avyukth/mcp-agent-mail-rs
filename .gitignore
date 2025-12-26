@@ -2,12 +2,13 @@ target/
 **/*.db
 **/*.db-shm
 **/*.db-wal
-data/
+/data/
 .DS_Store
 .env
 node_modules/
 .svelte-kit/
 build/
+build-static/
 .vercel/
 .output/
 
@@ -18,6 +19,10 @@ build/
 # Playwright test artifacts (regenerated each run)
 playwright-report/
 test-results/
+**/*-snapshots/
+
+# Local data directories (SQLite, archives)
+**/data/
 .sandboxes/
 docs/PLAN_CRITICISM_PRODUCTION_SPRINT.md
 docs/CRITICAL_GAP_ANALYSIS.md
@@ -42,4 +47,7 @@ docs/api-quality-audit-report.md
 web-transform*.md
 AGENTS copy.md
 *.startlock
-.codex
+.codex/
+mutants.out/
+mutants.out.old/
+mutants-*.log

@@ -42,9 +42,9 @@ async fn test_resources_gap_features() -> anyhow::Result<()> {
         &ctx,
         &mm,
         MessageForCreate {
-            project_id,
-            sender_id: agent_id,
-            recipient_ids: vec![agent_id], // Self message
+            project_id: project_id.into(),
+            sender_id: agent_id.into(),
+            recipient_ids: vec![agent_id.into()], // Self message
             cc_ids: None,
             bcc_ids: None,
             subject: "Test Subject".to_string(),

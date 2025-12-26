@@ -133,6 +133,14 @@ fn get_all_tool_schemas() -> Vec<ToolSchema> {
             "check_inbox",
             "Check an agent's inbox for new messages.",
         ),
+        schema_from_params::<ListInboxParams>(
+            "fetch_inbox",
+            "Fetch an agent's inbox. (Alias for check_inbox)",
+        ),
+        schema_from_params::<ListInboxParams>(
+            "list_inbox",
+            "List an agent's inbox messages. (Alias for check_inbox)",
+        ),
         schema_from_params::<ReplyMessageParams>(
             "reply_message",
             "Reply to an existing message in a thread.",
@@ -200,6 +208,10 @@ fn get_all_tool_schemas() -> Vec<ToolSchema> {
             "release_reservation",
             "Release a file reservation.",
         ),
+        schema_from_params::<ReleaseReservationParams>(
+            "release_file_reservations",
+            "Release file reservations. (Alias for release_reservation)",
+        ),
         schema_from_params::<ForceReleaseReservationParams>(
             "force_release_reservation",
             "Force release a reservation (for emergencies).",
@@ -207,6 +219,10 @@ fn get_all_tool_schemas() -> Vec<ToolSchema> {
         schema_from_params::<RenewFileReservationParams>(
             "renew_file_reservation",
             "Extend a file reservation's TTL.",
+        ),
+        schema_from_params::<RenewFileReservationParams>(
+            "renew_file_reservations",
+            "Extend file reservations' TTL. (Alias for renew_file_reservation)",
         ),
         // Build Slots
         schema_from_params::<AcquireBuildSlotParams>(
@@ -492,6 +508,47 @@ impl AgentMailService {
     ) -> Result<CallToolResult, McpError> {
         self.summarize_thread_product(params).await
     }
+
+    /// Resolve a tool name alias to its canonical name.
+    /// Returns Some(canonical_name) if it's an alias, None otherwise.
+    /// Public for testing alias resolution logic.
+    pub fn resolve_tool_alias(tool_name: &str) -> Option<&'static str> {
+        match tool_name {
+            "fetch_inbox" | "check_inbox" => Some("list_inbox"),
+            "release_file_reservations" => Some("release_reservation"),
+            "renew_file_reservations" => Some("renew_file_reservation"),
+            "list_project_agents" => Some("list_agents"),
+            _ => None,
+        }
+    }
+
+    /// Check if a build slot tool call would be rejected due to worktrees being disabled.
+    /// Returns Some(error_message) if rejected, None if allowed.
+    /// Public for testing build slot rejection logic.
+    pub fn check_build_slot_rejection(&self, tool_name: &str) -> Option<String> {
+        if !self.worktrees_enabled && BUILD_SLOT_TOOLS.contains(&tool_name) {
+            Some(format!(
+                "Tool '{}' is not available. Build slot tools require WORKTREES_ENABLED=true.",
+                tool_name
+            ))
+        } else {
+            None
+        }
+    }
+
+    /// List tools with worktree filtering applied.
+    /// Public for testing ServerHandler::list_tools filtering logic.
+    pub fn list_tools_filtered(&self) -> Vec<rmcp::model::Tool> {
+        let all_tools = self.tool_router.list_all();
+        if self.worktrees_enabled {
+            all_tools
+        } else {
+            all_tools
+                .into_iter()
+                .filter(|tool| !BUILD_SLOT_TOOLS.contains(&&*tool.name))
+                .collect()
+        }
+    }
 }
 
 #[allow(clippy::manual_async_fn)]
@@ -502,20 +559,8 @@ impl ServerHandler for AgentMailService {
         _context: RequestContext<RoleServer>,
     ) -> impl std::future::Future<Output = Result<ListToolsResult, McpError>> + Send + '_ {
         async move {
-            let all_tools = self.tool_router.list_all();
-
-            // Filter out build slot tools when worktrees is disabled
-            let tools = if self.worktrees_enabled {
-                all_tools
-            } else {
-                all_tools
-                    .into_iter()
-                    .filter(|tool| !BUILD_SLOT_TOOLS.contains(&&*tool.name))
-                    .collect()
-            };
-
             Ok(ListToolsResult {
-                tools,
+                tools: self.list_tools_filtered(),
                 next_cursor: None,
                 meta: None,
             })
@@ -532,13 +577,7 @@ impl ServerHandler for AgentMailService {
             let original_name = request.name.clone();
             let args = request.arguments.clone();
 
-            let resolved_name: Option<&str> = match &*original_name {
-                "fetch_inbox" | "check_inbox" => Some("list_inbox"),
-                "release_file_reservations" => Some("release_reservation"),
-                "renew_file_reservations" => Some("renew_file_reservation"),
-                "list_project_agents" => Some("list_agents"),
-                _ => None,
-            };
+            let resolved_name = Self::resolve_tool_alias(&original_name);
 
             let request = if let Some(new_name) = resolved_name {
                 tracing::debug!(
@@ -1415,7 +1454,7 @@ mod tests {
 
         // 2. Grant capability
         let cap_c = AgentCapabilityForCreate {
-            agent_id: sender_id,
+            agent_id: sender_id.into(),
             capability: "send_message".into(),
             granted_by: None,
             expires_at: None,
@@ -1460,10 +1499,10 @@ mod tests {
         let product = ProductBmc::ensure(&ctx, &mm, "prod-p", "Product P")
             .await
             .unwrap();
-        ProductBmc::link_project(&ctx, &mm, product.id, id_a)
+        ProductBmc::link_project(&ctx, &mm, product.id, id_a.into())
             .await
             .unwrap();
-        ProductBmc::link_project(&ctx, &mm, product.id, id_b)
+        ProductBmc::link_project(&ctx, &mm, product.id, id_b.into())
             .await
             .unwrap();
 
@@ -1508,7 +1547,7 @@ mod tests {
         let sender_id = AgentBmc::create(&ctx, &mm, sender_c).await.unwrap();
         // Recipient
         let recv_c = AgentForCreate {
-            project_id: pid,
+            project_id: pid.into(),
             name: "Recv".into(),
             program: "test".into(),
             model: "test".into(),
@@ -1517,7 +1556,7 @@ mod tests {
         let recv_id = AgentBmc::create(&ctx, &mm, recv_c).await.unwrap();
         // CC
         let cc_c = AgentForCreate {
-            project_id: pid,
+            project_id: pid.into(),
             name: "CCAgent".into(),
             program: "test".into(),
             model: "test".into(),
@@ -1526,7 +1565,7 @@ mod tests {
         let cc_id = AgentBmc::create(&ctx, &mm, cc_c).await.unwrap();
         // BCC
         let bcc_c = AgentForCreate {
-            project_id: pid,
+            project_id: pid.into(),
             name: "BCCAgent".into(),
             program: "test".into(),
             model: "test".into(),
@@ -1536,7 +1575,7 @@ mod tests {
 
         // Grant Capability
         let cap = AgentCapabilityForCreate {
-            agent_id: sender_id,
+            agent_id: sender_id.into(),
             capability: "send_message".into(),
             granted_by: None,
             expires_at: None,
@@ -1575,18 +1614,19 @@ mod tests {
         // We can't access mm.db().
         // BUT we can use `list_inbox` for each agent to verify delivery!
 
-        let inbox_recv = MessageBmc::list_inbox_for_agent(&ctx, &mm, pid, recv_id, 10)
-            .await
-            .unwrap();
+        let inbox_recv =
+            MessageBmc::list_inbox_for_agent(&ctx, &mm, pid.into(), recv_id.into(), 10)
+                .await
+                .unwrap();
         assert_eq!(inbox_recv.len(), 1);
 
         // Correct verification of CC/BCC delivery:
-        let inbox_cc = MessageBmc::list_inbox_for_agent(&ctx, &mm, pid, cc_id, 10)
+        let inbox_cc = MessageBmc::list_inbox_for_agent(&ctx, &mm, pid.into(), cc_id.into(), 10)
             .await
             .unwrap();
         assert_eq!(inbox_cc.len(), 1, "CC agent should have message in inbox");
 
-        let inbox_bcc = MessageBmc::list_inbox_for_agent(&ctx, &mm, pid, bcc_id, 10)
+        let inbox_bcc = MessageBmc::list_inbox_for_agent(&ctx, &mm, pid.into(), bcc_id.into(), 10)
             .await
             .unwrap();
         assert_eq!(inbox_bcc.len(), 1, "BCC agent should have message in inbox");
@@ -1627,9 +1667,9 @@ mod tests {
 
         // Send a message
         let msg_c = MessageForCreate {
-            project_id: pid,
-            sender_id,
-            recipient_ids: vec![recv_id],
+            project_id: pid.into(),
+            sender_id: sender_id.into(),
+            recipient_ids: vec![recv_id.into()],
             cc_ids: None,
             bcc_ids: None,
             subject: "Outbox Check".into(),
@@ -1672,7 +1712,7 @@ mod tests {
             .await
             .unwrap();
         let agent_c = AgentForCreate {
-            project_id,
+            project_id: project_id.into(),
             name: "MetricAgent".into(),
             program: "test".into(),
             model: "test".into(),
@@ -1704,7 +1744,7 @@ mod tests {
             .await;
 
         // 4. Verify DB
-        let metrics = ToolMetricBmc::list_recent(&ctx, &mm, Some(project_id), 10)
+        let metrics = ToolMetricBmc::list_recent(&ctx, &mm, Some(project_id.into()), 10)
             .await
             .unwrap();
         assert_eq!(metrics.len(), 1);
@@ -1713,8 +1753,8 @@ mod tests {
         assert_eq!(m.tool_name, "test_tool");
         assert_eq!(m.duration_ms, 123);
         assert_eq!(m.status, "success");
-        assert_eq!(m.project_id, Some(project_id));
-        assert_eq!(m.agent_id, Some(agent_id));
+        assert_eq!(m.project_id, Some(project_id.into()));
+        assert_eq!(m.agent_id, Some(agent_id.into()));
     }
 
     // ==========================================================================

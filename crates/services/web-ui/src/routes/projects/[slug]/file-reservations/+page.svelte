@@ -1,10 +1,7 @@
 <script lang="ts">
     import { onMount } from "svelte";
     import { page } from "$app/stores";
-    import {
-        listFileReservations,
-        type FileReservation,
-    } from "$lib/api/client";
+    import { dataProvider, type FileReservation } from "$lib/data";
     import {
         Shield,
         Lock,
@@ -45,7 +42,7 @@
         error = null;
 
         try {
-            reservations = await listFileReservations(projectSlug);
+            reservations = await dataProvider.listFileReservations(projectSlug);
         } catch (e) {
             error =
                 e instanceof Error ? e.message : "Failed to load reservations";

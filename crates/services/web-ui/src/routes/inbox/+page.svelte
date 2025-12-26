@@ -2,7 +2,7 @@
 	import { page } from '$app/stores';
 	import { goto } from '$app/navigation';
 	import { browser } from '$app/environment';
-	import { getProjects, getAgents, getInbox, type Project, type Agent, type Message } from '$lib/api/client';
+	import { dataProvider, type Project, type Agent, type Message } from '$lib/data';
 	import { toast } from 'svelte-sonner';
 	import ComposeMessage from '$lib/components/ComposeMessage.svelte';
 
@@ -72,7 +72,7 @@
 
 	async function initPage() {
 		try {
-			projects = await getProjects();
+			projects = await dataProvider.getProjects();
 
 			// Check URL params for pre-selection
 			const urlProject = $page.url.searchParams.get('project');
@@ -95,7 +95,7 @@
 
 	async function loadAgentsForProject(projectSlug: string) {
 		try {
-			agents = await getAgents(projectSlug);
+			agents = await dataProvider.getAgents(projectSlug);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load agents';
 			agents = [];
@@ -132,7 +132,7 @@
 		loadingMessages = true;
 		error = null;
 		try {
-			messages = await getInbox(selectedProject, selectedAgent);
+			messages = await dataProvider.getInbox(selectedProject, selectedAgent);
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to load messages';
 			messages = [];

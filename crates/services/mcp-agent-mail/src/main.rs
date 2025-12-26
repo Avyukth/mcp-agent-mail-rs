@@ -261,6 +261,11 @@ enum ShareCommands {
         #[command(subcommand)]
         command: DeployCommands,
     },
+    /// Export data for static site deployment
+    Export {
+        #[command(subcommand)]
+        command: ExportCommands,
+    },
 }
 
 #[derive(Subcommand)]
@@ -275,9 +280,13 @@ enum DeployCommands {
         #[arg(short, long)]
         owner: Option<String>,
 
-        /// Path to the export bundle to deploy
-        #[arg(short, long)]
-        bundle: String,
+        /// Path to the export bundle (ZIP file) to deploy
+        #[arg(short, long, conflicts_with = "build_dir")]
+        bundle: Option<String>,
+
+        /// Path to the SvelteKit build directory to deploy (alternative to --bundle)
+        #[arg(long, conflicts_with = "bundle")]
+        build_dir: Option<String>,
 
         /// GitHub personal access token (or set GITHUB_TOKEN env var)
         #[arg(long, env = "GITHUB_TOKEN")]
@@ -294,6 +303,28 @@ enum DeployCommands {
         /// Custom domain for GitHub Pages
         #[arg(long)]
         custom_domain: Option<String>,
+    },
+}
+
+#[derive(Subcommand)]
+enum ExportCommands {
+    /// Export data as JSON files for static GitHub Pages deployment
+    StaticData {
+        /// Output directory for JSON files
+        #[arg(short, long)]
+        output: String,
+
+        /// Privacy scrubbing mode: none, standard, aggressive
+        #[arg(long, default_value = "none")]
+        scrub: String,
+
+        /// Maximum number of messages to export (0 = all)
+        #[arg(long, default_value = "0")]
+        limit: i64,
+
+        /// Export only specific project (by slug)
+        #[arg(long)]
+        project: Option<String>,
     },
 }
 
@@ -1008,17 +1039,279 @@ fn handle_share_verify(manifest_path: &str, public_key: Option<&str>) -> anyhow:
     Ok(())
 }
 
+// --- Export Command Handlers ---
+
+/// Export data as JSON files for static GitHub Pages deployment
+///
+/// Creates JSON files that can be used by the static SvelteKit build:
+/// - meta.json: Export metadata
+/// - projects.json: All projects
+/// - agents.json: Agents grouped by project slug
+/// - messages.json: All messages
+/// - threads.json: Thread summaries grouped by project slug
+/// - dashboard.json: Pre-computed dashboard stats
+/// - activity.json: Recent activity
+async fn handle_export_static_data(
+    output_dir: &str,
+    scrub_mode: &str,
+    limit: i64,
+    project_filter: Option<&str>,
+) -> anyhow::Result<()> {
+    use lib_core::ctx::Ctx;
+    use lib_core::model::ModelManager;
+    use lib_core::model::agent::AgentBmc;
+    use lib_core::model::export::{ScrubMode, Scrubber};
+    use lib_core::model::message::MessageBmc;
+    use lib_core::model::project::ProjectBmc;
+    use serde_json::json;
+    use std::collections::HashMap;
+    use std::fs;
+    use std::path::Path;
+
+    println!("📦 Exporting static data...");
+    println!("   Output: {}", output_dir);
+    println!("   Scrub mode: {}", scrub_mode);
+    if limit > 0 {
+        println!("   Message limit: {}", limit);
+    }
+    if let Some(p) = project_filter {
+        println!("   Project filter: {}", p);
+    }
+
+    // Create output directory
+    let output_path = Path::new(output_dir);
+    fs::create_dir_all(output_path)?;
+
+    // Initialize model manager
+    let config = load_config();
+    let mm = ModelManager::new(std::sync::Arc::new(config.clone())).await?;
+    let ctx = Ctx::root_ctx();
+
+    // Parse scrub mode
+    let scrub: ScrubMode = scrub_mode.parse().unwrap_or_default();
+    let scrubber = Scrubber::new(scrub);
+
+    // Export timestamp
+    let exported_at = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ").to_string();
+
+    // 1. Export meta.json
+    let meta = json!({
+        "exportedAt": exported_at,
+        "version": "1.0.0",
+        "mode": "static",
+        "scrubMode": scrub_mode,
+        "messageLimit": if limit > 0 { Some(limit) } else { None }
+    });
+    fs::write(
+        output_path.join("meta.json"),
+        serde_json::to_string_pretty(&meta)?,
+    )?;
+    println!("   ✓ meta.json");
+
+    // 2. Export projects.json
+    let projects = ProjectBmc::list_all(&ctx, &mm).await?;
+    let projects_filtered: Vec<_> = if let Some(slug) = project_filter {
+        projects.into_iter().filter(|p| p.slug == slug).collect()
+    } else {
+        projects
+    };
+
+    let projects_json: Vec<_> = projects_filtered
+        .iter()
+        .map(|p| {
+            json!({
+                "id": p.id.get(),
+                "slug": p.slug,
+                "human_key": scrubber.scrub_name(&p.human_key),
+                "created_at": p.created_at.format("%Y-%m-%dT%H:%M:%SZ").to_string()
+            })
+        })
+        .collect();
+    fs::write(
+        output_path.join("projects.json"),
+        serde_json::to_string_pretty(&projects_json)?,
+    )?;
+    println!("   ✓ projects.json ({} projects)", projects_filtered.len());
+
+    // 3. Export agents.json (grouped by project slug)
+    let mut agents_by_project: HashMap<String, Vec<serde_json::Value>> = HashMap::new();
+    let mut total_agents = 0;
+
+    for project in &projects_filtered {
+        let agents = AgentBmc::list_all_for_project(&ctx, &mm, project.id).await?;
+        let agents_json: Vec<_> = agents
+            .iter()
+            .map(|a| {
+                json!({
+                    "id": a.id.get(),
+                    "project_id": a.project_id.get(),
+                    "name": scrubber.scrub_name(&a.name),
+                    "program": a.program,
+                    "model": a.model,
+                    "task_description": scrubber.scrub(&a.task_description),
+                    "inception_ts": a.inception_ts.format("%Y-%m-%dT%H:%M:%SZ").to_string(),
+                    "last_active_ts": a.last_active_ts.format("%Y-%m-%dT%H:%M:%SZ").to_string()
+                })
+            })
+            .collect();
+        total_agents += agents_json.len();
+        agents_by_project.insert(project.slug.clone(), agents_json);
+    }
+    fs::write(
+        output_path.join("agents.json"),
+        serde_json::to_string_pretty(&agents_by_project)?,
+    )?;
+    println!("   ✓ agents.json ({} agents)", total_agents);
+
+    // 4. Export messages.json
+    let mut all_messages = Vec::new();
+    for project in &projects_filtered {
+        let msg_limit = if limit > 0 { limit } else { 10000 };
+        let messages = MessageBmc::list_recent(&ctx, &mm, project.id, msg_limit).await?;
+
+        for msg in messages {
+            let msg_json = json!({
+                "id": msg.id,
+                "project_id": msg.project_id,
+                "project_slug": project.slug,
+                "sender_id": msg.sender_id,
+                "sender_name": scrubber.scrub_name(&msg.sender_name),
+                "thread_id": msg.thread_id,
+                "subject": scrubber.scrub(&msg.subject),
+                "body_md": scrubber.scrub_body(&msg.body_md),
+                "importance": msg.importance,
+                "ack_required": msg.ack_required,
+                "created_ts": msg.created_ts.format("%Y-%m-%dT%H:%M:%SZ").to_string(),
+                "is_read": false,
+                "recipient_names": [],
+                "recipients": []
+            });
+            all_messages.push(msg_json);
+        }
+    }
+    // Sort by created_ts descending
+    all_messages.sort_by(|a, b| {
+        let a_ts = a["created_ts"].as_str().unwrap_or("");
+        let b_ts = b["created_ts"].as_str().unwrap_or("");
+        b_ts.cmp(a_ts)
+    });
+    fs::write(
+        output_path.join("messages.json"),
+        serde_json::to_string_pretty(&all_messages)?,
+    )?;
+    println!("   ✓ messages.json ({} messages)", all_messages.len());
+
+    // 5. Export threads.json (grouped by project slug)
+    let mut threads_by_project: HashMap<String, Vec<serde_json::Value>> = HashMap::new();
+    // Group messages by thread_id to build thread summaries
+    let mut thread_map: HashMap<(String, String), Vec<&serde_json::Value>> = HashMap::new();
+    for msg in &all_messages {
+        if let Some(thread_id) = msg["thread_id"].as_str() {
+            if !thread_id.is_empty() {
+                let project_slug = msg["project_slug"].as_str().unwrap_or("").to_string();
+                thread_map
+                    .entry((project_slug, thread_id.to_string()))
+                    .or_default()
+                    .push(msg);
+            }
+        }
+    }
+
+    for ((project_slug, thread_id), messages) in thread_map {
+        let first_msg = messages.last(); // Oldest
+        let last_msg = messages.first(); // Newest (already sorted desc)
+
+        let thread_summary = json!({
+            "thread_id": thread_id,
+            "subject": first_msg.map(|m| m["subject"].as_str().unwrap_or("")).unwrap_or(""),
+            "message_count": messages.len(),
+            "participants": messages.iter()
+                .filter_map(|m| m["sender_name"].as_str())
+                .collect::<std::collections::HashSet<_>>()
+                .into_iter()
+                .collect::<Vec<_>>(),
+            "first_message_ts": first_msg.map(|m| m["created_ts"].as_str().unwrap_or("")).unwrap_or(""),
+            "last_message_ts": last_msg.map(|m| m["created_ts"].as_str().unwrap_or("")).unwrap_or("")
+        });
+
+        threads_by_project
+            .entry(project_slug)
+            .or_default()
+            .push(thread_summary);
+    }
+
+    let total_threads: usize = threads_by_project.values().map(|v| v.len()).sum();
+    fs::write(
+        output_path.join("threads.json"),
+        serde_json::to_string_pretty(&threads_by_project)?,
+    )?;
+    println!("   ✓ threads.json ({} threads)", total_threads);
+
+    // 6. Export dashboard.json
+    let dashboard = json!({
+        "projectCount": projects_filtered.len(),
+        "agentCount": total_agents,
+        "inboxCount": all_messages.iter().filter(|m| !m["is_read"].as_bool().unwrap_or(false)).count(),
+        "messageCount": all_messages.len(),
+        "projects": projects_json.iter().map(|p| {
+            let slug = p["slug"].as_str().unwrap_or("");
+            let agent_count = agents_by_project.get(slug).map(|a| a.len()).unwrap_or(0);
+            json!({
+                "id": p["id"],
+                "slug": slug,
+                "human_key": p["human_key"],
+                "created_at": p["created_at"],
+                "agentCount": agent_count
+            })
+        }).collect::<Vec<_>>()
+    });
+    fs::write(
+        output_path.join("dashboard.json"),
+        serde_json::to_string_pretty(&dashboard)?,
+    )?;
+    println!("   ✓ dashboard.json");
+
+    // 7. Export activity.json (empty for now - would need activity tracking)
+    let activity: Vec<serde_json::Value> = Vec::new();
+    fs::write(
+        output_path.join("activity.json"),
+        serde_json::to_string_pretty(&activity)?,
+    )?;
+    println!("   ✓ activity.json");
+
+    // 8. Export archive.json (empty commits/files structure)
+    let archive = json!({
+        "commits": [],
+        "files": {}
+    });
+    fs::write(
+        output_path.join("archive.json"),
+        serde_json::to_string_pretty(&archive)?,
+    )?;
+    println!("   ✓ archive.json");
+
+    println!("\n✅ Export complete!");
+    println!("   Files written to: {}", output_dir);
+
+    Ok(())
+}
+
 // --- Deploy Command Handlers ---
 
-/// Deploy an export bundle to GitHub Pages
+/// Deploy an export bundle or build directory to GitHub Pages
 ///
-/// This creates a GitHub repository (if needed), pushes the bundle content,
+/// This creates a GitHub repository (if needed), pushes the bundle/directory content,
 /// and enables GitHub Pages for static hosting.
+///
+/// Accepts either:
+/// - `--bundle`: Path to a ZIP file (simple download page)
+/// - `--build-dir`: Path to a SvelteKit build directory (full static site)
 #[allow(clippy::too_many_arguments)]
 async fn handle_deploy_github_pages(
     repo: &str,
     owner: Option<&str>,
-    bundle: &str,
+    bundle: Option<&str>,
+    build_dir: Option<&str>,
     token: Option<&str>,
     create_repo: bool,
     private: bool,
@@ -1026,10 +1319,22 @@ async fn handle_deploy_github_pages(
 ) -> anyhow::Result<()> {
     use std::path::Path;
 
-    // Validate bundle exists
-    let bundle_path = Path::new(bundle);
-    if !bundle_path.exists() {
-        anyhow::bail!("Bundle not found: {}", bundle);
+    // Determine the source path (bundle or build_dir)
+    let (source_path, is_directory) = match (bundle, build_dir) {
+        (Some(b), None) => (Path::new(b), false),
+        (None, Some(d)) => (Path::new(d), true),
+        (None, None) => anyhow::bail!("Either --bundle or --build-dir is required"),
+        (Some(_), Some(_)) => anyhow::bail!("Cannot specify both --bundle and --build-dir"),
+    };
+
+    // Validate source exists
+    if !source_path.exists() {
+        anyhow::bail!("Source not found: {}", source_path.display());
+    }
+
+    // For directories, validate it looks like a build directory
+    if is_directory && !source_path.is_dir() {
+        anyhow::bail!("--build-dir must be a directory: {}", source_path.display());
     }
 
     // Get GitHub token
@@ -1044,13 +1349,16 @@ async fn handle_deploy_github_pages(
     let repo_owner = if let Some(o) = owner {
         o.to_string()
     } else {
-        // Will be determined from GitHub API
         get_github_username(&github_token).await?
     };
 
     println!("📦 Deploying to GitHub Pages...");
     println!("   Repository: {}/{}", repo_owner, repo);
-    println!("   Bundle: {}", bundle);
+    if is_directory {
+        println!("   Build directory: {}", source_path.display());
+    } else {
+        println!("   Bundle: {}", source_path.display());
+    }
 
     // Check if repo exists, create if needed
     if create_repo {
@@ -1068,8 +1376,12 @@ async fn handle_deploy_github_pages(
         }
     }
 
-    // Push bundle contents to gh-pages branch
-    push_to_gh_pages(&github_token, &repo_owner, repo, bundle_path).await?;
+    // Push content to gh-pages branch
+    if is_directory {
+        push_directory_to_gh_pages(&github_token, &repo_owner, repo, source_path).await?;
+    } else {
+        push_bundle_to_gh_pages(&github_token, &repo_owner, repo, source_path).await?;
+    }
     println!("   ✓ Pushed content to gh-pages branch");
 
     // Enable GitHub Pages
@@ -1161,8 +1473,8 @@ async fn check_or_create_repo(
     Ok(true) // Created new repo
 }
 
-/// Push bundle contents to gh-pages branch using GitHub API
-async fn push_to_gh_pages(
+/// Push a ZIP bundle to gh-pages branch with a simple download page
+async fn push_bundle_to_gh_pages(
     token: &str,
     owner: &str,
     repo: &str,
@@ -1171,27 +1483,19 @@ async fn push_to_gh_pages(
     use base64::Engine;
     use std::io::Read;
 
-    let _client = reqwest::Client::new();
-
     // Read the bundle file
     let mut file = std::fs::File::open(bundle_path)?;
     let mut contents = Vec::new();
     file.read_to_end(&mut contents)?;
 
-    // Determine if it's a zip or directory
-    let is_zip = bundle_path.extension().is_some_and(|ext| ext == "zip");
+    let encoded = base64::engine::general_purpose::STANDARD.encode(&contents);
 
-    if is_zip {
-        // For zip files, we need to extract and push individual files
-        // For now, we'll push the zip file itself and an index.html
-        let encoded = base64::engine::general_purpose::STANDARD.encode(&contents);
+    // Get or create gh-pages branch
+    ensure_gh_pages_branch(token, owner, repo).await?;
 
-        // Get or create gh-pages branch
-        ensure_gh_pages_branch(token, owner, repo).await?;
-
-        // Create index.html pointing to the archive
-        let index_html = format!(
-            r#"<!DOCTYPE html>
+    // Create index.html pointing to the archive
+    let index_html = format!(
+        r#"<!DOCTYPE html>
 <html>
 <head>
     <title>Agent Mail Archive</title>
@@ -1208,18 +1512,91 @@ async fn push_to_gh_pages(
     <p>Deployed: {}</p>
 </body>
 </html>"#,
-            chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
-        );
+        chrono::Utc::now().format("%Y-%m-%d %H:%M:%S UTC")
+    );
 
-        // Push index.html
-        push_file_to_branch(token, owner, repo, "gh-pages", "index.html", &index_html).await?;
+    // Push index.html
+    push_file_to_branch(token, owner, repo, "gh-pages", "index.html", &index_html).await?;
 
-        // Push the archive.zip
-        push_file_to_branch_binary(token, owner, repo, "gh-pages", "archive.zip", &encoded).await?;
-    } else {
-        // For directories, push all files
-        anyhow::bail!("Directory deployment not yet supported. Please provide a .zip bundle.");
+    // Push the archive.zip
+    push_file_to_branch_binary(token, owner, repo, "gh-pages", "archive.zip", &encoded).await?;
+
+    Ok(())
+}
+
+/// Push a build directory to gh-pages branch (for SvelteKit static builds)
+///
+/// Recursively walks the directory and pushes all files in batches to avoid
+/// GitHub API rate limits.
+async fn push_directory_to_gh_pages(
+    token: &str,
+    owner: &str,
+    repo: &str,
+    build_dir: &std::path::Path,
+) -> anyhow::Result<()> {
+    use base64::Engine;
+    use std::io::Read;
+    use walkdir::WalkDir;
+
+    // Collect all files to upload
+    let mut files_to_upload: Vec<(String, Vec<u8>)> = Vec::new();
+
+    for entry in WalkDir::new(build_dir)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_file())
+    {
+        let path = entry.path();
+        let relative_path = path
+            .strip_prefix(build_dir)
+            .map_err(|e| anyhow::anyhow!("Failed to get relative path: {}", e))?;
+
+        // Convert to forward slashes for GitHub (even on Windows)
+        let github_path = relative_path.to_string_lossy().replace('\\', "/");
+
+        // Read file contents
+        let mut file = std::fs::File::open(path)?;
+        let mut contents = Vec::new();
+        file.read_to_end(&mut contents)?;
+
+        files_to_upload.push((github_path, contents));
     }
+
+    let total_files = files_to_upload.len();
+    if total_files == 0 {
+        anyhow::bail!("No files found in build directory: {}", build_dir.display());
+    }
+
+    println!("   Found {} files to upload", total_files);
+
+    // Get or create gh-pages branch
+    ensure_gh_pages_branch(token, owner, repo).await?;
+
+    // Batch configuration for rate limiting
+    const BATCH_SIZE: usize = 10;
+    const DELAY_BETWEEN_BATCHES_MS: u64 = 1000;
+
+    let mut uploaded = 0;
+
+    for (batch_idx, chunk) in files_to_upload.chunks(BATCH_SIZE).enumerate() {
+        // Add delay between batches (except first)
+        if batch_idx > 0 {
+            tokio::time::sleep(tokio::time::Duration::from_millis(DELAY_BETWEEN_BATCHES_MS)).await;
+        }
+
+        // Upload files in this batch sequentially (to avoid borrowing issues)
+        for (path, contents) in chunk {
+            let encoded = base64::engine::general_purpose::STANDARD.encode(contents);
+            push_file_to_branch_binary(token, owner, repo, "gh-pages", path, &encoded).await?;
+            uploaded += 1;
+
+            // Progress update
+            print!("\r   Uploading: {}/{} files", uploaded, total_files);
+            std::io::Write::flush(&mut std::io::stdout())?;
+        }
+    }
+
+    println!(); // Newline after progress
 
     Ok(())
 }
@@ -2116,6 +2493,7 @@ async fn main() -> anyhow::Result<()> {
                     repo,
                     owner,
                     bundle,
+                    build_dir,
                     token,
                     create_repo,
                     private,
@@ -2124,7 +2502,8 @@ async fn main() -> anyhow::Result<()> {
                     handle_deploy_github_pages(
                         &repo,
                         owner.as_deref(),
-                        &bundle,
+                        bundle.as_deref(),
+                        build_dir.as_deref(),
                         token.as_deref(),
                         create_repo,
                         private,
@@ -2132,6 +2511,14 @@ async fn main() -> anyhow::Result<()> {
                     )
                     .await?
                 }
+            },
+            ShareCommands::Export { command } => match command {
+                ExportCommands::StaticData {
+                    output,
+                    scrub,
+                    limit,
+                    project,
+                } => handle_export_static_data(&output, &scrub, limit, project.as_deref()).await?,
             },
         },
         Some(Commands::Archive(args)) => handle_archive_command(args.command).await?,
@@ -2549,7 +2936,13 @@ async fn handle_products(args: ProductsArgs) -> anyhow::Result<()> {
             println!("Product: {} ({})", product.name, product.product_uid);
             println!("Linked Projects: {}", project_ids.len());
             for pid in project_ids {
-                if let Ok(proj) = lib_core::model::project::ProjectBmc::get(&ctx, &mm, lib_core::ProjectId::new(pid)).await {
+                if let Ok(proj) = lib_core::model::project::ProjectBmc::get(
+                    &ctx,
+                    &mm,
+                    lib_core::ProjectId::new(pid),
+                )
+                .await
+                {
                     println!("  - {} ({})", proj.human_key, proj.slug);
                 } else {
                     println!("  - Unknown Project ID: {}", pid);

@@ -1,11 +1,6 @@
 <script lang="ts">
 	import { browser } from '$app/environment';
-	import {
-		checkHealth,
-		getDashboardStats,
-		type DashboardStats,
-		type Project
-	} from '$lib/api/client';
+	import { dataProvider, type DashboardStats, type Project } from '$lib/data';
 	import * as Alert from '$lib/components/ui/alert/index.js';
 	import { Button } from '$lib/components/ui/button/index.js';
 	import AlertCircle from 'lucide-svelte/icons/alert-circle';
@@ -37,11 +32,11 @@
 		loading = true;
 		errorDismissed = false;
 		try {
-			const health = await checkHealth();
+			const health = await dataProvider.checkHealth();
 			healthStatus = health.status;
 			error = null;
 
-			const dashboardStats = await getDashboardStats();
+			const dashboardStats = await dataProvider.getDashboardStats();
 			stats = dashboardStats;
 		} catch (e) {
 			error = e instanceof Error ? e.message : 'Failed to connect to backend';

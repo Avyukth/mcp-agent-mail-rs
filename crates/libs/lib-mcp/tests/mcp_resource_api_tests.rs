@@ -42,9 +42,9 @@ async fn test_mcp_resource_api_schemes() -> anyhow::Result<()> {
         &ctx,
         &mm,
         MessageForCreate {
-            project_id,
-            sender_id: agent_id,
-            recipient_ids: vec![agent_id],
+            project_id: project_id.into(),
+            sender_id: agent_id.into(),
+            recipient_ids: vec![agent_id.into()],
             cc_ids: None,
             bcc_ids: None,
             subject: "Lazy Load Subject".to_string(),

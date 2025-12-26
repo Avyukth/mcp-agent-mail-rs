@@ -442,9 +442,9 @@ async fn test_get_review_state_with_completion() {
 
     // Create a [COMPLETION] message
     let msg = MessageForCreate {
-        project_id,
-        sender_id: agent_id,
-        recipient_ids: vec![agent_id],
+        project_id: project_id.into(),
+        sender_id: agent_id.into(),
+        recipient_ids: vec![agent_id.into()],
         cc_ids: None,
         bcc_ids: None,
         subject: "[COMPLETION] Task done".to_string(),
@@ -532,9 +532,9 @@ async fn test_list_outbox_with_messages() {
     // Create messages
     for i in 1..=3 {
         let msg = MessageForCreate {
-            project_id,
-            sender_id,
-            recipient_ids: vec![recipient_id],
+            project_id: project_id.into(),
+            sender_id: sender_id.into(),
+            recipient_ids: vec![recipient_id.into()],
             cc_ids: None,
             bcc_ids: None,
             subject: format!("Test Message {}", i),
@@ -604,7 +604,7 @@ async fn test_list_activity() {
         .unwrap();
 
     let params = ListActivityParams {
-        project_id,
+        project_id: project_id.into(),
         limit: Some(10),
     };
 

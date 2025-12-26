@@ -57,7 +57,7 @@ async fn setup_test_project_and_agent(mm: &Arc<ModelManager>) -> (i64, i64) {
     .await
     .unwrap();
 
-    (project_id, agent_id)
+    (project_id.into(), agent_id.into())
 }
 
 #[tokio::test]

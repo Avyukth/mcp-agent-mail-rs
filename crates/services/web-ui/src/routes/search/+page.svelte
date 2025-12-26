@@ -2,12 +2,7 @@
     import { onMount } from "svelte";
     import { page } from "$app/stores";
     import { goto } from "$app/navigation";
-    import {
-        searchMessages,
-        getProjects,
-        type Message,
-        type Project,
-    } from "$lib/api/client";
+    import { dataProvider, type Message, type Project } from "$lib/data";
     import {
         Search,
         X,
@@ -55,7 +50,7 @@
 
     async function loadProjects() {
         try {
-            projects = await getProjects();
+            projects = await dataProvider.getProjects();
         } catch (e) {
             console.error("Failed to load projects:", e);
         }
@@ -95,11 +90,7 @@
                 return;
             }
 
-            results = await searchMessages({
-                project_slug: projectSlug,
-                query: searchQuery,
-                limit: 50,
-            });
+            results = await dataProvider.searchMessages(projectSlug, searchQuery, 50);
 
             // Update URL
             const url = new URL(window.location.href);
