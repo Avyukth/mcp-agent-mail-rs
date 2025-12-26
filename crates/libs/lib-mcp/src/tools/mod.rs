@@ -133,6 +133,14 @@ fn get_all_tool_schemas() -> Vec<ToolSchema> {
             "check_inbox",
             "Check an agent's inbox for new messages.",
         ),
+        schema_from_params::<ListInboxParams>(
+            "fetch_inbox",
+            "Fetch an agent's inbox. (Alias for check_inbox)",
+        ),
+        schema_from_params::<ListInboxParams>(
+            "list_inbox",
+            "List an agent's inbox messages. (Alias for check_inbox)",
+        ),
         schema_from_params::<ReplyMessageParams>(
             "reply_message",
             "Reply to an existing message in a thread.",
@@ -200,6 +208,10 @@ fn get_all_tool_schemas() -> Vec<ToolSchema> {
             "release_reservation",
             "Release a file reservation.",
         ),
+        schema_from_params::<ReleaseReservationParams>(
+            "release_file_reservations",
+            "Release file reservations. (Alias for release_reservation)",
+        ),
         schema_from_params::<ForceReleaseReservationParams>(
             "force_release_reservation",
             "Force release a reservation (for emergencies).",
@@ -207,6 +219,10 @@ fn get_all_tool_schemas() -> Vec<ToolSchema> {
         schema_from_params::<RenewFileReservationParams>(
             "renew_file_reservation",
             "Extend a file reservation's TTL.",
+        ),
+        schema_from_params::<RenewFileReservationParams>(
+            "renew_file_reservations",
+            "Extend file reservations' TTL. (Alias for renew_file_reservation)",
         ),
         // Build Slots
         schema_from_params::<AcquireBuildSlotParams>(
