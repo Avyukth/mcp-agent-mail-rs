@@ -59,6 +59,10 @@ llms.txt
 
 # bv (beads viewer) local config and caches
 .bv/
+
+# Beads issue data (synced via beads-sync branch, not code branches)
+.beads/issues.jsonl
+.beads/deletions.jsonl
 *.startlock
 .codex/
 
