@@ -22,21 +22,20 @@ static DB_COUNTER: AtomicU32 = AtomicU32::new(0);
 /// Test context that manages temporary directories and database setup
 ///
 /// Each test gets a unique database to avoid locking conflicts.
-pub struct TestContext {
-    pub mm: ModelManager,
-    pub ctx: Ctx,
+pub(crate) struct TestContext {
+    pub(crate) mm: ModelManager,
+    pub(crate) ctx: Ctx,
     #[allow(dead_code)]
     temp_dir: TempDir, // Keep alive for duration of test
 }
 
 impl TestContext {
     /// Create a new test context with isolated database and git repo
-    /// Create a new test context with isolated database and git repo
-    pub async fn new() -> Result<Self> {
+    pub(crate) async fn new() -> Result<Self> {
         Self::new_with_config(AppConfig::default()).await
     }
 
-    pub async fn new_with_config(config: AppConfig) -> Result<Self> {
+    pub(crate) async fn new_with_config(config: AppConfig) -> Result<Self> {
         // Create unique temp directory for this test
         let temp_dir = TempDir::new().expect("Failed to create temp dir");
 
@@ -62,12 +61,12 @@ impl TestContext {
 
     /// Get the repo root path for testing
     #[allow(dead_code)]
-    pub fn repo_root(&self) -> PathBuf {
+    pub(crate) fn repo_root(&self) -> PathBuf {
         self.mm.repo_root.clone()
     }
 
     /// Explain the query plan for a given SQL string
-    pub async fn explain_query_plan(&self, sql: &str) -> Result<Vec<String>> {
+    pub(crate) async fn explain_query_plan(&self, sql: &str) -> Result<Vec<String>> {
         let db = self.mm.db_for_test();
         let explain_sql = format!("EXPLAIN QUERY PLAN {}", sql);
         let mut rows = db.query(&explain_sql, ()).await?;
