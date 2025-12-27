@@ -101,14 +101,23 @@ pub fn looks_like_unix_username(value: &str) -> bool {
     is_lowercase_alnum && len_valid
 }
 
+/// Detect if an agent name looks like a Unix username ($USER).
+///
+/// This is a **hint**, not an error. Lowercase alphanumeric names are valid,
+/// but often indicate the user passed their shell $USER instead of registering
+/// an agent identity first.
+///
+/// Returns a suggestion if the input matches common Unix username patterns.
 pub fn detect_unix_username_as_agent(input: &str) -> Option<MistakeSuggestion> {
     if looks_like_unix_username(input) {
         Some(MistakeSuggestion {
-            detected_issue: format!("'{}' looks like a Unix username", input),
-            suggestion: "Agent names must be PascalCase like 'BlueLake'. \
-                Check register_agent response for your actual name."
-                .into(),
-            confidence: 0.85,
+            detected_issue: format!("'{}' looks like a Unix username (possibly $USER)", input),
+            suggestion: format!(
+                "If '{}' is your shell username, consider using a descriptive agent name instead. \
+                 Use create_agent_identity for name suggestions, or register_agent with a name like 'Claude_Backend'.",
+                input
+            ),
+            confidence: 0.75, // Lower confidence - valid names can match this pattern
         })
     } else {
         None
@@ -172,10 +181,22 @@ mod tests {
     }
 
     #[test]
+    fn test_looks_like_unix_username_boundaries() {
+        assert!(looks_like_unix_username("ab"));
+        assert!(looks_like_unix_username("abcdefghijklmnop"));
+        assert!(!looks_like_unix_username("abcdefghijklmnopq"));
+        assert!(!looks_like_unix_username("a"));
+        assert!(looks_like_unix_username("u1"));
+        assert!(looks_like_unix_username("user123456789012"));
+    }
+
+    #[test]
     fn test_detect_unix_username_as_agent() {
         let result = detect_unix_username_as_agent("ubuntu");
         assert!(result.is_some());
-        assert!(result.unwrap().suggestion.contains("PascalCase"));
+        let suggestion = result.unwrap();
+        assert!(suggestion.suggestion.contains("create_agent_identity"));
+        assert!(suggestion.detected_issue.contains("Unix username"));
 
         let result = detect_unix_username_as_agent("BlueLake");
         assert!(result.is_none());
