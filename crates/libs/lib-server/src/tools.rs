@@ -1104,9 +1104,11 @@ pub async fn get_thread(
     )
     .await?;
 
-    let responses: Vec<MessageResponse> = messages
-        .into_iter()
-        .map(|msg| MessageResponse {
+    let mut responses: Vec<MessageResponse> = Vec::with_capacity(messages.len());
+    for msg in messages {
+        let recipients =
+            lib_core::model::message::MessageBmc::get_recipients(&ctx, mm, msg.id).await?;
+        responses.push(MessageResponse {
             id: msg.id,
             project_id: msg.project_id,
             sender_id: msg.sender_id,
@@ -1118,9 +1120,9 @@ pub async fn get_thread(
             ack_required: msg.ack_required,
             created_ts: msg.created_ts,
             attachments: msg.attachments,
-            recipients: vec![], // TODO: Batch fetch recipients for thread messages
-        })
-        .collect();
+            recipients,
+        });
+    }
 
     Ok(Json(responses).into_response())
 }

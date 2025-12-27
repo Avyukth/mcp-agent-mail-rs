@@ -8,8 +8,9 @@ use rmcp::{
     ErrorData as McpError,
     handler::server::{ServerHandler, tool::ToolRouter, wrapper::Parameters},
     model::{
-        CallToolRequestParam, CallToolResult, Content, ListResourcesResult, ListToolsResult,
-        PaginatedRequestParam, ReadResourceRequestParam, ReadResourceResult,
+        CallToolRequestParam, CallToolResult, Content, Implementation, ListResourcesResult,
+        ListToolsResult, PaginatedRequestParam, ReadResourceRequestParam, ReadResourceResult,
+        ResourcesCapability, ServerCapabilities, ServerInfo, ToolsCapability,
     },
     service::{RequestContext, RoleServer},
     tool, tool_router,
@@ -553,6 +554,25 @@ impl AgentMailService {
 
 #[allow(clippy::manual_async_fn)]
 impl ServerHandler for AgentMailService {
+    fn get_info(&self) -> ServerInfo {
+        ServerInfo {
+            protocol_version: Default::default(),
+            capabilities: ServerCapabilities {
+                tools: Some(ToolsCapability::default()),
+                resources: Some(ResourcesCapability::default()),
+                ..Default::default()
+            },
+            server_info: Implementation {
+                name: "mcp-agent-mail".to_string(),
+                version: env!("CARGO_PKG_VERSION").to_string(),
+                ..Default::default()
+            },
+            instructions: Some(
+                "Agent Mail MCP Server - Multi-agent messaging and coordination system".to_string(),
+            ),
+        }
+    }
+
     fn list_tools(
         &self,
         _request: Option<PaginatedRequestParam>,
@@ -1849,5 +1869,38 @@ mod tests {
             !service_disabled.worktrees_enabled(),
             "Service should report worktrees disabled"
         );
+    }
+
+    // ==========================================================================
+    // ServerHandler get_info capability advertisement
+    // ==========================================================================
+
+    #[tokio::test]
+    async fn test_get_info_returns_tools_capability() {
+        use rmcp::handler::server::ServerHandler;
+
+        let (mm, _temp) = create_test_mm().await;
+        let service = AgentMailService::new_with_mm(mm.clone(), false);
+
+        let info = service.get_info();
+
+        // Verify tools capability is advertised
+        assert!(
+            info.capabilities.tools.is_some(),
+            "Server should advertise tools capability"
+        );
+
+        // Verify resources capability is advertised
+        assert!(
+            info.capabilities.resources.is_some(),
+            "Server should advertise resources capability"
+        );
+
+        // Verify server info
+        assert_eq!(info.server_info.name, "mcp-agent-mail");
+        assert!(!info.server_info.version.is_empty());
+
+        // Verify instructions are provided
+        assert!(info.instructions.is_some());
     }
 }

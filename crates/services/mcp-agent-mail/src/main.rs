@@ -3064,8 +3064,74 @@ async fn handle_products(args: ProductsArgs) -> anyhow::Result<()> {
                 println!("  (No messages found)");
             }
         }
-        ProductsCommands::SummarizeThread { .. } => {
-            println!("Summarize thread not fully implemented yet in CLI");
+        ProductsCommands::SummarizeThread {
+            product_uid,
+            thread_id,
+            per_thread_limit,
+            no_llm: _,
+        } => {
+            use lib_core::model::{message::MessageBmc, product::ProductBmc, project::ProjectBmc};
+
+            let product = ProductBmc::get_by_uid(&ctx, &mm, &product_uid).await?;
+            let project_ids = ProductBmc::get_linked_projects(&ctx, &mm, product.id).await?;
+
+            let mut all_messages = Vec::new();
+            let mut project_sources = Vec::new();
+
+            for pid in project_ids {
+                let project_id = lib_core::ProjectId::from(pid);
+                let project = ProjectBmc::get(&ctx, &mm, project_id).await?;
+
+                match MessageBmc::list_by_thread(&ctx, &mm, pid, &thread_id).await {
+                    Ok(messages) if !messages.is_empty() => {
+                        project_sources.push(project.slug.clone());
+                        all_messages.extend(messages);
+                    }
+                    Ok(_) => {}
+                    Err(e) => {
+                        eprintln!(
+                            "Error fetching thread '{}' from project '{}': {}",
+                            thread_id, project.slug, e
+                        );
+                    }
+                }
+            }
+
+            if all_messages.is_empty() {
+                println!(
+                    "No messages found for thread '{}' in product '{}'",
+                    thread_id, product.name
+                );
+            } else {
+                all_messages.sort_by(|a, b| a.created_ts.cmp(&b.created_ts));
+                all_messages.truncate(per_thread_limit as usize);
+
+                let mut participants: Vec<String> =
+                    all_messages.iter().map(|m| m.sender_name.clone()).collect();
+                participants.sort();
+                participants.dedup();
+
+                let subject = all_messages
+                    .first()
+                    .map(|m| m.subject.clone())
+                    .unwrap_or_default();
+
+                println!("Thread: {}", thread_id);
+                println!(
+                    "  Subject: {} (from: {})",
+                    subject,
+                    project_sources.join(", ")
+                );
+                println!("  Messages: {}", all_messages.len());
+                println!("  Participants: {}", participants.join(", "));
+
+                if let Some(last) = all_messages.last() {
+                    let snippet: String = last.body_md.chars().take(100).collect();
+                    if !snippet.is_empty() {
+                        println!("  Last: {}...", snippet);
+                    }
+                }
+            }
         }
     }
 

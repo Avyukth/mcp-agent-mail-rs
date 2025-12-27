@@ -508,8 +508,147 @@ if [ -z "$AGENT_NAME" ]; then
     exit 0
 fi
 
-# TODO: Call agent mail API to verify file reservations
-# For now, just pass through
+# Get server URL
+SERVER_URL="${MCP_AGENT_MAIL_URL:-${API_URL:-http://localhost:8765}}"
+
+# Get project slug from env or derive from git root
+if [ -z "$MCP_AGENT_MAIL_PROJECT_SLUG" ]; then
+    GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
+    if [ -z "$GIT_ROOT" ]; then
+        echo "Warning: Not in a git repository, skipping reservation check" >&2
+        exit 0
+    fi
+    # URL-safe slug: replace / with - and remove leading -
+    PROJECT_SLUG=$(echo "$GIT_ROOT" | sed 's|^/||; s|/|-|g')
+else
+    PROJECT_SLUG="$MCP_AGENT_MAIL_PROJECT_SLUG"
+fi
+
+# Get guard mode (enforce, warn, or advisory)
+GUARD_MODE="${AGENT_MAIL_GUARD_MODE:-enforce}"
+
+# Get staged files
+STAGED_FILES=$(git diff --cached --name-only 2>/dev/null)
+if [ -z "$STAGED_FILES" ]; then
+    exit 0  # No staged files, nothing to check
+fi
+
+# Check if curl is available
+if ! command -v curl >/dev/null 2>&1; then
+    echo "Warning: curl not found, skipping reservation check" >&2
+    exit 0
+fi
+
+# Call API to list file reservations
+RESPONSE=$(curl -s -X POST "${SERVER_URL}/api/file_reservations/list" \
+    -H "Content-Type: application/json" \
+    -d "{\"project_slug\": \"$PROJECT_SLUG\"}" 2>/dev/null)
+
+# Check if API call succeeded
+if [ $? -ne 0 ] || [ -z "$RESPONSE" ]; then
+    echo "Warning: Could not reach agent mail server at $SERVER_URL" >&2
+    # In warn mode, continue; in enforce mode, block on API failure
+    case "$GUARD_MODE" in
+        warn|advisory)
+            exit 0
+            ;;
+        *)
+            echo "Error: Cannot verify file reservations (server unreachable)" >&2
+            exit 1
+            ;;
+    esac
+fi
+
+# Check for API error response
+if echo "$RESPONSE" | grep -q '"error"'; then
+    # API returned an error - likely project not found, which is OK
+    exit 0
+fi
+
+# Parse reservations and check for conflicts
+# Look for reservations by other agents that match our staged files
+CONFLICTS=""
+for FILE in $STAGED_FILES; do
+    # Check if any reservation pattern matches this file
+    # Reservations are JSON array with path_pattern and agent_name
+    # Use grep/awk to parse (avoiding jq dependency)
+    
+    # Extract each reservation's path_pattern and agent_name
+    echo "$RESPONSE" | tr ',' '\n' | grep -E '"path_pattern"|"agent_name"' | \
+    while read -r line; do
+        case "$line" in
+            *"path_pattern"*)
+                PATTERN=$(echo "$line" | sed 's/.*"path_pattern"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+                ;;
+            *"agent_name"*)
+                OWNER=$(echo "$line" | sed 's/.*"agent_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
+                # Check if this reservation applies to our file and is held by another agent
+                if [ -n "$PATTERN" ] && [ "$OWNER" != "$AGENT_NAME" ]; then
+                    # Check if file matches pattern (simple glob matching)
+                    case "$FILE" in
+                        $PATTERN)
+                            echo "CONFLICT:$FILE:$OWNER:$PATTERN"
+                            ;;
+                    esac
+                    # Also check if pattern ends with ** (directory match)
+                    case "$PATTERN" in
+                        *"/**")
+                            DIR_PREFIX="${PATTERN%/**}"
+                            case "$FILE" in
+                                "$DIR_PREFIX"/*)
+                                    echo "CONFLICT:$FILE:$OWNER:$PATTERN"
+                                    ;;
+                            esac
+                            ;;
+                    esac
+                fi
+                PATTERN=""
+                ;;
+        esac
+    done
+done > /tmp/precommit_conflicts_$$
+
+# Read conflicts
+if [ -s /tmp/precommit_conflicts_$$ ]; then
+    CONFLICTS=$(cat /tmp/precommit_conflicts_$$)
+    rm -f /tmp/precommit_conflicts_$$
+else
+    rm -f /tmp/precommit_conflicts_$$
+    exit 0  # No conflicts
+fi
+
+# Handle conflicts based on mode
+if [ -n "$CONFLICTS" ]; then
+    echo "" >&2
+    echo "========================================" >&2
+    echo "FILE RESERVATION CONFLICTS DETECTED" >&2
+    echo "========================================" >&2
+    echo "" >&2
+    echo "Agent: $AGENT_NAME" >&2
+    echo "The following files are reserved by other agents:" >&2
+    echo "" >&2
+    echo "$CONFLICTS" | while IFS=: read -r _ FILE OWNER PATTERN; do
+        echo "  - $FILE (reserved by: $OWNER, pattern: $PATTERN)" >&2
+    done
+    echo "" >&2
+    
+    case "$GUARD_MODE" in
+        warn|advisory)
+            echo "Mode: $GUARD_MODE - Allowing commit despite conflicts" >&2
+            echo "========================================" >&2
+            exit 0
+            ;;
+        *)
+            echo "Mode: enforce - Blocking commit" >&2
+            echo "" >&2
+            echo "To bypass: export AGENT_MAIL_BYPASS=1" >&2
+            echo "Or coordinate with the reserving agent" >&2
+            echo "========================================" >&2
+            exit 1
+            ;;
+    esac
+fi
+
 exit 0
 "#;
 
