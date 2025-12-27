@@ -21,6 +21,9 @@ serde_json = { workspace = true }
 # Utilities
 uuid = { workspace = true }
 
+# Base64 encoding for JWT tests
+base64 = "0.22"
+
 [dev-dependencies]
 # For integration with lib-core if needed
 lib-core = { path = "../../libs/lib-core" }
@@ -60,6 +63,18 @@ path = "tests/share_integration.rs"
 [[test]]
 name = "worktrees_e2e"
 path = "tests/worktrees_e2e.rs"
+
+[[test]]
+name = "multi_agent_orchestration"
+path = "tests/multi_agent_orchestration.rs"
+
+[[test]]
+name = "guard_integration"
+path = "tests/guard_integration.rs"
+
+[[test]]
+name = "auth_rate_limit"
+path = "tests/auth_rate_limit.rs"
 
 [lints]
 workspace = true
