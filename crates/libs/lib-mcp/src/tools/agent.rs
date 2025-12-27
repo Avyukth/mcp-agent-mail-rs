@@ -10,6 +10,7 @@ use lib_core::{
         agent_capabilities::AgentCapabilityBmc,
         file_reservation::FileReservationBmc,
     },
+    utils::mistake_detection::detect_unix_username_as_agent,
     utils::validation::{validate_agent_name, validate_project_key},
 };
 use rmcp::{ErrorData as McpError, model::CallToolResult, model::Content};
@@ -67,16 +68,20 @@ pub async fn register_agent_impl(
                 .await
                 .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-            // Auto-grant default capabilities for MCP tool usage
             AgentCapabilityBmc::grant_defaults(ctx, mm, id.get())
                 .await
                 .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 
-            let msg = format!(
+            let mut msg = format!(
                 "Registered agent '{}' with id {} (granted default capabilities)",
                 params.name,
                 id.get()
             );
+
+            if let Some(hint) = detect_unix_username_as_agent(&params.name) {
+                msg.push_str(&format!("\n\nHint: {}", hint.suggestion));
+            }
+
             Ok(CallToolResult::success(vec![Content::text(msg)]))
         }
     }

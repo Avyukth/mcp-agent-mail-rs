@@ -237,9 +237,11 @@ impl ArchiveBrowserBmc {
                 }
             }
 
-            // Path filter requires diff analysis - skip for now if specified
-            if filter.path.is_some() {
-                // TODO: Implement path-based filtering via diff
+            // Path filter: check if commit touched the specified path
+            if let Some(ref path_filter) = filter.path {
+                if !Self::commit_touches_path(&repo, &commit, path_filter)? {
+                    continue;
+                }
             }
 
             let timestamp = Utc
@@ -370,6 +372,73 @@ impl ArchiveBrowserBmc {
         }
 
         Ok((added, modified, deleted))
+    }
+
+    /// Check if a path matches a pattern (supports exact match and `**` wildcards).
+    fn path_matches_pattern(path_str: &str, path_pattern: &str) -> bool {
+        if path_str == path_pattern {
+            return true;
+        }
+        if path_pattern.ends_with("**") {
+            let prefix = path_pattern.trim_end_matches("**");
+            if path_str.starts_with(prefix) {
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Check if a commit touched any file matching the given path pattern.
+    fn commit_touches_path(
+        repo: &git2::Repository,
+        commit: &git2::Commit,
+        path_pattern: &str,
+    ) -> Result<bool> {
+        if commit.parent_count() == 0 {
+            let tree = commit.tree()?;
+            if path_pattern.contains('*') {
+                let mut found = false;
+                tree.walk(git2::TreeWalkMode::PreOrder, |dir, entry| {
+                    if let Some(name) = entry.name() {
+                        let full_path = if dir.is_empty() {
+                            name.to_string()
+                        } else {
+                            format!("{}{}", dir, name)
+                        };
+                        if Self::path_matches_pattern(&full_path, path_pattern) {
+                            found = true;
+                            return git2::TreeWalkResult::Abort;
+                        }
+                    }
+                    git2::TreeWalkResult::Ok
+                })?;
+                return Ok(found);
+            }
+            return Ok(tree.get_path(std::path::Path::new(path_pattern)).is_ok());
+        }
+
+        let parent = match commit.parent(0) {
+            Ok(p) => p,
+            Err(_) => return Ok(true),
+        };
+
+        let tree = commit.tree()?;
+        let parent_tree = parent.tree()?;
+        let diff = repo.diff_tree_to_tree(Some(&parent_tree), Some(&tree), None)?;
+
+        for delta in diff.deltas() {
+            let new_path = delta.new_file().path();
+            let old_path = delta.old_file().path();
+
+            for path_opt in [new_path, old_path].into_iter().flatten() {
+                let path_str = path_opt.to_string_lossy();
+                if Self::path_matches_pattern(&path_str, path_pattern) {
+                    return Ok(true);
+                }
+            }
+        }
+
+        Ok(false)
     }
 
     /// Check if a file was touched (modified) in a commit.

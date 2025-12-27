@@ -89,6 +89,41 @@ pub fn suggest_similar<'a>(
     matches.into_iter().map(|(c, _)| c).take(3).collect()
 }
 
+pub fn looks_like_unix_username(value: &str) -> bool {
+    let v = value.trim();
+    if v.is_empty() {
+        return false;
+    }
+    let is_lowercase_alnum = v
+        .chars()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit());
+    let len_valid = (2..=16).contains(&v.len());
+    is_lowercase_alnum && len_valid
+}
+
+/// Detect if an agent name looks like a Unix username ($USER).
+///
+/// This is a **hint**, not an error. Lowercase alphanumeric names are valid,
+/// but often indicate the user passed their shell $USER instead of registering
+/// an agent identity first.
+///
+/// Returns a suggestion if the input matches common Unix username patterns.
+pub fn detect_unix_username_as_agent(input: &str) -> Option<MistakeSuggestion> {
+    if looks_like_unix_username(input) {
+        Some(MistakeSuggestion {
+            detected_issue: format!("'{}' looks like a Unix username (possibly $USER)", input),
+            suggestion: format!(
+                "If '{}' is your shell username, consider using a descriptive agent name instead. \
+                 Use create_agent_identity for name suggestions, or register_agent with a name like 'Claude_Backend'.",
+                input
+            ),
+            confidence: 0.75, // Lower confidence - valid names can match this pattern
+        })
+    } else {
+        None
+    }
+}
+
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
@@ -124,5 +159,46 @@ mod tests {
         let result = detect_id_confusion("FEAT-123", IdType::MessageId);
         assert!(result.is_some());
         assert!(result.unwrap().detected_issue.contains("Non-numeric"));
+    }
+
+    #[test]
+    fn test_looks_like_unix_username_valid() {
+        assert!(looks_like_unix_username("ubuntu"));
+        assert!(looks_like_unix_username("amrit"));
+        assert!(looks_like_unix_username("user1"));
+        assert!(looks_like_unix_username("root"));
+        assert!(looks_like_unix_username("ec2user"));
+    }
+
+    #[test]
+    fn test_looks_like_unix_username_invalid() {
+        assert!(!looks_like_unix_username("BlueLake"));
+        assert!(!looks_like_unix_username("UPPERCASE"));
+        assert!(!looks_like_unix_username("a"));
+        assert!(!looks_like_unix_username(""));
+        assert!(!looks_like_unix_username("has-dash"));
+        assert!(!looks_like_unix_username("has_underscore"));
+    }
+
+    #[test]
+    fn test_looks_like_unix_username_boundaries() {
+        assert!(looks_like_unix_username("ab"));
+        assert!(looks_like_unix_username("abcdefghijklmnop"));
+        assert!(!looks_like_unix_username("abcdefghijklmnopq"));
+        assert!(!looks_like_unix_username("a"));
+        assert!(looks_like_unix_username("u1"));
+        assert!(looks_like_unix_username("user123456789012"));
+    }
+
+    #[test]
+    fn test_detect_unix_username_as_agent() {
+        let result = detect_unix_username_as_agent("ubuntu");
+        assert!(result.is_some());
+        let suggestion = result.unwrap();
+        assert!(suggestion.suggestion.contains("create_agent_identity"));
+        assert!(suggestion.detected_issue.contains("Unix username"));
+
+        let result = detect_unix_username_as_agent("BlueLake");
+        assert!(result.is_none());
     }
 }

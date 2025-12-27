@@ -6,18 +6,23 @@ This directory contains integration scripts for various AI coding agents and IDE
 
 ### 1. claude-code.sh - Claude Code CLI
 **Target**: Claude Code command-line interface
-**Config Location**: `~/.claude/settings.json`
-**Transport**: STDIO
+**Config Locations**:
+  - User config: `~/.claude.json`
+  - Project config (shared): `.mcp.json`
+**Transport**: STDIO (default) or SSE
 
-Configures Claude Code CLI to use the mcp-stdio-server binary for seamless agent communication.
+Configures Claude Code CLI to use MCP Agent Mail for agent communication.
 
 ```bash
-./claude-code.sh
+./claude-code.sh                     # User scope, STDIO mode
+./claude-code.sh --scope project     # Project scope (.mcp.json)
+./claude-code.sh --mode sse          # SSE mode instead of STDIO
 ```
 
 **Features**:
 - Auto-detects Claude Code installation
-- Updates settings.json with MCP server config
+- Supports user-scope (`~/.claude.json`) and project-scope (`.mcp.json`) configs
+- STDIO transport (default) or SSE transport
 - Creates backup of existing settings
 - Verifies installation
 
@@ -178,6 +183,97 @@ Generates example configurations for any MCP client.
 
 ---
 
+### 9. opencode.sh - OpenCode
+**Target**: OpenCode AI coding assistant
+**Config Locations**:
+  - Project config: `.opencode/mcp.json`
+  - Global config: `~/.config/opencode/config.json`
+**Transport**: STDIO
+
+Configures OpenCode to use MCP Agent Mail for agent coordination.
+
+```bash
+./opencode.sh                    # Project config (.opencode/mcp.json)
+./opencode.sh --global           # Global config (~/.config/opencode/)
+./opencode.sh --project /path    # Specific project directory
+```
+
+**Features**:
+- Auto-detects OpenCode installation
+- Supports project-scope and global configs
+- STDIO transport for efficient communication
+- Creates backup of existing settings
+
+---
+
+### 10. antigravity.sh - Antigravity
+**Target**: Antigravity AI coding agent
+**Config Location**: `~/.antigravity/mcp.json`
+**Transport**: STDIO
+
+Configures Antigravity to use MCP Agent Mail.
+
+```bash
+./antigravity.sh
+```
+
+**Features**:
+- Detects Antigravity installation (including `ag` alias)
+- Configures STDIO-based MCP server
+- Creates backup of existing config
+- Verifies installation
+
+---
+
+### 11. gemini.sh - Gemini CLI
+**Target**: Google Gemini CLI
+**Config Location**: `~/.gemini/settings/mcp_settings.json`
+**Transport**: HTTP
+
+Configures Gemini CLI to use MCP Agent Mail via HTTP transport.
+
+```bash
+./gemini.sh
+```
+
+**Features**:
+- Detects Gemini CLI installation
+- Uses HTTP transport for Gemini's MCP support
+- Auto-creates config directory if needed
+- Creates backup of existing settings
+
+**Note**: Requires MCP Agent Mail HTTP server to be running:
+```bash
+am serve http --port 8765
+```
+
+---
+
+### 12. codex.sh - OpenAI Codex CLI
+**Target**: OpenAI Codex CLI
+**Config Location**: `.codex/config.toml` (project-local)
+**Transport**: HTTP
+
+Configures OpenAI Codex CLI to use MCP Agent Mail.
+
+```bash
+./codex.sh                       # Configure in current directory
+./codex.sh --project /path       # Configure in specific project
+```
+
+**Features**:
+- Uses TOML config format (Codex-specific)
+- Project-local configuration
+- HTTP transport for MCP communication
+- Creates backup of existing config
+
+**Note**: Requires MCP Agent Mail HTTP server to be running:
+```bash
+am serve http --port 8765
+```
+
+---
+
 ## Common Usage Pattern
 
 All integration scripts follow this pattern:
@@ -231,15 +327,28 @@ Then run:
 
 Each script configures the MCP server entry in the target client's config:
 
+**STDIO mode** (default for most clients):
 ```json
 {
   "mcpServers": {
     "mcp-agent-mail": {
-      "command": "/path/to/mcp-stdio-server",
-      "args": [],
+      "command": "/path/to/am",
+      "args": ["serve", "mcp", "--transport", "stdio"],
       "env": {
         "RUST_LOG": "info"
       }
+    }
+  }
+}
+```
+
+**SSE mode** (for clients that support it):
+```json
+{
+  "mcpServers": {
+    "mcp-agent-mail": {
+      "type": "sse",
+      "url": "http://127.0.0.1:8765/sse"
     }
   }
 }
@@ -264,10 +373,15 @@ For HTTP-based integrations:
 
 ## Troubleshooting
 
-### "mcp-stdio-server not found"
-Build the project first:
+### "MCP Agent Mail binary not found"
+Build and install the project first:
 ```bash
-cargo build --release -p mcp-stdio
+cd /path/to/mcp-agent-mail-rs
+cargo build --release -p mcp-agent-mail
+# Or install globally:
+cargo install --path crates/services/mcp-agent-mail
+# Or install with 'am' alias:
+make install-am
 ```
 
 ### "jq is required but not installed"
