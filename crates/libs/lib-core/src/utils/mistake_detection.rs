@@ -89,6 +89,32 @@ pub fn suggest_similar<'a>(
     matches.into_iter().map(|(c, _)| c).take(3).collect()
 }
 
+pub fn looks_like_unix_username(value: &str) -> bool {
+    let v = value.trim();
+    if v.is_empty() {
+        return false;
+    }
+    let is_lowercase_alnum = v
+        .chars()
+        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit());
+    let len_valid = (2..=16).contains(&v.len());
+    is_lowercase_alnum && len_valid
+}
+
+pub fn detect_unix_username_as_agent(input: &str) -> Option<MistakeSuggestion> {
+    if looks_like_unix_username(input) {
+        Some(MistakeSuggestion {
+            detected_issue: format!("'{}' looks like a Unix username", input),
+            suggestion: "Agent names must be PascalCase like 'BlueLake'. \
+                Check register_agent response for your actual name."
+                .into(),
+            confidence: 0.85,
+        })
+    } else {
+        None
+    }
+}
+
 #[cfg(test)]
 #[allow(
     clippy::unwrap_used,
@@ -124,5 +150,34 @@ mod tests {
         let result = detect_id_confusion("FEAT-123", IdType::MessageId);
         assert!(result.is_some());
         assert!(result.unwrap().detected_issue.contains("Non-numeric"));
+    }
+
+    #[test]
+    fn test_looks_like_unix_username_valid() {
+        assert!(looks_like_unix_username("ubuntu"));
+        assert!(looks_like_unix_username("amrit"));
+        assert!(looks_like_unix_username("user1"));
+        assert!(looks_like_unix_username("root"));
+        assert!(looks_like_unix_username("ec2user"));
+    }
+
+    #[test]
+    fn test_looks_like_unix_username_invalid() {
+        assert!(!looks_like_unix_username("BlueLake"));
+        assert!(!looks_like_unix_username("UPPERCASE"));
+        assert!(!looks_like_unix_username("a"));
+        assert!(!looks_like_unix_username(""));
+        assert!(!looks_like_unix_username("has-dash"));
+        assert!(!looks_like_unix_username("has_underscore"));
+    }
+
+    #[test]
+    fn test_detect_unix_username_as_agent() {
+        let result = detect_unix_username_as_agent("ubuntu");
+        assert!(result.is_some());
+        assert!(result.unwrap().suggestion.contains("PascalCase"));
+
+        let result = detect_unix_username_as_agent("BlueLake");
+        assert!(result.is_none());
     }
 }
