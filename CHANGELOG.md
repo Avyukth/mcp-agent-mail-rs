@@ -10,8 +10,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - **lib-core**: Privacy-safe project slug generation prevents path/username leakage by @Avyukth
+  - **BREAKING**: All modes now generate privacy-safe slugs with format `{dirname}-{hash}`
+  - Dir mode changed from `path-to-myproject` to `myproject-a1b2c3d4` (hides path structure)
   - Added `PROJECT_IDENTITY_MODE` env var (dir, git-remote, git-toplevel, git-common-dir)
-  - Default mode `dir` for backward compatibility; set `PROJECT_IDENTITY_MODE=git-remote` to generate privacy-safe slugs like `myrepo-a1b2c3d4e5`
   - Ported from Python reference implementation
 
 ### Bug Fixes
