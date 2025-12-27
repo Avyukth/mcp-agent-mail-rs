@@ -5,6 +5,14 @@ All notable changes to MCP Agent Mail will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1](https://github.com/Avyukth/mcp-agent-mail-rs/compare/v0.2.0...v0.2.1) (2025-12-27)
+
+
+### Bug Fixes
+
+* **beads,ci:** remove tracked beads data files and fix release workflow ([79f70ce](https://github.com/Avyukth/mcp-agent-mail-rs/commit/79f70ce7a20a1dee122d14b01ca247ecb6fe98c8))
+* **beads,ci:** remove tracked beads data files and fix release workflow ([98b958c](https://github.com/Avyukth/mcp-agent-mail-rs/commit/98b958c744f9efcb4ab3076c4e7ab005eab58958))
+
 ## [0.2.0](https://github.com/Avyukth/mcp-agent-mail-rs/compare/v0.1.0...v0.2.0) (2025-12-27)
 
 
