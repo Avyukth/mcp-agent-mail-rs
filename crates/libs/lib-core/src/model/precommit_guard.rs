@@ -566,45 +566,31 @@ if echo "$RESPONSE" | grep -q '"error"'; then
 fi
 
 # Parse reservations and check for conflicts
-# Look for reservations by other agents that match our staged files
-CONFLICTS=""
+# Extract path_pattern:agent_name pairs from JSON (avoiding jq dependency)
+RESERVATIONS=$(echo "$RESPONSE" | grep -oE '"path_pattern":"[^"]*"|"agent_name":"[^"]*"' | \
+    sed 's/"path_pattern":"//; s/"agent_name":"//; s/"$//' | \
+    paste -d: - - 2>/dev/null || echo "")
+
+# Check each staged file against reservations
 for FILE in $STAGED_FILES; do
-    # Check if any reservation pattern matches this file
-    # Reservations are JSON array with path_pattern and agent_name
-    # Use grep/awk to parse (avoiding jq dependency)
-    
-    # Extract each reservation's path_pattern and agent_name
-    echo "$RESPONSE" | tr ',' '\n' | grep -E '"path_pattern"|"agent_name"' | \
-    while read -r line; do
-        case "$line" in
-            *"path_pattern"*)
-                PATTERN=$(echo "$line" | sed 's/.*"path_pattern"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
-                ;;
-            *"agent_name"*)
-                OWNER=$(echo "$line" | sed 's/.*"agent_name"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/')
-                # Check if this reservation applies to our file and is held by another agent
-                if [ -n "$PATTERN" ] && [ "$OWNER" != "$AGENT_NAME" ]; then
-                    # Check if file matches pattern (simple glob matching)
-                    case "$FILE" in
-                        $PATTERN)
-                            echo "CONFLICT:$FILE:$OWNER:$PATTERN"
-                            ;;
-                    esac
-                    # Also check if pattern ends with ** (directory match)
-                    case "$PATTERN" in
-                        *"/**")
-                            DIR_PREFIX="${PATTERN%/**}"
-                            case "$FILE" in
-                                "$DIR_PREFIX"/*)
-                                    echo "CONFLICT:$FILE:$OWNER:$PATTERN"
-                                    ;;
-                            esac
-                            ;;
-                    esac
-                fi
-                PATTERN=""
+    echo "$RESERVATIONS" | while IFS=: read -r PATTERN OWNER; do
+        [ -z "$PATTERN" ] && continue
+        [ "$OWNER" = "$AGENT_NAME" ] && continue
+        
+        MATCH=0
+        # Exact match
+        [ "$FILE" = "$PATTERN" ] && MATCH=1
+        # Glob pattern match
+        case "$FILE" in $PATTERN) MATCH=1 ;; esac
+        # Directory wildcard (**) match
+        case "$PATTERN" in
+            *"/**")
+                DIR_PREFIX="${PATTERN%/**}"
+                case "$FILE" in "$DIR_PREFIX"/*) MATCH=1 ;; esac
                 ;;
         esac
+        
+        [ "$MATCH" -eq 1 ] && echo "CONFLICT:$FILE:$OWNER:$PATTERN"
     done
 done > /tmp/precommit_conflicts_$$
 

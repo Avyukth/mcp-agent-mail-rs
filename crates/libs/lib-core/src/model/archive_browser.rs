@@ -374,6 +374,20 @@ impl ArchiveBrowserBmc {
         Ok((added, modified, deleted))
     }
 
+    /// Check if a path matches a pattern (supports exact match and `**` wildcards).
+    fn path_matches_pattern(path_str: &str, path_pattern: &str) -> bool {
+        if path_str == path_pattern {
+            return true;
+        }
+        if path_pattern.ends_with("**") {
+            let prefix = path_pattern.trim_end_matches("**");
+            if path_str.starts_with(prefix) {
+                return true;
+            }
+        }
+        false
+    }
+
     /// Check if a commit touched any file matching the given path pattern.
     fn commit_touches_path(
         repo: &git2::Repository,
@@ -382,6 +396,24 @@ impl ArchiveBrowserBmc {
     ) -> Result<bool> {
         if commit.parent_count() == 0 {
             let tree = commit.tree()?;
+            if path_pattern.contains('*') {
+                let mut found = false;
+                tree.walk(git2::TreeWalkMode::PreOrder, |dir, entry| {
+                    if let Some(name) = entry.name() {
+                        let full_path = if dir.is_empty() {
+                            name.to_string()
+                        } else {
+                            format!("{}{}", dir, name)
+                        };
+                        if Self::path_matches_pattern(&full_path, path_pattern) {
+                            found = true;
+                            return git2::TreeWalkResult::Abort;
+                        }
+                    }
+                    git2::TreeWalkResult::Ok
+                })?;
+                return Ok(found);
+            }
             return Ok(tree.get_path(std::path::Path::new(path_pattern)).is_ok());
         }
 
@@ -400,11 +432,7 @@ impl ArchiveBrowserBmc {
 
             for path_opt in [new_path, old_path].into_iter().flatten() {
                 let path_str = path_opt.to_string_lossy();
-                if path_str.starts_with(path_pattern)
-                    || path_pattern.ends_with("**")
-                        && path_str.starts_with(path_pattern.trim_end_matches("**"))
-                    || path_str == path_pattern
-                {
+                if Self::path_matches_pattern(&path_str, path_pattern) {
                     return Ok(true);
                 }
             }
