@@ -76,5 +76,9 @@ path = "tests/guard_integration.rs"
 name = "auth_rate_limit"
 path = "tests/auth_rate_limit.rs"
 
+[[test]]
+name = "contact_policy"
+path = "tests/contact_policy.rs"
+
 [lints]
 workspace = true
