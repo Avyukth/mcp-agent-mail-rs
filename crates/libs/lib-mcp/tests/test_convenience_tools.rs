@@ -1,6 +1,12 @@
 //! TDD Tests for convenience workflow tools
 //! Following extreme TDD: Tests written BEFORE implementation
 
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::redundant_field_names
+)]
+
 use lib_common::config::AppConfig;
 use lib_core::ctx::Ctx;
 use lib_core::model::{
@@ -99,7 +105,7 @@ async fn test_quick_standup_sends_to_all_agents() {
     }
 
     // RED: Test that we can list all agents (needed for standup broadcast)
-    let agents = AgentBmc::list_all_for_project(&ctx, &mm, project_id.into())
+    let agents = AgentBmc::list_all_for_project(&ctx, &mm, project_id)
         .await
         .unwrap();
     assert_eq!(agents.len(), 3, "Should have 3 agents");
@@ -215,8 +221,8 @@ async fn test_quick_review_reserves_files_and_sends_message() {
     use lib_core::model::file_reservation::{FileReservationBmc, FileReservationForCreate};
 
     let res_c = FileReservationForCreate {
-        project_id: project_id.into(),
-        agent_id: reviewer_id.into(),
+        project_id: project_id,
+        agent_id: reviewer_id,
         path_pattern: "src/main.rs".to_string(),
         exclusive: false, // Non-exclusive for review
         reason: "Code review".to_string(),

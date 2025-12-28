@@ -250,7 +250,134 @@ impl fmt::Display for ThreadId {
     }
 }
 
+// ============================================================================
+// Kani Formal Verification Proofs
+// ============================================================================
+//
+// Run with: cargo kani --package lib-core
+// These proofs mathematically verify type invariants and conversion safety.
+
+#[cfg(kani)]
+mod verification {
+    use super::*;
+
+    /// Proof: ProjectId roundtrip conversion is identity
+    #[kani::proof]
+    fn proof_project_id_roundtrip() {
+        let value: i64 = kani::any();
+        let id = ProjectId::new(value);
+        kani::assert(id.get() == value, "ProjectId roundtrip must preserve value");
+    }
+
+    /// Proof: ProjectId From<i64> and Into<i64> are inverses
+    #[kani::proof]
+    fn proof_project_id_from_into() {
+        let value: i64 = kani::any();
+        let id: ProjectId = value.into();
+        let back: i64 = id.into();
+        kani::assert(back == value, "From/Into must be inverses");
+    }
+
+    /// Proof: AgentId roundtrip conversion is identity
+    #[kani::proof]
+    fn proof_agent_id_roundtrip() {
+        let value: i64 = kani::any();
+        let id = AgentId::new(value);
+        kani::assert(id.get() == value, "AgentId roundtrip must preserve value");
+    }
+
+    /// Proof: AgentId From<i64> and Into<i64> are inverses
+    #[kani::proof]
+    fn proof_agent_id_from_into() {
+        let value: i64 = kani::any();
+        let id: AgentId = value.into();
+        let back: i64 = id.into();
+        kani::assert(back == value, "AgentId From/Into must be inverses");
+    }
+
+    /// Proof: AgentId equality is reflexive
+    #[kani::proof]
+    fn proof_agent_id_eq_reflexive() {
+        let value: i64 = kani::any();
+        let id = AgentId::new(value);
+        kani::assert(id == id, "AgentId equality must be reflexive");
+    }
+
+    /// Proof: Different values produce different AgentIds
+    #[kani::proof]
+    fn proof_agent_id_different() {
+        let a: i64 = kani::any();
+        let b: i64 = kani::any();
+        kani::assume(a != b);
+        let id_a = AgentId::new(a);
+        let id_b = AgentId::new(b);
+        kani::assert(
+            id_a != id_b,
+            "Different values must produce different AgentIds",
+        );
+    }
+
+    /// Proof: MessageId roundtrip conversion is identity
+    #[kani::proof]
+    fn proof_message_id_roundtrip() {
+        let value: i64 = kani::any();
+        let id = MessageId::new(value);
+        kani::assert(id.get() == value, "MessageId roundtrip must preserve value");
+    }
+
+    /// Proof: MessageId From<i64> and Into<i64> are inverses
+    #[kani::proof]
+    fn proof_message_id_from_into() {
+        let value: i64 = kani::any();
+        let id: MessageId = value.into();
+        let back: i64 = id.into();
+        kani::assert(back == value, "MessageId From/Into must be inverses");
+    }
+
+    /// Proof: MessageId equality is reflexive
+    #[kani::proof]
+    fn proof_message_id_eq_reflexive() {
+        let value: i64 = kani::any();
+        let id = MessageId::new(value);
+        kani::assert(id == id, "MessageId equality must be reflexive");
+    }
+
+    /// Proof: Different values produce different MessageIds
+    #[kani::proof]
+    fn proof_message_id_different() {
+        let a: i64 = kani::any();
+        let b: i64 = kani::any();
+        kani::assume(a != b);
+        let id_a = MessageId::new(a);
+        let id_b = MessageId::new(b);
+        kani::assert(
+            id_a != id_b,
+            "Different values must produce different MessageIds",
+        );
+    }
+
+    /// Proof: ProjectId equality is reflexive
+    #[kani::proof]
+    fn proof_project_id_eq_reflexive() {
+        let value: i64 = kani::any();
+        let id = ProjectId::new(value);
+        kani::assert(id == id, "ProjectId equality must be reflexive");
+    }
+
+    /// Proof: Different values produce different IDs
+    #[kani::proof]
+    fn proof_project_id_different() {
+        let a: i64 = kani::any();
+        let b: i64 = kani::any();
+        kani::assume(a != b);
+        let id_a = ProjectId::new(a);
+        let id_b = ProjectId::new(b);
+        kani::assert(id_a != id_b, "Different values must produce different IDs");
+    }
+}
+
 #[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::expect_used)]
 mod tests {
     use super::*;
 

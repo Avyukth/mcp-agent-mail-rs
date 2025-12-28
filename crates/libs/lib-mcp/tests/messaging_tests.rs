@@ -2,7 +2,11 @@
 //!
 //! Target: Full coverage for lib-mcp/src/tools/messaging.rs
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::redundant_field_names
+)]
 
 use lib_common::config::AppConfig;
 use lib_core::ctx::Ctx;
@@ -55,7 +59,7 @@ async fn setup_project_and_agents(mm: &Arc<ModelManager>) -> (i64, i64, i64, Str
         .unwrap();
 
     let sender_c = AgentForCreate {
-        project_id: project_id.into(),
+        project_id: project_id,
         name: "sender_agent".to_string(),
         program: "claude".to_string(),
         model: "opus".to_string(),
@@ -64,7 +68,7 @@ async fn setup_project_and_agents(mm: &Arc<ModelManager>) -> (i64, i64, i64, Str
     let sender_id = AgentBmc::create(&ctx, mm, sender_c).await.unwrap();
 
     let receiver_c = AgentForCreate {
-        project_id: project_id.into(),
+        project_id: project_id,
         name: "receiver_agent".to_string(),
         program: "claude".to_string(),
         model: "sonnet".to_string(),

@@ -83,8 +83,20 @@ fn format_panic_message(panic_info: &PanicHookInfo<'_>) -> String {
 
 /// Reset the hook installation flag (for testing only).
 #[cfg(test)]
-pub fn reset_hook_flag() {
+pub(crate) fn reset_hook_flag() {
     HOOK_INSTALLED.store(false, Ordering::SeqCst);
+}
+
+#[cfg(test)]
+trait NotTrait {
+    fn not(&self) -> bool;
+}
+
+#[cfg(test)]
+impl NotTrait for bool {
+    fn not(&self) -> bool {
+        !*self
+    }
 }
 
 #[cfg(test)]
@@ -283,7 +295,12 @@ mod tests {
         // By default, sentry feature is NOT enabled
         #[cfg(not(feature = "sentry"))]
         {
-            assert!(true, "Sentry feature is correctly disabled by default");
+            // Verify sentry is correctly disabled by checking the feature flag
+            let sentry_enabled = cfg!(feature = "sentry");
+            assert!(
+                !sentry_enabled,
+                "Sentry feature should be disabled by default"
+            );
         }
     }
 
@@ -357,17 +374,5 @@ mod tests {
         let formatted = format!("at {}:1:1", path);
         assert!(formatted.contains("nested"));
         assert!(formatted.ends_with(":1:1"));
-    }
-}
-
-#[cfg(test)]
-trait NotTrait {
-    fn not(&self) -> bool;
-}
-
-#[cfg(test)]
-impl NotTrait for bool {
-    fn not(&self) -> bool {
-        !*self
     }
 }

@@ -101,6 +101,72 @@ fn patterns_have_common_prefix(a: &str, b: &str) -> bool {
     a_starts_wild || b_starts_wild
 }
 
+// ============================================================================
+// Kani Formal Verification Proofs
+// ============================================================================
+//
+// Run with: cargo kani --package lib-core
+// These proofs mathematically verify safety properties of path conflict detection.
+
+#[cfg(kani)]
+mod verification {
+    use super::*;
+
+    /// Proof: paths_conflict is reflexive (a pattern always conflicts with itself)
+    #[kani::proof]
+    fn proof_paths_conflict_reflexive() {
+        let pattern: &str = kani::any();
+        kani::assume(pattern.len() < 64); // Bound input size for verification
+        kani::assume(!pattern.is_empty());
+
+        // A pattern must always conflict with itself
+        kani::assert(
+            paths_conflict(pattern, pattern),
+            "paths_conflict must be reflexive",
+        );
+    }
+
+    /// Proof: paths_conflict is symmetric (if a conflicts with b, then b conflicts with a)
+    #[kani::proof]
+    fn proof_paths_conflict_symmetric() {
+        let pattern_a: &str = kani::any();
+        let pattern_b: &str = kani::any();
+
+        kani::assume(pattern_a.len() < 32);
+        kani::assume(pattern_b.len() < 32);
+
+        let ab = paths_conflict(pattern_a, pattern_b);
+        let ba = paths_conflict(pattern_b, pattern_a);
+
+        kani::assert(ab == ba, "paths_conflict must be symmetric");
+    }
+
+    /// Proof: paths_conflict never panics on any input
+    #[kani::proof]
+    fn proof_paths_conflict_no_panic() {
+        let pattern_a: &str = kani::any();
+        let pattern_b: &str = kani::any();
+
+        kani::assume(pattern_a.len() < 64);
+        kani::assume(pattern_b.len() < 64);
+
+        // This should complete without panicking
+        let _ = paths_conflict(pattern_a, pattern_b);
+    }
+
+    /// Proof: patterns_have_common_prefix never panics
+    #[kani::proof]
+    fn proof_common_prefix_no_panic() {
+        let a: &str = kani::any();
+        let b: &str = kani::any();
+
+        kani::assume(a.len() < 32);
+        kani::assume(b.len() < 32);
+
+        let _ = patterns_have_common_prefix(a, b);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

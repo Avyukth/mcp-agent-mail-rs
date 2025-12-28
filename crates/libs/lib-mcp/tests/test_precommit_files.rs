@@ -1,7 +1,11 @@
 //! Tests for precommit guard and file reservation tool implementations
 //! Target: Improve coverage for precommit.rs and files.rs
 
-#![allow(clippy::unwrap_used, clippy::expect_used)]
+#![allow(
+    clippy::unwrap_used,
+    clippy::expect_used,
+    clippy::redundant_field_names
+)]
 
 use lib_common::config::AppConfig;
 use lib_core::ctx::Ctx;
@@ -55,7 +59,7 @@ async fn setup_project_and_agent_with_capability(mm: &Arc<ModelManager>) -> (i64
         .unwrap();
 
     let agent_c = AgentForCreate {
-        project_id: project_id.into(),
+        project_id: project_id,
         name: "file_agent".to_string(),
         program: "claude".to_string(),
         model: "opus".to_string(),
@@ -318,7 +322,7 @@ async fn test_reserve_file_impl_no_capability() {
         .unwrap();
 
     let agent_c = AgentForCreate {
-        project_id: project_id.into(),
+        project_id: project_id,
         name: "no_cap_agent".to_string(),
         program: "claude".to_string(),
         model: "opus".to_string(),
@@ -409,7 +413,7 @@ async fn test_release_reservation_impl_success() {
 
     // Release by ID
     let params = ReleaseReservationParams {
-        reservation_id: res_id.into(),
+        reservation_id: res_id,
     };
 
     let result = files::release_reservation_impl(&ctx, &mm, params).await;
@@ -443,7 +447,7 @@ async fn test_renew_file_reservation_impl_success() {
 
     // Renew with longer TTL
     let params = RenewFileReservationParams {
-        reservation_id: res_id.into(),
+        reservation_id: res_id,
         ttl_seconds: Some(3600),
     };
 
@@ -478,7 +482,7 @@ async fn test_force_release_reservation_impl_success() {
 
     // Force release by ID
     let params = ForceReleaseReservationParams {
-        reservation_id: res_id.into(),
+        reservation_id: res_id,
     };
 
     let result = files::force_release_reservation_impl(&ctx, &mm, params).await;
