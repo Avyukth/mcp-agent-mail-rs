@@ -286,12 +286,74 @@ mod verification {
         kani::assert(id.get() == value, "AgentId roundtrip must preserve value");
     }
 
+    /// Proof: AgentId From<i64> and Into<i64> are inverses
+    #[kani::proof]
+    fn proof_agent_id_from_into() {
+        let value: i64 = kani::any();
+        let id: AgentId = value.into();
+        let back: i64 = id.into();
+        kani::assert(back == value, "AgentId From/Into must be inverses");
+    }
+
+    /// Proof: AgentId equality is reflexive
+    #[kani::proof]
+    fn proof_agent_id_eq_reflexive() {
+        let value: i64 = kani::any();
+        let id = AgentId::new(value);
+        kani::assert(id == id, "AgentId equality must be reflexive");
+    }
+
+    /// Proof: Different values produce different AgentIds
+    #[kani::proof]
+    fn proof_agent_id_different() {
+        let a: i64 = kani::any();
+        let b: i64 = kani::any();
+        kani::assume(a != b);
+        let id_a = AgentId::new(a);
+        let id_b = AgentId::new(b);
+        kani::assert(
+            id_a != id_b,
+            "Different values must produce different AgentIds",
+        );
+    }
+
     /// Proof: MessageId roundtrip conversion is identity
     #[kani::proof]
     fn proof_message_id_roundtrip() {
         let value: i64 = kani::any();
         let id = MessageId::new(value);
         kani::assert(id.get() == value, "MessageId roundtrip must preserve value");
+    }
+
+    /// Proof: MessageId From<i64> and Into<i64> are inverses
+    #[kani::proof]
+    fn proof_message_id_from_into() {
+        let value: i64 = kani::any();
+        let id: MessageId = value.into();
+        let back: i64 = id.into();
+        kani::assert(back == value, "MessageId From/Into must be inverses");
+    }
+
+    /// Proof: MessageId equality is reflexive
+    #[kani::proof]
+    fn proof_message_id_eq_reflexive() {
+        let value: i64 = kani::any();
+        let id = MessageId::new(value);
+        kani::assert(id == id, "MessageId equality must be reflexive");
+    }
+
+    /// Proof: Different values produce different MessageIds
+    #[kani::proof]
+    fn proof_message_id_different() {
+        let a: i64 = kani::any();
+        let b: i64 = kani::any();
+        kani::assume(a != b);
+        let id_a = MessageId::new(a);
+        let id_b = MessageId::new(b);
+        kani::assert(
+            id_a != id_b,
+            "Different values must produce different MessageIds",
+        );
     }
 
     /// Proof: ProjectId equality is reflexive
