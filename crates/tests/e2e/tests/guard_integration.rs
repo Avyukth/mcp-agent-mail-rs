@@ -296,8 +296,12 @@ async fn test_guard_blocks_on_active_reservation() {
     )
     .await;
 
-    // Either fails (conflict) or succeeds (tracked separately)
+    // Either fails (conflict) or succeeds (tracked separately) - both are valid
     if res2.is_err() {
+        assert!(
+            res1.is_ok(),
+            "When second reservation is blocked, first should have succeeded"
+        );
         println!("✓ Guard correctly blocked: second agent cannot reserve same file");
     } else {
         // Check that both reservations exist (conflict tracking)
@@ -383,8 +387,11 @@ async fn test_guard_glob_overlap_detection() {
     let has_specific = res_list.iter().any(|r| r.path_pattern == "src/lib.rs");
 
     if res2.is_err() {
-        // Overlap detected and blocked
         assert!(has_glob, "Original glob reservation should exist");
+        assert!(
+            !has_specific,
+            "When overlap is blocked, specific file reservation should not exist"
+        );
         println!("✓ Guard blocked overlapping reservation");
     } else {
         // Both tracked - verify overlap detection
@@ -448,8 +455,11 @@ async fn test_prepush_blocks_pending_reviews() {
             match pending_resp {
                 Ok(r) if r.status().is_success() => {
                     let body = r.text().await.unwrap_or_default();
+                    let is_valid_array = body.trim().starts_with('[')
+                        && body.trim().ends_with(']')
+                        && body.trim() != "[]";
                     assert!(
-                        !body.is_empty() && body.contains("["),
+                        is_valid_array,
                         "Should have pending reviews (non-empty JSON array), got: {}",
                         body
                     );
@@ -793,9 +803,19 @@ async fn test_guard_respects_expiration() {
     )
     .await;
 
-    // The critical assertion: either res2 succeeds (expiration honored)
+    // Critical assertion: either res2 succeeds (expiration honored)
     // OR res2 fails but after_count is 0 (expired but cleanup pending)
     if res2.is_ok() {
+        let final_reservations = list_reservations(&client, &config, &project.slug)
+            .await
+            .expect("Should list final reservations");
+        let waiting_agent_has_reservation = final_reservations
+            .iter()
+            .any(|r| r.path_pattern == "src/expiring.rs");
+        assert!(
+            waiting_agent_has_reservation,
+            "WaitingAgent should have the reservation after expiration"
+        );
         println!("✓ Second agent successfully reserved file after expiration");
     } else {
         assert_eq!(

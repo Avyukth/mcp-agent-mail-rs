@@ -297,9 +297,15 @@ async fn test_message_dependency_chain() {
         }
     };
 
-    let _ = register_agent(&client, &config, &project.slug, "ChainAgent1").await;
-    let _ = register_agent(&client, &config, &project.slug, "ChainAgent2").await;
-    let _ = register_agent(&client, &config, &project.slug, "ChainAgent3").await;
+    register_agent(&client, &config, &project.slug, "ChainAgent1")
+        .await
+        .expect("ChainAgent1 registration should succeed");
+    register_agent(&client, &config, &project.slug, "ChainAgent2")
+        .await
+        .expect("ChainAgent2 registration should succeed");
+    register_agent(&client, &config, &project.slug, "ChainAgent3")
+        .await
+        .expect("ChainAgent3 registration should succeed");
 
     // A sends to B
     let msg1 = send_message(
@@ -386,8 +392,12 @@ async fn test_file_reservation_conflict() {
         }
     };
 
-    let _ = register_agent(&client, &config, &project.slug, "ReserveAgent1").await;
-    let _ = register_agent(&client, &config, &project.slug, "ReserveAgent2").await;
+    register_agent(&client, &config, &project.slug, "ReserveAgent1")
+        .await
+        .expect("ReserveAgent1 registration should succeed");
+    register_agent(&client, &config, &project.slug, "ReserveAgent2")
+        .await
+        .expect("ReserveAgent2 registration should succeed");
 
     // Agent1 reserves src/lib.rs
     let res1 = reserve_files(
@@ -412,33 +422,45 @@ async fn test_file_reservation_conflict() {
     .await;
 
     // Conflict detection - either error (blocked) or success (conflict tracked)
-    if res2.is_err() {
-        println!("✓ Conflict detected: reservation blocked for Agent2");
-    } else {
-        // System allows but tracks conflicts - verify both reservations exist
-        let reservations = match fetch_reservations(&client, &config, &project.slug).await {
-            Ok(r) => r,
-            Err(e) => {
-                panic!(
-                    "Should list reservations to verify conflict tracking: {}",
-                    e
-                );
-            }
-        };
-        let conflict_count = reservations
-            .iter()
-            .filter(|r| r.paths.contains(&"src/lib.rs".to_string()))
-            .count();
-        assert!(
-            conflict_count >= 2,
-            "System should track both conflicting reservations, found {}",
-            conflict_count
-        );
-        println!(
-            "✓ Conflict tracked: {} reservations for same path",
-            conflict_count
-        );
+    // Both outcomes are valid conflict handling strategies
+    match res2 {
+        Err(_) => {
+            // System blocked the conflicting reservation - this is valid conflict handling
+            println!("✓ Conflict detected: reservation blocked for Agent2");
+        }
+        Ok(_) => {
+            // System allows but tracks conflicts - verify both reservations exist
+            let reservations = fetch_reservations(&client, &config, &project.slug)
+                .await
+                .expect("Should list reservations to verify conflict tracking");
+
+            let conflict_count = reservations
+                .iter()
+                .filter(|r| r.paths.contains(&"src/lib.rs".to_string()))
+                .count();
+            assert!(
+                conflict_count >= 2,
+                "System should track both conflicting reservations, found {}",
+                conflict_count
+            );
+            println!(
+                "✓ Conflict tracked: {} reservations for same path",
+                conflict_count
+            );
+        }
     }
+
+    // Verify at least one reservation exists for the contested path
+    let final_reservations = fetch_reservations(&client, &config, &project.slug)
+        .await
+        .expect("Should fetch final reservations");
+    let has_reservation = final_reservations
+        .iter()
+        .any(|r| r.paths.contains(&"src/lib.rs".to_string()));
+    assert!(
+        has_reservation,
+        "At least one reservation should exist for src/lib.rs"
+    );
 }
 
 // ============================================================================
@@ -458,9 +480,10 @@ async fn test_concurrent_inbox_no_deadlock() {
         }
     };
 
-    // Register agents
     for i in 1..=5 {
-        let _ = register_agent(&client, &config, &project.slug, &format!("InboxAgent{}", i)).await;
+        register_agent(&client, &config, &project.slug, &format!("InboxAgent{}", i))
+            .await
+            .unwrap_or_else(|e| panic!("InboxAgent{} registration should succeed: {}", i, e));
     }
 
     // Send some messages to create inbox content
@@ -543,7 +566,9 @@ async fn test_broadcast_to_all_agents() {
 
     let agents = ["BroadcastSender", "Receiver1", "Receiver2", "Receiver3"];
     for agent in &agents {
-        let _ = register_agent(&client, &config, &project.slug, agent).await;
+        register_agent(&client, &config, &project.slug, agent)
+            .await
+            .unwrap_or_else(|e| panic!("{} registration should succeed: {}", agent, e));
     }
 
     // Sender broadcasts to all receivers
@@ -599,9 +624,15 @@ async fn test_parallel_file_claims_different_paths() {
         }
     };
 
-    let _ = register_agent(&client, &config, &project.slug, "PathAgent1").await;
-    let _ = register_agent(&client, &config, &project.slug, "PathAgent2").await;
-    let _ = register_agent(&client, &config, &project.slug, "PathAgent3").await;
+    register_agent(&client, &config, &project.slug, "PathAgent1")
+        .await
+        .expect("PathAgent1 registration should succeed");
+    register_agent(&client, &config, &project.slug, "PathAgent2")
+        .await
+        .expect("PathAgent2 registration should succeed");
+    register_agent(&client, &config, &project.slug, "PathAgent3")
+        .await
+        .expect("PathAgent3 registration should succeed");
 
     // Concurrent reservations on different paths - should all succeed
     let mut handles = Vec::new();
@@ -661,10 +692,11 @@ async fn test_build_slot_contention() {
         }
     };
 
-    // Register multiple agents that will compete for the SAME build slot
     let agents = ["BuildAgent1", "BuildAgent2", "BuildAgent3"];
     for agent in &agents {
-        let _ = register_agent(&client, &config, &project.slug, agent).await;
+        register_agent(&client, &config, &project.slug, agent)
+            .await
+            .unwrap_or_else(|e| panic!("{} registration should succeed: {}", agent, e));
     }
 
     // All agents try to reserve the SAME path to create actual contention
@@ -718,14 +750,26 @@ async fn test_build_slot_contention() {
         "All 3 reservation attempts should complete"
     );
 
-    // Contention is detected if: failures > 0 OR all succeeded (conflicts tracked separately)
+    // Verify contention handling: either some were blocked OR all were tracked
+    assert!(
+        failures > 0 || successes == 3,
+        "Contention must either block some requests (failures > 0) or track all (successes == 3)"
+    );
+
     if failures > 0 {
+        assert!(
+            successes >= 1,
+            "At least one agent should successfully reserve when contention blocks others"
+        );
         println!(
             "✓ Build slot contention detected: {} succeeded, {} blocked",
             successes, failures
         );
     } else {
-        // All succeeded - verify system tracks multiple reservations
+        assert_eq!(
+            successes, 3,
+            "When no failures occur, all 3 reservations should be tracked"
+        );
         println!(
             "✓ Build slot contention tracked: {} reservations on same path",
             successes
@@ -758,7 +802,9 @@ async fn test_threaded_conversation_five_agents() {
         "ThreadAgent5",
     ];
     for agent in &agents {
-        let _ = register_agent(&client, &config, &project.slug, agent).await;
+        register_agent(&client, &config, &project.slug, agent)
+            .await
+            .unwrap_or_else(|e| panic!("{} registration should succeed: {}", agent, e));
     }
 
     // Agent1 starts thread
@@ -841,9 +887,15 @@ async fn test_agent_leaves_mid_conversation() {
         }
     };
 
-    let _ = register_agent(&client, &config, &project.slug, "StayingAgent1").await;
-    let _ = register_agent(&client, &config, &project.slug, "LeavingAgent").await;
-    let _ = register_agent(&client, &config, &project.slug, "StayingAgent2").await;
+    register_agent(&client, &config, &project.slug, "StayingAgent1")
+        .await
+        .expect("StayingAgent1 registration should succeed");
+    register_agent(&client, &config, &project.slug, "LeavingAgent")
+        .await
+        .expect("LeavingAgent registration should succeed");
+    register_agent(&client, &config, &project.slug, "StayingAgent2")
+        .await
+        .expect("StayingAgent2 registration should succeed");
 
     // Start conversation
     let msg1 = send_message(
@@ -924,8 +976,12 @@ async fn test_message_ordering_preserved() {
         }
     };
 
-    let _ = register_agent(&client, &config, &project.slug, "OrderSender").await;
-    let _ = register_agent(&client, &config, &project.slug, "OrderReceiver").await;
+    register_agent(&client, &config, &project.slug, "OrderSender")
+        .await
+        .expect("OrderSender registration should succeed");
+    register_agent(&client, &config, &project.slug, "OrderReceiver")
+        .await
+        .expect("OrderReceiver registration should succeed");
 
     // Send messages in sequence with distinct subjects
     let message_subjects = [
@@ -1011,9 +1067,12 @@ async fn test_agent_reconnect_preserves_inbox() {
     let reconnect_agent = "ReconnectAgent";
     let sender_agent = "SenderForReconnect";
 
-    // Initial registration
-    let _ = register_agent(&client, &config, &project.slug, reconnect_agent).await;
-    let _ = register_agent(&client, &config, &project.slug, sender_agent).await;
+    register_agent(&client, &config, &project.slug, reconnect_agent)
+        .await
+        .expect("ReconnectAgent initial registration should succeed");
+    register_agent(&client, &config, &project.slug, sender_agent)
+        .await
+        .expect("SenderForReconnect registration should succeed");
 
     // Send message to the agent
     let _ = send_message(
@@ -1079,7 +1138,9 @@ async fn test_stress_100_messages_5_agents() {
     ];
 
     for agent in &agents {
-        let _ = register_agent(&client, &config, &project.slug, agent).await;
+        register_agent(&client, &config, &project.slug, agent)
+            .await
+            .unwrap_or_else(|e| panic!("{} registration should succeed: {}", agent, e));
     }
 
     let success_count = Arc::new(Mutex::new(0u32));

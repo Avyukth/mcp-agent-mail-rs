@@ -161,17 +161,22 @@ async fn test_valid_bearer_token_succeeds() {
             if status.is_success() {
                 println!("✓ Valid bearer token accepted (status={})", status);
             } else if status == StatusCode::UNAUTHORIZED {
-                // Token doesn't match server config - this is a test configuration error
                 panic!(
                     "Bearer token rejected - ensure TEST_BEARER_TOKEN matches server's HTTP_BEARER_TOKEN"
                 );
+            } else if status == StatusCode::FORBIDDEN {
+                panic!("Bearer token forbidden (403) - token may lack required permissions");
             } else {
-                // Other status codes are acceptable (e.g., 404 if endpoint doesn't exist)
+                assert!(
+                    !status.is_client_error(),
+                    "Valid bearer token should not result in client error, got {}",
+                    status
+                );
                 println!("✓ Request processed (status={})", status);
             }
         }
         Err(e) => {
-            println!("⚠ Skipping test - API server not running: {}", e);
+            panic!("API server not running or unreachable: {}", e);
         }
     }
 }
@@ -349,20 +354,16 @@ async fn test_rate_limit_exceeded_returns_429() {
         }
     }
 
-    if hit_rate_limit {
-        println!(
-            "✓ Rate limit correctly triggered after {} requests",
-            requests_sent
-        );
-    } else {
-        // Rate limiting not enabled - skip test with informative message
-        println!(
-            "⚠ Skipping assertion - rate limit not triggered after {} requests",
-            requests_sent
-        );
-        println!("  To test rate limiting, configure server with: HTTP_RATE_LIMIT_ENABLED=true");
-        // Don't fail - rate limiting is optional, but log clearly
-    }
+    assert!(
+        hit_rate_limit,
+        "Rate limit should be triggered after {} requests. \
+         If rate limiting is disabled, enable with: HTTP_RATE_LIMIT_ENABLED=true HTTP_RATE_LIMIT_RPS=50",
+        requests_sent
+    );
+    println!(
+        "✓ Rate limit correctly triggered after {} requests",
+        requests_sent
+    );
 }
 
 /// Test: Rate limit should reset after time window passes

@@ -409,25 +409,24 @@ async fn test_grant_contact_enables_cross_project() {
 
     match list_resp {
         Ok(resp) => {
-            if resp.status().is_success() {
-                let contacts: Vec<ContactResponse> = match resp.json().await {
-                    Ok(c) => c,
-                    Err(e) => {
-                        println!("⚠ Failed to parse contacts list: {}", e);
-                        return;
-                    }
-                };
-                if contacts.iter().any(|c| c.status == "accepted") {
-                    println!("✓ Contact appears in list with accepted status");
-                } else {
-                    println!("⚠ Contact not found or not accepted");
-                }
-            } else {
-                println!("⚠ List contacts failed: {}", resp.status());
-            }
+            assert!(
+                resp.status().is_success(),
+                "List contacts should succeed, got {}",
+                resp.status()
+            );
+            let contacts: Vec<ContactResponse> = resp
+                .json()
+                .await
+                .expect("Should parse contacts list response");
+            assert!(
+                contacts.iter().any(|c| c.status == "accepted"),
+                "Contact should appear in list with accepted status, found: {:?}",
+                contacts.iter().map(|c| &c.status).collect::<Vec<_>>()
+            );
+            println!("✓ Contact appears in list with accepted status");
         }
         Err(e) => {
-            println!("⚠ Request failed: {}", e);
+            panic!("Request should not fail: {}", e);
         }
     }
 }
@@ -530,7 +529,7 @@ async fn test_revoke_contact_blocks_messaging() {
         .send()
         .await;
 
-    match revoke_resp {
+    let revoke_succeeded = match revoke_resp {
         Ok(resp) => {
             if resp.status().is_success() {
                 let rr: RespondContactResponse = match resp.json().await {
@@ -544,12 +543,52 @@ async fn test_revoke_contact_blocks_messaging() {
                     "✓ Contact revoked: link_id={}, status={}",
                     rr.link_id, rr.status
                 );
+                true
             } else {
                 println!("⚠ Revoke response status: {}", resp.status());
+                false
             }
         }
         Err(e) => {
             println!("⚠ Revoke request failed: {}", e);
+            return;
+        }
+    };
+
+    if !revoke_succeeded {
+        println!("⚠ Revoke did not succeed, skipping messaging block verification");
+        return;
+    }
+
+    // Verify that messaging is now blocked after revocation
+    // Agent B tries to message Agent A (whose contact was revoked)
+    let message_resp = client
+        .post(format!("{}/api/message/send", config.api_url))
+        .json(&json!({
+            "project_slug": project_b.slug,
+            "sender_name": agent_b_name,
+            "recipient_names": [agent_a_name],
+            "subject": "Post-revocation message",
+            "body_md": "This message should be blocked after contact revocation."
+        }))
+        .send()
+        .await;
+
+    match message_resp {
+        Ok(resp) => {
+            let status = resp.status();
+            assert!(
+                !status.is_success(),
+                "Messaging should be blocked after contact revocation, but succeeded with status {}",
+                status
+            );
+            println!(
+                "✓ Messaging correctly blocked after contact revocation: {}",
+                status
+            );
+        }
+        Err(e) => {
+            panic!("Message request should not fail: {}", e);
         }
     }
 }
@@ -667,19 +706,15 @@ async fn test_cannot_contact_self() {
     match response {
         Ok(resp) => {
             let status = resp.status();
-            // Self-contact should be blocked or return error
-            if status == StatusCode::BAD_REQUEST || !status.is_success() {
-                println!("✓ Self-contact correctly blocked: {}", status);
-            } else {
-                // Even if it succeeds, it's not useful - a warning
-                println!(
-                    "⚠ Self-contact was allowed (status={}), but should be blocked",
-                    status
-                );
-            }
+            assert!(
+                status == StatusCode::BAD_REQUEST || !status.is_success(),
+                "Self-contact should be blocked with 400 or error status, but got {}",
+                status
+            );
+            println!("✓ Self-contact correctly blocked: {}", status);
         }
         Err(e) => {
-            println!("⚠ Request failed: {}", e);
+            panic!("Request should not fail: {}", e);
         }
     }
 }
