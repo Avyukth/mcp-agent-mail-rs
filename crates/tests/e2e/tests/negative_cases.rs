@@ -631,7 +631,10 @@ async fn test_path_traversal_blocked() {
                 }
             }
             Err(e) => {
-                panic!("Request failed for path traversal attempt '{}': {}", attempt, e);
+                panic!(
+                    "Request failed for path traversal attempt '{}': {}",
+                    attempt, e
+                );
             }
         }
     }
@@ -707,13 +710,18 @@ async fn test_sql_injection_sanitized() {
     }
 
     let verify_resp = client
-        .get(format!("{}/api/projects/{}/agents", config.api_url, project.slug))
+        .get(format!(
+            "{}/api/projects/{}/agents",
+            config.api_url, project.slug
+        ))
         .send()
         .await;
 
     match verify_resp {
         Ok(resp) if resp.status().is_success() => {
-            println!("✓ Database still accessible after injection attempts - parameterized queries working");
+            println!(
+                "✓ Database still accessible after injection attempts - parameterized queries working"
+            );
         }
         Ok(resp) => {
             panic!(
@@ -722,7 +730,10 @@ async fn test_sql_injection_sanitized() {
             );
         }
         Err(e) => {
-            panic!("Database verification failed after SQL injection attempts: {}", e);
+            panic!(
+                "Database verification failed after SQL injection attempts: {}",
+                e
+            );
         }
     }
 }
