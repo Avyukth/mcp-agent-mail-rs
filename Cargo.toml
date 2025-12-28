@@ -98,6 +98,8 @@ unsafe_op_in_unsafe_fn = "warn"  # Require unsafe blocks in unsafe fns
 unused_must_use = "deny"
 # Visibility
 unreachable_pub = "warn"  # Flag unnecessarily pub items
+# Formal verification: allow cfg(kani) for Kani proof harnesses
+unexpected_cfgs = { level = "warn", check-cfg = ['cfg(kani)'] }
 
 [workspace.lints.clippy]
 # Production safety - deny unwrap() to prevent panics in production code
