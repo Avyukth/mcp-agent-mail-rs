@@ -48,12 +48,12 @@ find_mcp_binaries() {
     log_info "Locating MCP server binaries..."
 
     # Find stdio server
-    if command -v mcp-stdio-server &> /dev/null; then
-        MCP_STDIO_PATH=$(which mcp-stdio-server)
+    if command -v mouchak-mail-stdio &> /dev/null; then
+        MCP_STDIO_PATH=$(which mouchak-mail-stdio)
     else
         local stdio_paths=(
-            "$PROJECT_ROOT/target/release/mcp-stdio-server"
-            "$PROJECT_ROOT/target/debug/mcp-stdio-server"
+            "$PROJECT_ROOT/target/release/mouchak-mail-stdio"
+            "$PROJECT_ROOT/target/debug/mouchak-mail-stdio"
         )
         for path in "${stdio_paths[@]}"; do
             if [[ -x "$path" ]]; then
@@ -64,12 +64,12 @@ find_mcp_binaries() {
     fi
 
     # Find HTTP server
-    if command -v mcp-server &> /dev/null; then
-        MCP_HTTP_PATH=$(which mcp-server)
+    if command -v mouchak-mail-http &> /dev/null; then
+        MCP_HTTP_PATH=$(which mouchak-mail-http)
     else
         local http_paths=(
-            "$PROJECT_ROOT/target/release/mcp-server"
-            "$PROJECT_ROOT/target/debug/mcp-server"
+            "$PROJECT_ROOT/target/release/mouchak-mail-http"
+            "$PROJECT_ROOT/target/debug/mouchak-mail-http"
         )
         for path in "${http_paths[@]}"; do
             if [[ -x "$path" ]]; then
@@ -80,15 +80,15 @@ find_mcp_binaries() {
     fi
 
     if [[ -n "${MCP_STDIO_PATH:-}" ]]; then
-        log_success "Found mcp-stdio-server: $MCP_STDIO_PATH"
+        log_success "Found mouchak-mail-stdio: $MCP_STDIO_PATH"
     else
-        log_warn "mcp-stdio-server not found"
+        log_warn "mouchak-mail-stdio not found"
     fi
 
     if [[ -n "${MCP_HTTP_PATH:-}" ]]; then
-        log_success "Found mcp-server: $MCP_HTTP_PATH"
+        log_success "Found mouchak-mail-http: $MCP_HTTP_PATH"
     else
-        log_warn "mcp-server not found"
+        log_warn "mouchak-mail-http not found"
     fi
 
     if [[ -z "${MCP_STDIO_PATH:-}" ]] && [[ -z "${MCP_HTTP_PATH:-}" ]]; then

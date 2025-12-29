@@ -74,31 +74,31 @@ detect_copilot() {
 find_mcp_server() {
     log_info "Locating MCP server binary..."
 
-    # Check if mcp-server (HTTP) is in PATH
-    if command -v mcp-server &> /dev/null; then
-        MCP_SERVER_PATH=$(which mcp-server)
-        log_success "Found mcp-server: $MCP_SERVER_PATH"
+    # Check if mouchak-mail-http (HTTP) is in PATH
+    if command -v mouchak-mail-http &> /dev/null; then
+        MCP_SERVER_PATH=$(which mouchak-mail-http)
+        log_success "Found mouchak-mail-http: $MCP_SERVER_PATH"
         SERVER_TYPE="http"
         return 0
     fi
 
     # Check project build directories
     local target_paths=(
-        "$PROJECT_ROOT/target/release/mcp-server"
-        "$PROJECT_ROOT/target/debug/mcp-server"
+        "$PROJECT_ROOT/target/release/mouchak-mail-http"
+        "$PROJECT_ROOT/target/debug/mouchak-mail-http"
     )
 
     for path in "${target_paths[@]}"; do
         if [[ -x "$path" ]]; then
             MCP_SERVER_PATH="$path"
-            log_success "Found mcp-server: $MCP_SERVER_PATH"
+            log_success "Found mouchak-mail-http: $MCP_SERVER_PATH"
             SERVER_TYPE="http"
             return 0
         fi
     done
 
-    log_error "mcp-server not found!"
-    echo "  Build it with: cd $PROJECT_ROOT && cargo build --release -p mcp-server"
+    log_error "mouchak-mail-http not found!"
+    echo "  Build it with: cd $PROJECT_ROOT && cargo build --release -p mouchak-mail-http"
     exit 1
 }
 

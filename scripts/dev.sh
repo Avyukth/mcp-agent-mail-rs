@@ -22,7 +22,7 @@ command -v cargo >/dev/null 2>&1 || { echo "cargo is required but not installed.
 command -v bun >/dev/null 2>&1 || { echo "bun is required but not installed. Aborting."; exit 1; }
 
 # Build if needed
-if [ ! -f "target/debug/mcp-server" ]; then
+if [ ! -f "target/debug/mouchak-mail-http" ]; then
     echo -e "${GREEN}Building Rust components...${NC}"
     cargo build --workspace
 fi
@@ -46,7 +46,7 @@ echo ""
 trap 'kill 0' EXIT
 
 # Start API server in background
-cargo run -p mcp-server 2>&1 | sed 's/^/[API] /' &
+cargo run -p mouchak-mail-http 2>&1 | sed 's/^/[API] /' &
 
 # Wait for API to be ready
 sleep 2

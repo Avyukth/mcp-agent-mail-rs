@@ -34,7 +34,7 @@ if [[ -z "${PROJECT}" || -z "${AGENT}" ]]; then
 fi
 
 # Rate limiting using temp file
-RATE_FILE="/tmp/mcp-mail-codex-${AGENT//[^a-zA-Z0-9]/_}"
+RATE_FILE="/tmp/mouchak-mail-codex-${AGENT//[^a-zA-Z0-9]/_}"
 NOW=$(date +%s)
 
 if [[ -f "${RATE_FILE}" ]]; then

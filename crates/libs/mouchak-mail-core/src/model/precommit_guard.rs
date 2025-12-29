@@ -512,7 +512,7 @@ fi
 SERVER_URL="${MOUCHAK_MAIL_URL:-${API_URL:-http://localhost:8765}}"
 
 # Get project slug from env or derive from git root
-if [ -z "$MOUCHAK_MAIL_PROJECT_SLUG" ]; then
+if [ -z "$MOUCHAK_MAIL_PROJECT" ]; then
     GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
     if [ -z "$GIT_ROOT" ]; then
         echo "Warning: Not in a git repository, skipping reservation check" >&2
@@ -521,7 +521,7 @@ if [ -z "$MOUCHAK_MAIL_PROJECT_SLUG" ]; then
     # URL-safe slug: replace / with - and remove leading -
     PROJECT_SLUG=$(echo "$GIT_ROOT" | sed 's|^/||; s|/|-|g')
 else
-    PROJECT_SLUG="$MOUCHAK_MAIL_PROJECT_SLUG"
+    PROJECT_SLUG="$MOUCHAK_MAIL_PROJECT"
 fi
 
 # Get guard mode (enforce, warn, or advisory)
