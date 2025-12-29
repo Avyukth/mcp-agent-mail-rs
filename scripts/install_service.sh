@@ -2,8 +2,8 @@
 set -e
 
 # Configuration
-BIN_NAME="mcp-agent-mail"
-SERVICE_NAME="mcp-agent-mail"
+BIN_NAME="mouchak-mail"
+SERVICE_NAME="mouchak-mail"
 INSTALL_DIR="/opt/mouchak/bin"
 BINARY_PATH="./target/release/${BIN_NAME}" # Assumes running from repo root
 INSTALL_BIN="${INSTALL_DIR}/${BIN_NAME}"

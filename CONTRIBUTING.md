@@ -1,4 +1,4 @@
-# Contributing to MCP Agent Mail
+# Contributing to Mouchak Mail
 
 We use strictly enforced quality gates.
 

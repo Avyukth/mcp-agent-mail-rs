@@ -73,8 +73,8 @@ These tools work across ALL projects. Learn them once, use them everywhere.
 | **Bug scan before commit** | ubs | `ubs $(git diff --name-only --cached)` |
 | **Structural code search** | ast-grep | `ast-grep run -l <lang> -p 'pattern'` |
 | **Text search** | ripgrep | `rg "pattern"` |
-| **Multi-agent coordination** | MCP Agent Mail | `file_reservation_paths(...)` |
-| **AI capability discovery** | mcp-agent-mail | `--robot-help`, `--robot-examples`, `--robot-status` |
+| **Multi-agent coordination** | Mouchak Mail | `file_reservation_paths(...)` |
+| **AI capability discovery** | mouchak-mail | `--robot-help`, `--robot-examples`, `--robot-status` |
 
 ---
 
@@ -559,47 +559,47 @@ ubs .
 
 ---
 
-### 🤝 MCP Agent Mail — Multi-Agent Coordination
+### 🤝 Mouchak Mail — Multi-Agent Coordination
 
 **What it does**: Production-grade async coordination for multi-agent workflows via messaging, file reservations, and build slot management. Provides "Gmail for coding agents" — 45 MCP tools for agent coordination.
 
-**IMPORTANT**: MCP Agent Mail is available as an **MCP server**. Do NOT treat it as a CLI you must shell out to. If MCP tools are not available, flag to the user — they may need to start the server.
+**IMPORTANT**: Mouchak Mail is available as an **MCP server**. Do NOT treat it as a CLI you must shell out to. If MCP tools are not available, flag to the user — they may need to start the server.
 
 **Server**: `http://localhost:8765`
 
 #### Starting the Server
 
 ```bash
-# Option 1: Using the 'am' alias (after running: mcp-agent-mail install alias)
+# Option 1: Using the 'am' alias (after running: mouchak-mail install alias)
 am
 
 # Option 2: Direct CLI
-mcp-agent-mail serve http
+mouchak-mail serve http
 
 # Option 3: With custom port
-mcp-agent-mail serve http --port 9000
+mouchak-mail serve http --port 9000
 
 # Option 4: MCP stdio mode (for Claude Desktop integration)
-mcp-agent-mail serve mcp --transport stdio
+mouchak-mail serve mcp --transport stdio
 
 # Option 5: MCP SSE mode
-mcp-agent-mail serve mcp --transport sse --port 3000
+mouchak-mail serve mcp --transport sse --port 3000
 ```
 
 #### Server Management
 
 ```bash
 # Check if server is running
-mcp-agent-mail service status --port 8765
+mouchak-mail service status --port 8765
 
 # Stop the server
-mcp-agent-mail service stop --port 8765
+mouchak-mail service stop --port 8765
 
 # Restart the server
-mcp-agent-mail service restart --port 8765
+mouchak-mail service restart --port 8765
 
 # Health check
-mcp-agent-mail health --url http://localhost:8765
+mouchak-mail health --url http://localhost:8765
 ```
 
 #### Agent Self-Discovery (Robot Commands)
@@ -715,7 +715,7 @@ curl http://localhost:8765/api/locks
 am
 
 # Or direct CLI
-mcp-agent-mail serve http --port 8765
+mouchak-mail serve http --port 8765
 ```
 
 **Step 2: Register Identity (via MCP tools)**
@@ -900,36 +900,36 @@ The pre-commit guard prevents commits that conflict with file reservations. Inst
 
 ```bash
 # Create a backup archive
-mcp-agent-mail archive save --label "pre-refactor"
-mcp-agent-mail archive save --include-git  # Include git storage
+mouchak-mail archive save --label "pre-refactor"
+mouchak-mail archive save --include-git  # Include git storage
 
 # List available restore points
-mcp-agent-mail archive list
-mcp-agent-mail archive list --json
+mouchak-mail archive list
+mouchak-mail archive list --json
 
 # Restore from archive
-mcp-agent-mail archive restore data/archives/archive_pre-refactor_20250101_120000.zip
-mcp-agent-mail archive restore <file> --yes  # Skip confirmation
+mouchak-mail archive restore data/archives/archive_pre-refactor_20250101_120000.zip
+mouchak-mail archive restore <file> --yes  # Skip confirmation
 
 # Clear all data (creates backup first if --archive)
-mcp-agent-mail archive clear-and-reset --archive --label "pre-wipe"
-mcp-agent-mail archive clear-and-reset --yes  # Skip confirmation (DESTRUCTIVE)
+mouchak-mail archive clear-and-reset --archive --label "pre-wipe"
+mouchak-mail archive clear-and-reset --yes  # Skip confirmation (DESTRUCTIVE)
 ```
 
 #### Share & Export
 
 ```bash
 # Generate signing keypair
-mcp-agent-mail share keypair
-mcp-agent-mail share keypair --output keys.json
+mouchak-mail share keypair
+mouchak-mail share keypair --output keys.json
 
 # Verify export manifest signature
-mcp-agent-mail share verify --manifest export_manifest.json
-mcp-agent-mail share verify --manifest export_manifest.json --public-key <key>
+mouchak-mail share verify --manifest export_manifest.json
+mouchak-mail share verify --manifest export_manifest.json --public-key <key>
 
 # Encrypt/decrypt (placeholder - use Python version for now)
-mcp-agent-mail share encrypt --project my-project --passphrase <pass>
-mcp-agent-mail share decrypt --input file.age --passphrase <pass>
+mouchak-mail share encrypt --project my-project --passphrase <pass>
+mouchak-mail share decrypt --input file.age --passphrase <pass>
 ```
 
 ---
@@ -1226,16 +1226,16 @@ Context: [1-2 sentences about what's done and what's next]
 
 ### Project Overview
 
-**MCP Agent Mail** is a production-grade multi-agent messaging system in Rust — "Gmail for coding agents". It provides asynchronous coordination for AI coding agents via messaging, file reservations, and build slot management.
+**Mouchak Mail** is a production-grade multi-agent messaging system in Rust — "Gmail for coding agents". It provides asynchronous coordination for AI coding agents via messaging, file reservations, and build slot management.
 
 **Performance**: 44.6x higher throughput than Python reference (15,200 req/s vs 341 req/s).
 
-**Repository**: https://github.com/Avyukth/mcp-agent-mail-rs
+**Repository**: https://github.com/Avyukth/mouchak-mail
 
 ### Repository Structure
 
 ```
-mcp-agent-mail-rs/
+mouchak-mail/
 ├── crates/
 │   ├── libs/                    # Library crates
 │   │   ├── lib-common/          # Config (12-factor), utilities
@@ -1254,7 +1254,7 @@ mcp-agent-mail-rs/
 │   │       ├── auth.rs          # Bearer/JWT auth
 │   │       └── ratelimit.rs     # Token bucket (100 req/min)
 │   └── services/                # Binary crates
-│       ├── mcp-agent-mail/      # Unified CLI (serve, migrate)
+│       ├── mouchak-mail/      # Unified CLI (serve, migrate)
 │       ├── mcp-server/          # HTTP server (REST + MCP SSE)
 │       ├── mcp-stdio/           # STDIO MCP (Claude Desktop)
 │       ├── mcp-cli/             # Testing CLI
@@ -1274,7 +1274,7 @@ mcp-agent-mail-rs/
 | `make dev` | Run API + Web UI together |
 | `make test` | Run all tests |
 | `make lint` | Run clippy |
-| `cargo run -p mcp-agent-mail --release -- serve` | Production server |
+| `cargo run -p mouchak-mail --release -- serve` | Production server |
 | `cargo run -p mcp-stdio -- serve` | MCP STDIO mode |
 
 ### Environment Variables
@@ -1285,7 +1285,7 @@ Key variables (see `.env.example` for all 35+):
 |----------|---------|-------------|
 | `PORT` | 8765 | HTTP server port |
 | `RUST_LOG` | info | Log level filter |
-| `SQLITE_PATH` | ./data/mcp_agent_mail.db | Database file |
+| `SQLITE_PATH` | ./data/mouchak_mail.db | Database file |
 | `GIT_REPO_PATH` | ./data/archive | Git archive path |
 | `HTTP_AUTH_MODE` | none | none, bearer, jwt |
 | `HTTP_BEARER_TOKEN` | — | Token for bearer auth |
@@ -1372,7 +1372,7 @@ export AGENT_ID=$(uuidgen | cut -c1-8)
 curl -X POST http://localhost:8765/api/agent/register \
   -H "Content-Type: application/json" \
   -d '{
-    "project_slug":"mcp-agent-mail-rs",
+    "project_slug":"mouchak-mail",
     "name":"agent-'$AGENT_ID'",
     "model":"claude-opus-4",
     "task_description":"<task from beads>"
@@ -1382,9 +1382,9 @@ curl -X POST http://localhost:8765/api/agent/register \
 curl -X POST http://localhost:8765/api/file_reservations/paths \
   -H "Content-Type: application/json" \
   -d '{
-    "project_slug":"mcp-agent-mail-rs",
+    "project_slug":"mouchak-mail",
     "agent_name":"agent-'$AGENT_ID'",
-    "patterns":["crates/libs/lib-core/**","crates/services/mcp-agent-mail/**"],
+    "patterns":["crates/libs/lib-core/**","crates/services/mouchak-mail/**"],
     "ttl_seconds":3600,
     "exclusive":true
   }'
@@ -1416,7 +1416,7 @@ git commit -m "feat(<scope>): <description>"
 curl -X POST http://localhost:8765/api/message/send \
   -H "Content-Type: application/json" \
   -d '{
-    "project_slug":"mcp-agent-mail-rs",
+    "project_slug":"mouchak-mail",
     "sender":"agent-'$AGENT_ID'",
     "recipients":["coordinator"],
     "subject":"Progress update on <task-id>",
@@ -1429,7 +1429,7 @@ curl -X POST http://localhost:8765/api/message/send \
 ```bash
 # 1. Release file reservations FIRST
 curl -X POST http://localhost:8765/api/file_reservations/release \
-  -d '{"project_slug":"mcp-agent-mail-rs","agent_name":"agent-'$AGENT_ID'"}'
+  -d '{"project_slug":"mouchak-mail","agent_name":"agent-'$AGENT_ID'"}'
 
 # 2. Close beads task
 bd --no-daemon close <task-id>
@@ -1586,7 +1586,7 @@ cargo build --workspace --profile release-server
 cargo run -p mcp-server
 
 # Run production server
-cargo run -p mcp-agent-mail --release -- serve
+cargo run -p mouchak-mail --release -- serve
 ```
 
 ### Test Commands
@@ -1745,7 +1745,7 @@ fn send(project: String, agent: String)  // Easy to swap args
 | bv | Bundled with bd | `bv --version` |
 | vc | See vc repo | `vc --version` |
 | pmat | `cargo install pmat` | `pmat --version` |
-| mcp-agent-mail | `cargo install --path crates/services/mcp-agent-mail` | `mcp-agent-mail --version` |
+| mouchak-mail | `cargo install --path crates/services/mouchak-mail` | `mouchak-mail --version` |
 | ubs | Project-specific | `ubs --version` |
 | ast-grep | `cargo install ast-grep` | `ast-grep --version` |
 | ripgrep | `brew install ripgrep` | `rg --version` |
@@ -2006,7 +2006,7 @@ bd update <task-id> --status in_progress --json
 
 | Tool | Parameters |
 |------|------------|
-| `ensure_project` | `slug`: repo absolute path<br>`human_key`: `"mcp-agent-mail-rs"` |
+| `ensure_project` | `slug`: repo absolute path<br>`human_key`: `"mouchak-mail"` |
 | `register_agent` | `project_slug`: from ensure_project<br>`name`: `"worker-<task-id>"`<br>`program`: `"claude-code"`<br>`model`: `"claude-opus-4"`<br>`task_description`: `"Working on task <task-id>: <task-title>"` |
 
 **Step 4: Reserve files for exclusive access (MCP tool)**
@@ -2490,7 +2490,7 @@ At session start, each agent type registers with ALL required fields:
 **Required Fields for `register_agent`:**
 | Field | Type | Description |
 |-------|------|-------------|
-| `project_slug` | string | Project slug (URL-safe identifier, e.g., `mcp-agent-mail-rs`) |
+| `project_slug` | string | Project slug (URL-safe identifier, e.g., `mouchak-mail`) |
 | `name` | string | Agent name (unique within project) |
 | `program` | string | Program identifier (e.g., `claude-code`, `antigravity`) |
 | `model` | string | Model being used (e.g., `claude-opus-4`, `claude-sonnet-4`) |

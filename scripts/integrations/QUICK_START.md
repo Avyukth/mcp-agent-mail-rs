@@ -1,4 +1,4 @@
-# Quick Start Guide - MCP Agent Mail Integrations
+# Quick Start Guide - Mouchak Mail Integrations
 
 Choose your AI coding tool and run the corresponding script:
 
@@ -77,7 +77,7 @@ chmod +x *.sh
 ```bash
 ./generic-mcp.sh
 ```
-**What it does**: Generates `mcp-agent-mail-configs/` with example configs for all transport modes
+**What it does**: Generates `mouchak-mail-configs/` with example configs for all transport modes
 
 **Use this if**: Your client isn't listed above but supports MCP protocol
 
@@ -95,7 +95,7 @@ Before running any script:
 
 2. **Build MCP servers**:
    ```bash
-   cd /path/to/mcp-agent-mail-rs
+   cd /path/to/mouchak-mail
    cargo build --release -p mcp-stdio
    cargo build --release -p mcp-server
    ```

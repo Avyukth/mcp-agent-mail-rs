@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# cline.sh - Configure Cline VSCode extension to use MCP Agent Mail
-# Part of mcp-agent-mail-rs integration scripts
+# cline.sh - Configure Cline VSCode extension to use Mouchak Mail
+# Part of mouchak-mail integration scripts
 
 set -euo pipefail
 
@@ -14,7 +14,7 @@ NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-MCP_SERVER_NAME="mcp-agent-mail"
+MCP_SERVER_NAME="mouchak-mail"
 
 # Cline stores MCP settings in VSCode's global storage
 # Platform-specific paths
@@ -34,7 +34,7 @@ log_error() { echo -e "${RED}✗${NC} $1"; }
 print_header() {
     echo ""
     echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║${NC}     MCP Agent Mail - Cline Extension Integration          ${BLUE}║${NC}"
+    echo -e "${BLUE}║${NC}     Mouchak Mail - Cline Extension Integration          ${BLUE}║${NC}"
     echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -175,7 +175,7 @@ print_summary() {
     echo "Next steps:"
     echo "  1. Restart VSCode to load the new configuration"
     echo "  2. Open the Cline panel in VSCode (Cmd+Shift+P > 'Cline: Open')"
-    echo "  3. MCP Agent Mail tools will be available to Cline"
+    echo "  3. Mouchak Mail tools will be available to Cline"
     echo "  4. Try: 'Register me as an agent and check my inbox'"
     echo ""
     echo "What Cline can do with Agent Mail:"
@@ -191,7 +191,7 @@ usage() {
     cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Configure Cline VSCode extension to use MCP Agent Mail via stdio transport.
+Configure Cline VSCode extension to use Mouchak Mail via stdio transport.
 
 Options:
   -h, --help            Show this help message

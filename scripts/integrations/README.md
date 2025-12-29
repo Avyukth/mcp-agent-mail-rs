@@ -1,6 +1,6 @@
-# MCP Agent Mail Integration Scripts
+# Mouchak Mail Integration Scripts
 
-This directory contains integration scripts for various AI coding agents and IDEs to work with mcp-agent-mail.
+This directory contains integration scripts for various AI coding agents and IDEs to work with mouchak-mail.
 
 ## Available Integration Scripts
 
@@ -11,7 +11,7 @@ This directory contains integration scripts for various AI coding agents and IDE
   - Project config (shared): `.mcp.json`
 **Transport**: STDIO (default) or SSE
 
-Configures Claude Code CLI to use MCP Agent Mail for agent communication.
+Configures Claude Code CLI to use Mouchak Mail for agent communication.
 
 ```bash
 ./claude-code.sh                     # User scope, STDIO mode
@@ -33,7 +33,7 @@ Configures Claude Code CLI to use MCP Agent Mail for agent communication.
 **Config Location**: `~/.cursor/mcp_settings.json`
 **Transport**: STDIO
 
-Sets up Cursor IDE's Composer to use MCP Agent Mail tools.
+Sets up Cursor IDE's Composer to use Mouchak Mail tools.
 
 ```bash
 ./cursor.sh
@@ -55,7 +55,7 @@ Sets up Cursor IDE's Composer to use MCP Agent Mail tools.
 
 **Transport**: STDIO
 
-Integrates MCP Agent Mail with the Cline VSCode extension.
+Integrates Mouchak Mail with the Cline VSCode extension.
 
 ```bash
 ./cline.sh
@@ -74,7 +74,7 @@ Integrates MCP Agent Mail with the Cline VSCode extension.
 **Config Location**: `~/.codeium/windsurf/mcp_config.json`
 **Transport**: STDIO
 
-Configures Windsurf's Cascade AI to use MCP Agent Mail.
+Configures Windsurf's Cascade AI to use Mouchak Mail.
 
 ```bash
 ./windsurf.sh
@@ -138,7 +138,7 @@ Configures Continue.dev's experimental MCP support.
 **Config Location**: `.vscode/settings.json` (workspace)
 **Transport**: HTTP REST API
 
-Creates workspace configuration for Copilot to access MCP Agent Mail via HTTP API.
+Creates workspace configuration for Copilot to access Mouchak Mail via HTTP API.
 
 ```bash
 ./copilot.sh
@@ -160,7 +160,7 @@ Creates workspace configuration for Copilot to access MCP Agent Mail via HTTP AP
 
 ### 8. generic-mcp.sh - Generic MCP Client
 **Target**: Any MCP-compatible client
-**Output**: `mcp-agent-mail-configs/` directory
+**Output**: `mouchak-mail-configs/` directory
 **Transport**: All (STDIO, HTTP, SSE)
 
 Generates example configurations for any MCP client.
@@ -190,7 +190,7 @@ Generates example configurations for any MCP client.
   - Global config: `~/.config/opencode/config.json`
 **Transport**: STDIO
 
-Configures OpenCode to use MCP Agent Mail for agent coordination.
+Configures OpenCode to use Mouchak Mail for agent coordination.
 
 ```bash
 ./opencode.sh                    # Project config (.opencode/mcp.json)
@@ -211,7 +211,7 @@ Configures OpenCode to use MCP Agent Mail for agent coordination.
 **Config Location**: `~/.antigravity/mcp.json`
 **Transport**: STDIO
 
-Configures Antigravity to use MCP Agent Mail.
+Configures Antigravity to use Mouchak Mail.
 
 ```bash
 ./antigravity.sh
@@ -230,7 +230,7 @@ Configures Antigravity to use MCP Agent Mail.
 **Config Location**: `~/.gemini/settings/mcp_settings.json`
 **Transport**: HTTP
 
-Configures Gemini CLI to use MCP Agent Mail via HTTP transport.
+Configures Gemini CLI to use Mouchak Mail via HTTP transport.
 
 ```bash
 ./gemini.sh
@@ -242,7 +242,7 @@ Configures Gemini CLI to use MCP Agent Mail via HTTP transport.
 - Auto-creates config directory if needed
 - Creates backup of existing settings
 
-**Note**: Requires MCP Agent Mail HTTP server to be running:
+**Note**: Requires Mouchak Mail HTTP server to be running:
 ```bash
 am serve http --port 8765
 ```
@@ -254,7 +254,7 @@ am serve http --port 8765
 **Config Location**: `.codex/config.toml` (project-local)
 **Transport**: HTTP
 
-Configures OpenAI Codex CLI to use MCP Agent Mail.
+Configures OpenAI Codex CLI to use Mouchak Mail.
 
 ```bash
 ./codex.sh                       # Configure in current directory
@@ -267,7 +267,7 @@ Configures OpenAI Codex CLI to use MCP Agent Mail.
 - HTTP transport for MCP communication
 - Creates backup of existing config
 
-**Note**: Requires MCP Agent Mail HTTP server to be running:
+**Note**: Requires Mouchak Mail HTTP server to be running:
 ```bash
 am serve http --port 8765
 ```
@@ -296,7 +296,7 @@ All scripts require:
 
 - **MCP server binaries** - Build first:
   ```bash
-  cd /path/to/mcp-agent-mail-rs
+  cd /path/to/mouchak-mail
   cargo build --release -p mcp-stdio
   cargo build --release -p mcp-server
   ```
@@ -331,7 +331,7 @@ Each script configures the MCP server entry in the target client's config:
 ```json
 {
   "mcpServers": {
-    "mcp-agent-mail": {
+    "mouchak-mail": {
       "command": "/path/to/am",
       "args": ["serve", "mcp", "--transport", "stdio"],
       "env": {
@@ -346,7 +346,7 @@ Each script configures the MCP server entry in the target client's config:
 ```json
 {
   "mcpServers": {
-    "mcp-agent-mail": {
+    "mouchak-mail": {
       "type": "sse",
       "url": "http://127.0.0.1:8765/sse"
     }
@@ -373,13 +373,13 @@ For HTTP-based integrations:
 
 ## Troubleshooting
 
-### "MCP Agent Mail binary not found"
+### "Mouchak Mail binary not found"
 Build and install the project first:
 ```bash
-cd /path/to/mcp-agent-mail-rs
-cargo build --release -p mcp-agent-mail
+cd /path/to/mouchak-mail
+cargo build --release -p mouchak-mail
 # Or install globally:
-cargo install --path crates/services/mcp-agent-mail
+cargo install --path crates/services/mouchak-mail
 # Or install with 'am' alias:
 make install-am
 ```
@@ -402,8 +402,8 @@ chmod +x *.sh
 
 ## Environment Variables
 
-- `MCP_AGENT_MAIL_PORT` - Server port (default: 8765)
-- `MCP_AGENT_MAIL_HOST` - Server host (default: 127.0.0.1)
+- `MOUCHAK_MAIL_PORT` - Server port (default: 8765)
+- `MOUCHAK_MAIL_HOST` - Server host (default: 127.0.0.1)
 - `RUST_LOG` - Log level (debug, info, warn, error)
 
 ## Testing Integration
@@ -437,7 +437,7 @@ Once configured, clients have access to 28 MCP tools:
 ## Support
 
 For issues or questions:
-- Check project README: `/path/to/mcp-agent-mail-rs/README.md`
+- Check project README: `/path/to/mouchak-mail/README.md`
 - Check client-specific documentation
 
 ## Contributing

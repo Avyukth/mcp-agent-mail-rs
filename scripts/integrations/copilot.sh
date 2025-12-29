@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# copilot.sh - Configure GitHub Copilot to use MCP Agent Mail
-# Part of mcp-agent-mail-rs integration scripts
+# copilot.sh - Configure GitHub Copilot to use Mouchak Mail
+# Part of mouchak-mail integration scripts
 
 set -euo pipefail
 
@@ -14,8 +14,8 @@ NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-MCP_SERVER_NAME="mcp-agent-mail"
-MCP_SERVER_PORT="${MCP_AGENT_MAIL_PORT:-8765}"
+MCP_SERVER_NAME="mouchak-mail"
+MCP_SERVER_PORT="${MOUCHAK_MAIL_PORT:-8765}"
 
 log_info() { echo -e "${BLUE}ℹ${NC} $1"; }
 log_success() { echo -e "${GREEN}✓${NC} $1"; }
@@ -25,7 +25,7 @@ log_error() { echo -e "${RED}✗${NC} $1"; }
 print_header() {
     echo ""
     echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║${NC}     MCP Agent Mail - GitHub Copilot Integration           ${BLUE}║${NC}"
+    echo -e "${BLUE}║${NC}     Mouchak Mail - GitHub Copilot Integration           ${BLUE}║${NC}"
     echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -125,7 +125,7 @@ create_workspace_config() {
   },
   "github.copilot.chat.codeGeneration.instructions": [
     {
-      "text": "MCP Agent Mail is available at http://localhost:$MCP_SERVER_PORT. Use it for:",
+      "text": "Mouchak Mail is available at http://localhost:$MCP_SERVER_PORT. Use it for:",
       "file": ".copilot-instructions.md"
     }
   ]
@@ -134,9 +134,9 @@ EOF
 
     # Create instructions file
     cat > ".copilot-instructions.md" <<EOF
-# MCP Agent Mail Integration
+# Mouchak Mail Integration
 
-This project uses MCP Agent Mail for multi-agent coordination.
+This project uses Mouchak Mail for multi-agent coordination.
 
 ## Available via HTTP API
 
@@ -169,18 +169,18 @@ create_startup_script() {
 
     cat > "start-mcp-mail.sh" <<EOF
 #!/usr/bin/env bash
-# Start MCP Agent Mail server for GitHub Copilot integration
+# Start Mouchak Mail server for GitHub Copilot integration
 
-echo "Starting MCP Agent Mail server..."
+echo "Starting Mouchak Mail server..."
 "$MCP_SERVER_PATH" &
 MCP_PID=\$!
 
-echo "MCP Agent Mail server started (PID: \$MCP_PID)"
+echo "Mouchak Mail server started (PID: \$MCP_PID)"
 echo "Server running at: http://localhost:$MCP_SERVER_PORT"
 echo "Press Ctrl+C to stop"
 
 cleanup() {
-    echo "Stopping MCP Agent Mail server..."
+    echo "Stopping Mouchak Mail server..."
     kill \$MCP_PID 2>/dev/null || true
 }
 
@@ -215,7 +215,7 @@ print_summary() {
     echo "  3. Use Copilot Chat with these prompts:"
     echo ""
     echo "Example prompts:"
-    echo "  'Register me as an agent using the MCP Agent Mail API'"
+    echo "  'Register me as an agent using the Mouchak Mail API'"
     echo "  'Check my Agent Mail inbox via the API'"
     echo "  'Send a message to agent BlueOcean using Agent Mail'"
     echo "  'Reserve src/**/*.ts for editing via Agent Mail'"
@@ -230,7 +230,7 @@ usage() {
     cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Configure GitHub Copilot to use MCP Agent Mail via HTTP API.
+Configure GitHub Copilot to use Mouchak Mail via HTTP API.
 
 Options:
   -p, --port PORT       MCP server port (default: 8765)

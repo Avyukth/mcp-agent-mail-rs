@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# windsurf.sh - Configure Windsurf IDE to use MCP Agent Mail
-# Part of mcp-agent-mail-rs integration scripts
+# windsurf.sh - Configure Windsurf IDE to use Mouchak Mail
+# Part of mouchak-mail integration scripts
 
 set -euo pipefail
 
@@ -14,7 +14,7 @@ NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-MCP_SERVER_NAME="mcp-agent-mail"
+MCP_SERVER_NAME="mouchak-mail"
 WINDSURF_CONFIG="$HOME/.codeium/windsurf/mcp_config.json"
 
 log_info() { echo -e "${BLUE}ℹ${NC} $1"; }
@@ -25,7 +25,7 @@ log_error() { echo -e "${RED}✗${NC} $1"; }
 print_header() {
     echo ""
     echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║${NC}     MCP Agent Mail - Windsurf IDE Integration             ${BLUE}║${NC}"
+    echo -e "${BLUE}║${NC}     Mouchak Mail - Windsurf IDE Integration             ${BLUE}║${NC}"
     echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -165,7 +165,7 @@ print_summary() {
     echo "Next steps:"
     echo "  1. Restart Windsurf IDE to load the new configuration"
     echo "  2. Open Windsurf's Cascade AI panel"
-    echo "  3. MCP Agent Mail tools will be available"
+    echo "  3. Mouchak Mail tools will be available"
     echo "  4. Try: 'Show me how to use Agent Mail'"
     echo ""
     echo "Use cases for Windsurf + Agent Mail:"
@@ -180,7 +180,7 @@ usage() {
     cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Configure Windsurf IDE to use MCP Agent Mail via stdio transport.
+Configure Windsurf IDE to use Mouchak Mail via stdio transport.
 
 Options:
   -h, --help            Show this help message

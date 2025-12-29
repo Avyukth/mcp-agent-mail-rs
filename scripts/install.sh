@@ -1,6 +1,6 @@
 #!/bin/bash
-# MCP Agent Mail Installer
-# One-liner: curl -fsSL https://raw.githubusercontent.com/mouchak/mcp-agent-mail-rs/main/scripts/install.sh | bash
+# Mouchak Mail Installer
+# One-liner: curl -fsSL https://raw.githubusercontent.com/mouchak/mouchak-mail/main/scripts/install.sh | bash
 #
 # This script:
 # 1. Detects OS and architecture
@@ -13,11 +13,11 @@
 set -e
 
 # Configuration
-REPO="mouchak/mcp-agent-mail-rs"
-BIN_NAME="mcp-agent-mail"
+REPO="mouchak/mouchak-mail"
+BIN_NAME="mouchak-mail"
 INSTALL_DIR="${HOME}/.local/bin"
-DATA_DIR="${HOME}/.local/share/mcp-agent-mail"
-CONFIG_DIR="${HOME}/.config/mcp-agent-mail"
+DATA_DIR="${HOME}/.local/share/mouchak-mail"
+CONFIG_DIR="${HOME}/.config/mouchak-mail"
 DEFAULT_PORT=8765
 
 # Colors for output
@@ -148,7 +148,7 @@ install_binary() {
 # Create macOS launchd plist
 create_launchd_plist() {
     local plist_dir="${HOME}/Library/LaunchAgents"
-    local plist_file="${plist_dir}/com.mouchak.mcp-agent-mail.plist"
+    local plist_file="${plist_dir}/com.mouchak.mouchak-mail.plist"
 
     mkdir -p "$plist_dir"
 
@@ -159,7 +159,7 @@ create_launchd_plist() {
 <plist version="1.0">
 <dict>
     <key>Label</key>
-    <string>com.mouchak.mcp-agent-mail</string>
+    <string>com.mouchak.mouchak-mail</string>
     <key>ProgramArguments</key>
     <array>
         <string>${INSTALL_DIR}/${BIN_NAME}</string>
@@ -194,14 +194,14 @@ EOF
 # Create Linux systemd user unit
 create_systemd_unit() {
     local unit_dir="${HOME}/.config/systemd/user"
-    local unit_file="${unit_dir}/mcp-agent-mail.service"
+    local unit_file="${unit_dir}/mouchak-mail.service"
 
     mkdir -p "$unit_dir"
 
     info "Creating systemd user unit..."
     cat > "$unit_file" << EOF
 [Unit]
-Description=MCP Agent Mail Server
+Description=Mouchak Mail Server
 After=network.target
 
 [Service]
@@ -228,13 +228,13 @@ start_service() {
     info "Starting service..."
 
     if [ "$os" = "darwin" ]; then
-        launchctl unload ~/Library/LaunchAgents/com.mouchak.mcp-agent-mail.plist 2>/dev/null || true
-        launchctl load ~/Library/LaunchAgents/com.mouchak.mcp-agent-mail.plist
+        launchctl unload ~/Library/LaunchAgents/com.mouchak.mouchak-mail.plist 2>/dev/null || true
+        launchctl load ~/Library/LaunchAgents/com.mouchak.mouchak-mail.plist
         success "Service started via launchd"
     else
         systemctl --user daemon-reload
-        systemctl --user enable mcp-agent-mail.service
-        systemctl --user restart mcp-agent-mail.service
+        systemctl --user enable mouchak-mail.service
+        systemctl --user restart mouchak-mail.service
         success "Service started via systemd"
     fi
 }
@@ -278,7 +278,7 @@ add_to_path() {
     if [ -f "$shell_rc" ]; then
         if ! grep -q "${INSTALL_DIR}" "$shell_rc" 2>/dev/null; then
             echo "" >> "$shell_rc"
-            echo "# MCP Agent Mail" >> "$shell_rc"
+            echo "# Mouchak Mail" >> "$shell_rc"
             echo "export PATH=\"\${PATH}:${INSTALL_DIR}\"" >> "$shell_rc"
             info "Added ${INSTALL_DIR} to PATH in ${shell_rc}"
         fi
@@ -305,9 +305,9 @@ print_usage() {
     echo ""
     echo "To stop the service:"
     if [ "$(detect_os)" = "darwin" ]; then
-        echo "  launchctl unload ~/Library/LaunchAgents/com.mouchak.mcp-agent-mail.plist"
+        echo "  launchctl unload ~/Library/LaunchAgents/com.mouchak.mouchak-mail.plist"
     else
-        echo "  systemctl --user stop mcp-agent-mail"
+        echo "  systemctl --user stop mouchak-mail"
     fi
     echo ""
     echo "Logs: ${DATA_DIR}/stderr.log"
@@ -317,7 +317,7 @@ print_usage() {
 main() {
     echo ""
     echo -e "${BLUE}╔══════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║     MCP Agent Mail Installer             ║${NC}"
+    echo -e "${BLUE}║     Mouchak Mail Installer             ║${NC}"
     echo -e "${BLUE}╚══════════════════════════════════════════╝${NC}"
     echo ""
 

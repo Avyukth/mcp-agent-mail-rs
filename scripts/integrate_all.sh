@@ -5,8 +5,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INTEGRATIONS_DIR="$SCRIPT_DIR/integrations"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 
-MCP_SERVER_PORT="${MCP_AGENT_MAIL_PORT:-8765}"
-MCP_SERVER_HOST="${MCP_AGENT_MAIL_HOST:-127.0.0.1}"
+MCP_SERVER_PORT="${MOUCHAK_MAIL_PORT:-8765}"
+MCP_SERVER_HOST="${MOUCHAK_MAIL_HOST:-127.0.0.1}"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -29,7 +29,7 @@ log_error() { echo -e "${RED}✗${NC} $1"; }
 print_header() {
     echo ""
     echo -e "${CYAN}╔════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${CYAN}║${NC}  MCP Agent Mail - Auto-Detect & Configure All Agents      ${CYAN}║${NC}"
+    echo -e "${CYAN}║${NC}  Mouchak Mail - Auto-Detect & Configure All Agents      ${CYAN}║${NC}"
     echo -e "${CYAN}╚════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -46,7 +46,7 @@ check_dependencies() {
 }
 
 find_mcp_server() {
-    log_info "Locating MCP Agent Mail binary..."
+    log_info "Locating Mouchak Mail binary..."
 
     if command -v am &> /dev/null; then
         MCP_SERVER_PATH=$(command -v am)
@@ -54,34 +54,34 @@ find_mcp_server() {
         return 0
     fi
 
-    if command -v mcp-agent-mail &> /dev/null; then
-        MCP_SERVER_PATH=$(command -v mcp-agent-mail)
-        log_success "Found mcp-agent-mail: $MCP_SERVER_PATH"
+    if command -v mouchak-mail &> /dev/null; then
+        MCP_SERVER_PATH=$(command -v mouchak-mail)
+        log_success "Found mouchak-mail: $MCP_SERVER_PATH"
         return 0
     fi
 
     local target_paths=(
-        "$PROJECT_ROOT/target/release/mcp-agent-mail"
-        "$PROJECT_ROOT/target/debug/mcp-agent-mail"
+        "$PROJECT_ROOT/target/release/mouchak-mail"
+        "$PROJECT_ROOT/target/debug/mouchak-mail"
         "$HOME/.local/bin/am"
-        "$HOME/.cargo/bin/mcp-agent-mail"
+        "$HOME/.cargo/bin/mouchak-mail"
     )
 
     for path in "${target_paths[@]}"; do
         if [[ -x "$path" ]]; then
             MCP_SERVER_PATH="$path"
-            log_success "Found MCP Agent Mail: $MCP_SERVER_PATH"
+            log_success "Found Mouchak Mail: $MCP_SERVER_PATH"
             return 0
         fi
     done
 
-    log_error "MCP Agent Mail binary not found!"
-    echo "  Install with: cargo install --path crates/services/mcp-agent-mail"
+    log_error "Mouchak Mail binary not found!"
+    echo "  Install with: cargo install --path crates/services/mouchak-mail"
     return 1
 }
 
 ensure_server_running() {
-    log_info "Checking if MCP Agent Mail server is running..."
+    log_info "Checking if Mouchak Mail server is running..."
 
     if curl -s "http://$MCP_SERVER_HOST:$MCP_SERVER_PORT/api/health" &> /dev/null; then
         log_success "Server is running on port $MCP_SERVER_PORT"
@@ -95,7 +95,7 @@ ensure_server_running() {
         return 1
     fi
 
-    log_info "Starting MCP Agent Mail server..."
+    log_info "Starting Mouchak Mail server..."
     "$MCP_SERVER_PATH" serve http --port "$MCP_SERVER_PORT" &
     local server_pid=$!
     sleep 2
@@ -265,7 +265,7 @@ print_summary() {
     echo ""
     echo "Next steps:"
     echo "  1. Restart your coding agents to load the new configuration"
-    echo "  2. MCP Agent Mail tools should now be available"
+    echo "  2. Mouchak Mail tools should now be available"
     echo ""
 }
 
@@ -273,7 +273,7 @@ usage() {
     cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Auto-detect installed coding agents and configure them to use MCP Agent Mail.
+Auto-detect installed coding agents and configure them to use Mouchak Mail.
 Delegates to scripts in: scripts/integrations/
 
 Options:
@@ -328,7 +328,7 @@ main() {
     check_dependencies
 
     if ! find_mcp_server; then
-        log_error "Cannot proceed without MCP Agent Mail binary"
+        log_error "Cannot proceed without Mouchak Mail binary"
         exit 1
     fi
 

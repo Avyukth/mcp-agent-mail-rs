@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# aider.sh - Configure Aider to use MCP Agent Mail
-# Part of mcp-agent-mail-rs integration scripts
+# aider.sh - Configure Aider to use Mouchak Mail
+# Part of mouchak-mail integration scripts
 
 set -euo pipefail
 
@@ -14,7 +14,7 @@ NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-MCP_SERVER_NAME="mcp-agent-mail"
+MCP_SERVER_NAME="mouchak-mail"
 AIDER_CONFIG="$HOME/.aider.conf.yml"
 
 log_info() { echo -e "${BLUE}ℹ${NC} $1"; }
@@ -25,7 +25,7 @@ log_error() { echo -e "${RED}✗${NC} $1"; }
 print_header() {
     echo ""
     echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║${NC}     MCP Agent Mail - Aider Integration                     ${BLUE}║${NC}"
+    echo -e "${BLUE}║${NC}     Mouchak Mail - Aider Integration                     ${BLUE}║${NC}"
     echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -87,7 +87,7 @@ find_mcp_server() {
 }
 
 create_aider_wrapper() {
-    log_info "Creating Aider wrapper script with MCP Agent Mail..."
+    log_info "Creating Aider wrapper script with Mouchak Mail..."
 
     local wrapper_script="$HOME/.local/bin/aider-with-mail"
 
@@ -97,11 +97,11 @@ create_aider_wrapper() {
     # Create wrapper script
     cat > "$wrapper_script" <<'EOF'
 #!/usr/bin/env bash
-# Aider wrapper with MCP Agent Mail integration
+# Aider wrapper with Mouchak Mail integration
 
 # Start mcp-stdio-server in background
 MCP_SERVER_PATH="__MCP_SERVER_PATH__"
-MCP_PID_FILE="/tmp/mcp-agent-mail.pid"
+MCP_PID_FILE="/tmp/mouchak-mail.pid"
 
 cleanup() {
     if [[ -f "$MCP_PID_FILE" ]]; then
@@ -114,14 +114,14 @@ trap cleanup EXIT
 
 # Start MCP server if not already running
 if [[ ! -f "$MCP_PID_FILE" ]] || ! kill -0 $(cat "$MCP_PID_FILE") 2>/dev/null; then
-    echo "Starting MCP Agent Mail server..."
+    echo "Starting Mouchak Mail server..."
     "$MCP_SERVER_PATH" &
     echo $! > "$MCP_PID_FILE"
     sleep 1
 fi
 
 # Export environment for aider to access MCP tools
-export MCP_AGENT_MAIL_ENABLED=1
+export MOUCHAK_MAIL_ENABLED=1
 export MCP_SERVER_PATH="$MCP_SERVER_PATH"
 
 # Run aider with all arguments
@@ -150,9 +150,9 @@ update_aider_config() {
     # Add MCP-related configuration to .aider.conf.yml
     cat >> "$AIDER_CONFIG" <<EOF
 
-# MCP Agent Mail integration
+# Mouchak Mail integration
 # Use the wrapper script: aider-with-mail
-# Or set environment: export MCP_AGENT_MAIL_ENABLED=1
+# Or set environment: export MOUCHAK_MAIL_ENABLED=1
 
 # Add this to your prompts to use Agent Mail:
 # - Register as agent: "Register me as an agent named <Name> in this project"
@@ -202,7 +202,7 @@ usage() {
     cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Configure Aider to use MCP Agent Mail.
+Configure Aider to use Mouchak Mail.
 
 Options:
   -h, --help            Show this help message

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# MCP Agent Mail - Quick Start Script
+# Mouchak Mail - Quick Start Script
 # Builds and runs the development servers
 
 set -e
@@ -14,7 +14,7 @@ GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}🚀 MCP Agent Mail - Development Server${NC}"
+echo -e "${BLUE}🚀 Mouchak Mail - Development Server${NC}"
 echo ""
 
 # Check for dependencies

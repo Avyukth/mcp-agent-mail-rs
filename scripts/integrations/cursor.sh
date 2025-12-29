@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# cursor.sh - Configure Cursor IDE to use MCP Agent Mail
-# Part of mcp-agent-mail-rs integration scripts
+# cursor.sh - Configure Cursor IDE to use Mouchak Mail
+# Part of mouchak-mail integration scripts
 
 set -euo pipefail
 
@@ -14,7 +14,7 @@ NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-MCP_SERVER_NAME="mcp-agent-mail"
+MCP_SERVER_NAME="mouchak-mail"
 CURSOR_CONFIG_DIR="$HOME/.cursor"
 CURSOR_MCP_CONFIG="$CURSOR_CONFIG_DIR/mcp_settings.json"
 
@@ -26,7 +26,7 @@ log_error() { echo -e "${RED}✗${NC} $1"; }
 print_header() {
     echo ""
     echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║${NC}     MCP Agent Mail - Cursor IDE Integration               ${BLUE}║${NC}"
+    echo -e "${BLUE}║${NC}     Mouchak Mail - Cursor IDE Integration               ${BLUE}║${NC}"
     echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -173,7 +173,7 @@ print_summary() {
     echo "Next steps:"
     echo "  1. Restart Cursor IDE to load the new configuration"
     echo "  2. Open Cursor's Composer (Cmd+I / Ctrl+I)"
-    echo "  3. MCP Agent Mail tools will be available in the AI context"
+    echo "  3. Mouchak Mail tools will be available in the AI context"
     echo "  4. Try asking: 'Register me as an agent in this project'"
     echo ""
     echo "Key capabilities:"
@@ -188,7 +188,7 @@ usage() {
     cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Configure Cursor IDE to use MCP Agent Mail via stdio transport.
+Configure Cursor IDE to use Mouchak Mail via stdio transport.
 
 Options:
   -h, --help            Show this help message

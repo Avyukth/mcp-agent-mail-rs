@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# claude-code.sh - Configure Claude Code CLI to use MCP Agent Mail
-# Part of mcp-agent-mail-rs integration scripts
+# claude-code.sh - Configure Claude Code CLI to use Mouchak Mail
+# Part of mouchak-mail integration scripts
 #
 # Claude Code config locations (by scope):
 #   • User config: ~/.claude.json
@@ -20,9 +20,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # Default configuration
-MCP_SERVER_PORT="${MCP_AGENT_MAIL_PORT:-8765}"
-MCP_SERVER_HOST="${MCP_AGENT_MAIL_HOST:-127.0.0.1}"
-MCP_SERVER_NAME="mcp-agent-mail"
+MCP_SERVER_PORT="${MOUCHAK_MAIL_PORT:-8765}"
+MCP_SERVER_HOST="${MOUCHAK_MAIL_HOST:-127.0.0.1}"
+MCP_SERVER_NAME="mouchak-mail"
 
 # Config file locations (NEW Claude Code format)
 CLAUDE_CONFIG_USER="$HOME/.claude.json"
@@ -36,7 +36,7 @@ log_error() { echo -e "${RED}✗${NC} $1"; }
 print_header() {
     echo ""
     echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║${NC}     MCP Agent Mail - Claude Code Integration               ${BLUE}║${NC}"
+    echo -e "${BLUE}║${NC}     Mouchak Mail - Claude Code Integration               ${BLUE}║${NC}"
     echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -68,7 +68,7 @@ detect_claude_code() {
 }
 
 find_mcp_server() {
-    log_info "Locating MCP Agent Mail binary..."
+    log_info "Locating Mouchak Mail binary..."
 
     # Check if already set via environment
     if [[ -n "${MCP_SERVER_PATH:-}" ]] && [[ -x "$MCP_SERVER_PATH" ]]; then
@@ -84,31 +84,31 @@ find_mcp_server() {
     fi
 
     # Check for full binary name
-    if command -v mcp-agent-mail &> /dev/null; then
-        MCP_SERVER_PATH=$(command -v mcp-agent-mail)
-        log_success "Found mcp-agent-mail: $MCP_SERVER_PATH"
+    if command -v mouchak-mail &> /dev/null; then
+        MCP_SERVER_PATH=$(command -v mouchak-mail)
+        log_success "Found mouchak-mail: $MCP_SERVER_PATH"
         return 0
     fi
 
     # Check project build directories
     local target_paths=(
-        "$PROJECT_ROOT/target/release/mcp-agent-mail"
-        "$PROJECT_ROOT/target/debug/mcp-agent-mail"
+        "$PROJECT_ROOT/target/release/mouchak-mail"
+        "$PROJECT_ROOT/target/debug/mouchak-mail"
         "$HOME/.local/bin/am"
-        "$HOME/.cargo/bin/mcp-agent-mail"
+        "$HOME/.cargo/bin/mouchak-mail"
     )
 
     for path in "${target_paths[@]}"; do
         if [[ -x "$path" ]]; then
             MCP_SERVER_PATH="$path"
-            log_success "Found MCP Agent Mail: $MCP_SERVER_PATH"
+            log_success "Found Mouchak Mail: $MCP_SERVER_PATH"
             return 0
         fi
     done
 
-    log_error "MCP Agent Mail binary not found!"
-    echo "  Build with: cd $PROJECT_ROOT && cargo build --release -p mcp-agent-mail"
-    echo "  Or install: cargo install --path crates/services/mcp-agent-mail"
+    log_error "Mouchak Mail binary not found!"
+    echo "  Build with: cd $PROJECT_ROOT && cargo build --release -p mouchak-mail"
+    echo "  Or install: cargo install --path crates/services/mouchak-mail"
     exit 1
 }
 
@@ -232,7 +232,7 @@ print_summary() {
     echo ""
     echo "Next steps:"
     echo "  1. Restart Claude Code to load the new configuration"
-    echo "  2. MCP Agent Mail tools should now be available"
+    echo "  2. Mouchak Mail tools should now be available"
     echo "  3. Use '/mcp' in Claude Code to check server status"
     echo ""
     echo "Available MCP tools include:"
@@ -248,7 +248,7 @@ usage() {
     cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Configure Claude Code CLI to use MCP Agent Mail via STDIO transport.
+Configure Claude Code CLI to use Mouchak Mail via STDIO transport.
 
 Claude Code config locations:
   • User config: ~/.claude.json
@@ -267,8 +267,8 @@ Examples:
   $(basename "$0") --project /path/to/proj   # Project scope in specific dir
 
 Environment Variables:
-  MCP_AGENT_MAIL_PORT   Server port for SSE mode (default: 8765)
-  MCP_AGENT_MAIL_HOST   Server host for SSE mode (default: 127.0.0.1)
+  MOUCHAK_MAIL_PORT   Server port for SSE mode (default: 8765)
+  MOUCHAK_MAIL_HOST   Server host for SSE mode (default: 127.0.0.1)
   MCP_SERVER_PATH       Override MCP binary path
 
 EOF

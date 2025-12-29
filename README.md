@@ -1,4 +1,4 @@
-# MCP Agent Mail (Rust)
+# Mouchak Mail (Rust)
 
 > "Gmail for your coding agents" — High-performance async messaging for AI agent coordination
 
@@ -37,7 +37,7 @@ Modern projects often run multiple coding agents simultaneously (backend, fronte
 - Miss critical context from parallel workstreams
 - Require humans to "liaison" messages across tools
 
-MCP Agent Mail provides:
+Mouchak Mail provides:
 
 | Feature | Description |
 |---------|-------------|
@@ -365,8 +365,8 @@ cargo install cargo-deny
 
 ```bash
 # Clone the repository
-git clone https://github.com/Avyukth/mcp-agent-mail-rs
-cd mcp-agent-mail-rs
+git clone https://github.com/Avyukth/mouchak-mail
+cd mouchak-mail
 
 # Build all Rust components
 cargo build --workspace
@@ -390,7 +390,7 @@ Development servers:
 make build-sidecar
 
 # Run production server (embedded SvelteKit UI)
-./target/release/mcp-agent-mail serve http --port 8765
+./target/release/mouchak-mail serve http --port 8765
 
 # Or install globally as 'am'
 make install-am-full
@@ -401,16 +401,16 @@ am serve http --port 8765
 
 ```bash
 # Install globally
-cargo install --path crates/services/mcp-agent-mail
+cargo install --path crates/services/mouchak-mail
 
 # Server modes
-mcp-agent-mail serve http              # REST API server
-mcp-agent-mail serve mcp               # MCP stdio server
-mcp-agent-mail serve mcp --transport sse --port 3000  # SSE server
+mouchak-mail serve http              # REST API server
+mouchak-mail serve mcp               # MCP stdio server
+mouchak-mail serve mcp --transport sse --port 3000  # SSE server
 
 # Utilities
-mcp-agent-mail tools                   # List MCP tools
-mcp-agent-mail schema                  # Export JSON schema
+mouchak-mail tools                   # List MCP tools
+mouchak-mail schema                  # Export JSON schema
 ```
 
 ### Claude Desktop Integration
@@ -421,7 +421,7 @@ Add to `~/.config/claude/claude_desktop_config.json`:
 {
   "mcpServers": {
     "agent-mail": {
-      "command": "/path/to/mcp-agent-mail",
+      "command": "/path/to/mouchak-mail",
       "args": ["serve", "mcp", "--transport", "stdio"]
     }
   }
@@ -433,7 +433,7 @@ Add to `~/.config/claude/claude_desktop_config.json`:
 ## Project Structure
 
 ```
-mcp-agent-mail-rs/
+mouchak-mail/
 ├── crates/
 │   ├── libs/
 │   │   ├── lib-core/             # Domain logic, BMC pattern, storage
@@ -455,7 +455,7 @@ mcp-agent-mail-rs/
 │   │   ├── mcp-server/           # REST API server binary
 │   │   ├── mcp-stdio/            # MCP protocol server (stdio + SSE)
 │   │   ├── mcp-cli/              # CLI for testing
-│   │   ├── mcp-agent-mail/       # Unified CLI binary (with embedded UI)
+│   │   ├── mouchak-mail/       # Unified CLI binary (with embedded UI)
 │   │   ├── web-ui/               # SvelteKit frontend (TypeScript)
 │   │   │   ├── src/routes/       # SvelteKit routes (inbox, projects, agents)
 │   │   │   ├── src/lib/components/  # shadcn/ui-style components
@@ -624,8 +624,8 @@ sequenceDiagram
 **Database:**
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `SQLITE_PATH` | ./data/mcp_agent_mail.db | SQLite file path |
-| `DATABASE_URL` | file:./data/mcp_agent_mail.db | Database URL |
+| `SQLITE_PATH` | ./data/mouchak_mail.db | SQLite file path |
+| `DATABASE_URL` | file:./data/mouchak_mail.db | Database URL |
 
 **Git Archive:**
 | Variable | Default | Description |
@@ -733,7 +733,7 @@ SQLite with FTS5 full-text search. **15 tables** across 4 migrations:
 
 ## References
 
-- [Python Original](https://github.com/Dicklesworthstone/mcp_agent_mail) — Source implementation
+- [Python Original](https://github.com/Dicklesworthstone/mouchak_mail) — Source implementation
 - [MCP Protocol](https://modelcontextprotocol.io) — Model Context Protocol specification
 - [Beads Issue Tracker](https://github.com/steveyegge/beads) — Task tracking via `bd` CLI
 - [PMAT Quality Gates](https://paiml.github.io/pmat-book/) — Production maturity analysis
