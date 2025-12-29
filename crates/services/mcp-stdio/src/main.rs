@@ -5,8 +5,8 @@ use lib_mcp::{run_sse, run_stdio, tools::get_tool_schemas};
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
 #[derive(Parser)]
-#[command(name = "mcp-agent-mail")]
-#[command(about = "MCP Agent Mail - Multi-agent messaging system")]
+#[command(name = "mouchak-mail")]
+#[command(about = "Mouchak Mail - Multi-agent messaging system")]
 #[command(version)]
 struct Cli {
     #[command(subcommand)]
@@ -21,7 +21,7 @@ enum Commands {
         transport: String,
         #[arg(short, long, env = "MOUCHAK_MCP__PORT", default_value = "3000")]
         port: u16,
-        #[arg(long, env = "MCP_AGENT_MAIL_HOST", default_value = "127.0.0.1")]
+        #[arg(long, env = "MOUCHAK_MAIL_HOST", default_value = "127.0.0.1")]
         host: String,
     },
     /// Export JSON schemas for all tools
@@ -82,7 +82,7 @@ fn handle_schema(format: String, output: Option<String>) -> Result<()> {
 fn handle_tools() {
     // Show all tools in documentation (worktrees_enabled=true)
     let schemas = get_tool_schemas(true);
-    println!("MCP Agent Mail Tools ({} total)\n", schemas.len());
+    println!("Mouchak Mail Tools ({} total)\n", schemas.len());
     println!("{:<30} DESCRIPTION", "TOOL");
     println!("{}", "-".repeat(80));
     for schema in schemas {

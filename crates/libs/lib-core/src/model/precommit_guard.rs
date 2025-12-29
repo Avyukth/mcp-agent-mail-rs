@@ -194,7 +194,7 @@ pub struct PrecommitGuardBmc;
 pub fn render_prepush_script(server_url: &str) -> String {
     format!(
         r#"#!/bin/sh
-# MCP Agent Mail - Pre-push Guard
+# Mouchak Mail - Pre-push Guard
 # Checks file reservations before allowing push
 #
 # Reads stdin for ref tuples: <local_ref> <local_sha> <remote_ref> <remote_sha>
@@ -459,7 +459,7 @@ impl PrecommitGuardBmc {
     /// * `mm` - Model manager
     /// * `git_repo_path` - Path to the git repository root
     /// * `server_url` - Optional server URL for pre-push validation.
-    ///   Falls back to `MCP_AGENT_MAIL_URL` or `API_URL` env vars, then `http://localhost:8080`
+    ///   Falls back to `MOUCHAK_MAIL_URL` or `API_URL` env vars, then `http://localhost:8080`
     pub async fn install(
         _ctx: &Ctx,
         _mm: &ModelManager,
@@ -475,7 +475,7 @@ impl PrecommitGuardBmc {
         // Install pre-commit hook
         let precommit_path = hooks_dir.join("pre-commit");
         let precommit_script = r#"#!/bin/sh
-# MCP Agent Mail - Pre-commit Guard
+# Mouchak Mail - Pre-commit Guard
 # Checks file reservations before allowing commit
 
 # Gate: Check if worktrees are enabled
@@ -509,10 +509,10 @@ if [ -z "$AGENT_NAME" ]; then
 fi
 
 # Get server URL
-SERVER_URL="${MCP_AGENT_MAIL_URL:-${API_URL:-http://localhost:8765}}"
+SERVER_URL="${MOUCHAK_MAIL_URL:-${API_URL:-http://localhost:8765}}"
 
 # Get project slug from env or derive from git root
-if [ -z "$MCP_AGENT_MAIL_PROJECT_SLUG" ]; then
+if [ -z "$MOUCHAK_MAIL_PROJECT_SLUG" ]; then
     GIT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null)
     if [ -z "$GIT_ROOT" ]; then
         echo "Warning: Not in a git repository, skipping reservation check" >&2
@@ -521,7 +521,7 @@ if [ -z "$MCP_AGENT_MAIL_PROJECT_SLUG" ]; then
     # URL-safe slug: replace / with - and remove leading -
     PROJECT_SLUG=$(echo "$GIT_ROOT" | sed 's|^/||; s|/|-|g')
 else
-    PROJECT_SLUG="$MCP_AGENT_MAIL_PROJECT_SLUG"
+    PROJECT_SLUG="$MOUCHAK_MAIL_PROJECT_SLUG"
 fi
 
 # Get guard mode (enforce, warn, or advisory)
@@ -645,7 +645,7 @@ exit 0
         let prepush_path = hooks_dir.join("pre-push");
         let server = match server_url {
             Some(url) => url.to_string(),
-            None => std::env::var("MCP_AGENT_MAIL_URL")
+            None => std::env::var("MOUCHAK_MAIL_URL")
                 .or_else(|_| std::env::var("API_URL"))
                 .unwrap_or_else(|_| "http://localhost:8080".to_string()),
         };

@@ -563,7 +563,7 @@ impl ServerHandler for AgentMailService {
                 ..Default::default()
             },
             server_info: Implementation {
-                name: "mcp-agent-mail".to_string(),
+                name: "mouchak-mail".to_string(),
                 version: env!("CARGO_PKG_VERSION").to_string(),
                 ..Default::default()
             },
@@ -1898,7 +1898,7 @@ mod tests {
         );
 
         // Verify server info
-        assert_eq!(info.server_info.name, "mcp-agent-mail");
+        assert_eq!(info.server_info.name, "mouchak-mail");
         assert!(!info.server_info.version.is_empty());
 
         // Verify instructions are provided

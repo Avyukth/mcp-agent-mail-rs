@@ -1,4 +1,4 @@
-//! E2E Test Utilities for MCP Agent Mail
+//! E2E Test Utilities for Mouchak Mail
 //!
 //! This crate provides end-to-end testing using jugar-probar's
 //! Playwright-compatible browser automation.

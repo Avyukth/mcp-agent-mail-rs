@@ -10,7 +10,7 @@ fn test_service_lifecycle() {
     let port = 9099; // Use a high port unlikely to be used
 
     // 1. Ensure clean state (stop any leftover)
-    let _ = Command::cargo_bin("mcp-agent-mail")
+    let _ = Command::cargo_bin("mouchak-mail")
         .unwrap()
         .arg("service")
         .arg("stop")
@@ -19,7 +19,7 @@ fn test_service_lifecycle() {
         .ok();
 
     // 2. Start server using SERVICE START (background)
-    let mut cmd = Command::cargo_bin("mcp-agent-mail").unwrap();
+    let mut cmd = Command::cargo_bin("mouchak-mail").unwrap();
     cmd.arg("service")
         .arg("start")
         .arg("--port")
@@ -33,7 +33,7 @@ fn test_service_lifecycle() {
     std::thread::sleep(Duration::from_secs(2));
 
     // 3. Check Status
-    let mut cmd = Command::cargo_bin("mcp-agent-mail").unwrap();
+    let mut cmd = Command::cargo_bin("mouchak-mail").unwrap();
     cmd.arg("service")
         .arg("status")
         .arg("--port")
@@ -43,7 +43,7 @@ fn test_service_lifecycle() {
         .stdout(predicate::str::contains("Server RUNNING"));
 
     // 4. Restart Server (should succeed and keep running)
-    let mut cmd = Command::cargo_bin("mcp-agent-mail").unwrap();
+    let mut cmd = Command::cargo_bin("mouchak-mail").unwrap();
     cmd.arg("service")
         .arg("restart")
         .arg("--port")
@@ -55,7 +55,7 @@ fn test_service_lifecycle() {
     // Give it time to restart
     std::thread::sleep(Duration::from_secs(2));
 
-    let mut cmd = Command::cargo_bin("mcp-agent-mail").unwrap();
+    let mut cmd = Command::cargo_bin("mouchak-mail").unwrap();
     cmd.arg("service")
         .arg("status")
         .arg("--port")
@@ -65,7 +65,7 @@ fn test_service_lifecycle() {
         .stdout(predicate::str::contains("Server RUNNING"));
 
     // 5. Stop Server
-    let mut cmd = Command::cargo_bin("mcp-agent-mail").unwrap();
+    let mut cmd = Command::cargo_bin("mouchak-mail").unwrap();
     cmd.arg("service")
         .arg("stop")
         .arg("--port")
@@ -76,7 +76,7 @@ fn test_service_lifecycle() {
 
     // 6. Verify Stopped
     std::thread::sleep(Duration::from_secs(1));
-    let mut cmd = Command::cargo_bin("mcp-agent-mail").unwrap();
+    let mut cmd = Command::cargo_bin("mouchak-mail").unwrap();
     cmd.arg("service")
         .arg("status")
         .arg("--port")

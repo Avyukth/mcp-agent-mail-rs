@@ -1,6 +1,6 @@
-//! MCP Agent Mail - Leptos Web UI
+//! Mouchak Mail - Leptos Web UI
 //!
-//! A WASM-native frontend for the MCP Agent Mail system, providing
+//! A WASM-native frontend for the Mouchak Mail system, providing
 //! a Gmail-like interface for coding agents to communicate.
 
 // Allow common test patterns

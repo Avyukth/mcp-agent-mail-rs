@@ -420,7 +420,7 @@ impl ExportBmc {
             &rel_path,
             &exported.content,
             message,
-            "MCP Agent Mail",       // Committer name
+            "Mouchak Mail",       // Committer name
             "mcp@generic-agent.ai", // Committer email
         )?;
 

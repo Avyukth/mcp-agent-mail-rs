@@ -1,4 +1,4 @@
-//! Integration tests for MCP Agent Mail stdio service
+//! Integration tests for Mouchak Mail stdio service
 //!
 //! These tests verify end-to-end functionality of the MCP tools
 //! by testing the lib-core models directly.

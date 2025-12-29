@@ -11,7 +11,7 @@ use serde_json::json;
 async fn test_macro_start_session() {
     let client = Client::new();
     let base_url =
-        std::env::var("MCP_AGENT_MAIL_URL").unwrap_or_else(|_| "http://localhost:8765".to_string());
+        std::env::var("MOUCHAK_MAIL_URL").unwrap_or_else(|_| "http://localhost:8765".to_string());
 
     // Call macro_start_session
     let response = client
@@ -56,7 +56,7 @@ async fn test_macro_start_session() {
 async fn test_macro_file_reservation_cycle_reserve() {
     let client = Client::new();
     let base_url =
-        std::env::var("MCP_AGENT_MAIL_URL").unwrap_or_else(|_| "http://localhost:8765".to_string());
+        std::env::var("MOUCHAK_MAIL_URL").unwrap_or_else(|_| "http://localhost:8765".to_string());
 
     let response = client
         .post(format!("{}/api/macros/file_reservation_cycle", base_url))
@@ -80,7 +80,7 @@ async fn test_macro_file_reservation_cycle_reserve() {
 async fn test_macro_contact_handshake() {
     let client = Client::new();
     let base_url =
-        std::env::var("MCP_AGENT_MAIL_URL").unwrap_or_else(|_| "http://localhost:8765".to_string());
+        std::env::var("MOUCHAK_MAIL_URL").unwrap_or_else(|_| "http://localhost:8765".to_string());
 
     let response = client
         .post(format!("{}/api/macros/contact_handshake", base_url))

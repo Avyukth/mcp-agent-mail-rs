@@ -7,7 +7,7 @@ use predicates::prelude::*;
 /// Test guard check help output
 #[test]
 fn test_guard_check_help() {
-    let mut cmd = Command::cargo_bin("mcp-agent-mail").unwrap();
+    let mut cmd = Command::cargo_bin("mouchak-mail").unwrap();
     cmd.arg("guard")
         .arg("check")
         .arg("--help")
@@ -21,7 +21,7 @@ fn test_guard_check_help() {
 /// Test guard check with empty stdin (advisory mode)
 #[test]
 fn test_guard_check_empty_stdin_advisory() {
-    let mut cmd = Command::cargo_bin("mcp-agent-mail").unwrap();
+    let mut cmd = Command::cargo_bin("mouchak-mail").unwrap();
     cmd.arg("guard")
         .arg("check")
         .arg("--advisory")
@@ -34,7 +34,7 @@ fn test_guard_check_empty_stdin_advisory() {
 /// Test guard check with empty stdin (strict mode - should fail)
 #[test]
 fn test_guard_check_empty_stdin_strict() {
-    let mut cmd = Command::cargo_bin("mcp-agent-mail").unwrap();
+    let mut cmd = Command::cargo_bin("mouchak-mail").unwrap();
     cmd.arg("guard")
         .arg("check")
         .write_stdin("")
@@ -46,7 +46,7 @@ fn test_guard_check_empty_stdin_strict() {
 /// Test guard check with project flag
 #[test]
 fn test_guard_check_with_project_flag() {
-    let mut cmd = Command::cargo_bin("mcp-agent-mail").unwrap();
+    let mut cmd = Command::cargo_bin("mouchak-mail").unwrap();
     cmd.arg("guard")
         .arg("check")
         .arg("--project")
@@ -61,7 +61,7 @@ fn test_guard_check_with_project_flag() {
 /// Test guard check with null-separated paths
 #[test]
 fn test_guard_check_stdin_nul() {
-    let mut cmd = Command::cargo_bin("mcp-agent-mail").unwrap();
+    let mut cmd = Command::cargo_bin("mouchak-mail").unwrap();
     cmd.arg("guard")
         .arg("check")
         .arg("--stdin-nul")
@@ -74,7 +74,7 @@ fn test_guard_check_stdin_nul() {
 /// Test guard status command exists
 #[test]
 fn test_guard_status_help() {
-    let mut cmd = Command::cargo_bin("mcp-agent-mail").unwrap();
+    let mut cmd = Command::cargo_bin("mouchak-mail").unwrap();
     cmd.arg("guard")
         .arg("status")
         .arg("--help")

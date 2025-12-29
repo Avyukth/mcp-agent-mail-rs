@@ -19,7 +19,7 @@ use utoipa::OpenApi;
         )
     ),
     tags(
-        (name = "mcp-agent-mail", description = "MCP Agent Mail API")
+        (name = "mouchak-mail", description = "Mouchak Mail API")
     )
 )]
 pub struct ApiDoc;

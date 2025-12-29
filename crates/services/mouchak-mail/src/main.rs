@@ -10,7 +10,7 @@ mod panic_hook;
 mod robot_help;
 
 #[derive(Parser)]
-#[command(name = "mcp-agent-mail")]
+#[command(name = "mouchak-mail")]
 #[command(about = "Unified Server/CLI for Agent Mail")]
 #[command(version)]
 struct Cli {
@@ -58,11 +58,11 @@ enum Commands {
 
     /// Check server health
     Health {
-        /// Server URL to check (reads from MCP_AGENT_MAIL_URL env var)
+        /// Server URL to check (reads from MOUCHAK_MAIL_URL env var)
         #[arg(
             short,
             long,
-            env = "MCP_AGENT_MAIL_URL",
+            env = "MOUCHAK_MAIL_URL",
             default_value = "http://localhost:8765"
         )]
         url: String,
@@ -500,7 +500,7 @@ fn setup_tracing(json_logs: bool) -> anyhow::Result<()> {
     };
 
     let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-        EnvFilter::new("info,tower_http=debug,axum=debug,mcp_agent_mail=debug")
+        EnvFilter::new("info,tower_http=debug,axum=debug,mouchak_mail=debug")
     });
 
     let layer = if json_logs {
@@ -574,7 +574,7 @@ pub fn validate_port(port: u16) -> Result<(), PortInUseError> {
                  To kill the process:\n\
                  \x20 lsof -ti :{} | xargs kill\n\n\
                  Or use an alternative port:\n\
-                 \x20 mcp-agent-mail serve http --port {}",
+                 \x20 mouchak-mail serve http --port {}",
                 port, port, port, alt_port
             );
 
@@ -585,7 +585,7 @@ pub fn validate_port(port: u16) -> Result<(), PortInUseError> {
             let suggestion = format!(
                 "Failed to bind to port {}: {}\n\n\
                  Try running with a different port:\n\
-                 \x20 mcp-agent-mail serve http --port 8766",
+                 \x20 mouchak-mail serve http --port 8766",
                 port, e
             );
 
@@ -665,7 +665,7 @@ fn handle_schema(format: String, output: Option<String>) -> anyhow::Result<()> {
 fn handle_tools() {
     // Show all tools in documentation (worktrees_enabled=true)
     let schemas = get_tool_schemas(true);
-    println!("MCP Agent Mail Tools ({} total)\n", schemas.len());
+    println!("Mouchak Mail Tools ({} total)\n", schemas.len());
     println!("{:<30} DESCRIPTION", "TOOL");
     println!("{}", "-".repeat(80));
     for schema in schemas {
@@ -711,7 +711,7 @@ fn detect_shell_rc() -> Option<PathBuf> {
 /// Check if the 'am' alias marker already exists in the rc file.
 fn alias_marker_exists(rc_path: &PathBuf) -> bool {
     if let Ok(contents) = std::fs::read_to_string(rc_path) {
-        contents.contains("# >>> MCP Agent Mail alias")
+        contents.contains("# >>> Mouchak Mail alias")
     } else {
         false
     }
@@ -723,7 +723,7 @@ fn other_am_alias_exists(rc_path: &PathBuf) -> bool {
         // Check for any 'alias am=' that isn't in our managed block
         for line in contents.lines() {
             let trimmed = line.trim();
-            if trimmed.starts_with("alias am=") && !contents.contains("# >>> MCP Agent Mail alias")
+            if trimmed.starts_with("alias am=") && !contents.contains("# >>> Mouchak Mail alias")
             {
                 return true;
             }
@@ -741,18 +741,18 @@ fn generate_alias_snippet(rc_path: &Path) -> &'static str {
     if is_fish {
         // Fish shell uses different syntax
         r#"
-# >>> MCP Agent Mail alias
+# >>> Mouchak Mail alias
 function am
-    mcp-agent-mail serve http
+    mouchak-mail serve http
 end
-# <<< MCP Agent Mail alias
+# <<< Mouchak Mail alias
 "#
     } else {
         // Bash/Zsh syntax
         r#"
-# >>> MCP Agent Mail alias
-alias am='mcp-agent-mail serve http'
-# <<< MCP Agent Mail alias
+# >>> Mouchak Mail alias
+alias am='mouchak-mail serve http'
+# <<< Mouchak Mail alias
 "#
     }
 }
@@ -776,11 +776,11 @@ fn handle_install_alias(force: bool) -> anyhow::Result<()> {
                 let mut in_block = false;
 
                 for line in contents.lines() {
-                    if line.contains("# >>> MCP Agent Mail alias") {
+                    if line.contains("# >>> Mouchak Mail alias") {
                         in_block = true;
                         continue;
                     }
-                    if line.contains("# <<< MCP Agent Mail alias") {
+                    if line.contains("# <<< Mouchak Mail alias") {
                         in_block = false;
                         continue;
                     }
@@ -1406,7 +1406,7 @@ async fn get_github_username(token: &str) -> anyhow::Result<String> {
     let response = client
         .get("https://api.github.com/user")
         .header("Authorization", format!("Bearer {}", token))
-        .header("User-Agent", "mcp-agent-mail")
+        .header("User-Agent", "mouchak-mail")
         .header("Accept", "application/vnd.github+json")
         .send()
         .await?;
@@ -1440,7 +1440,7 @@ async fn check_or_create_repo(
     let check_response = client
         .get(&check_url)
         .header("Authorization", format!("Bearer {}", token))
-        .header("User-Agent", "mcp-agent-mail")
+        .header("User-Agent", "mouchak-mail")
         .header("Accept", "application/vnd.github+json")
         .send()
         .await?;
@@ -1453,12 +1453,12 @@ async fn check_or_create_repo(
     let create_response = client
         .post("https://api.github.com/user/repos")
         .header("Authorization", format!("Bearer {}", token))
-        .header("User-Agent", "mcp-agent-mail")
+        .header("User-Agent", "mouchak-mail")
         .header("Accept", "application/vnd.github+json")
         .json(&serde_json::json!({
             "name": repo,
             "private": private,
-            "description": "Agent Mail archive deployed via mcp-agent-mail",
+            "description": "Agent Mail archive deployed via mouchak-mail",
             "auto_init": false
         }))
         .send()
@@ -1507,7 +1507,7 @@ async fn push_bundle_to_gh_pages(
 </head>
 <body>
     <h1>🤖 Agent Mail Archive</h1>
-    <p>This archive was deployed using <code>mcp-agent-mail share deploy github-pages</code></p>
+    <p>This archive was deployed using <code>mouchak-mail share deploy github-pages</code></p>
     <p><a href="archive.zip">Download Archive (ZIP)</a></p>
     <p>Deployed: {}</p>
 </body>
@@ -1613,7 +1613,7 @@ async fn ensure_gh_pages_branch(token: &str, owner: &str, repo: &str) -> anyhow:
     let branch_check = client
         .get(&branch_url)
         .header("Authorization", format!("Bearer {}", token))
-        .header("User-Agent", "mcp-agent-mail")
+        .header("User-Agent", "mouchak-mail")
         .header("Accept", "application/vnd.github+json")
         .send()
         .await?;
@@ -1633,7 +1633,7 @@ async fn ensure_gh_pages_branch(token: &str, owner: &str, repo: &str) -> anyhow:
     let refs_response = client
         .get(&refs_url)
         .header("Authorization", format!("Bearer {}", token))
-        .header("User-Agent", "mcp-agent-mail")
+        .header("User-Agent", "mouchak-mail")
         .header("Accept", "application/vnd.github+json")
         .send()
         .await?;
@@ -1654,7 +1654,7 @@ async fn ensure_gh_pages_branch(token: &str, owner: &str, repo: &str) -> anyhow:
     let create_response = client
         .post(&create_ref_url)
         .header("Authorization", format!("Bearer {}", token))
-        .header("User-Agent", "mcp-agent-mail")
+        .header("User-Agent", "mouchak-mail")
         .header("Accept", "application/vnd.github+json")
         .json(&serde_json::json!({
             "ref": "refs/heads/gh-pages",
@@ -1681,10 +1681,10 @@ async fn create_initial_commit(token: &str, owner: &str, repo: &str) -> anyhow::
     let blob_response = client
         .post(&blob_url)
         .header("Authorization", format!("Bearer {}", token))
-        .header("User-Agent", "mcp-agent-mail")
+        .header("User-Agent", "mouchak-mail")
         .header("Accept", "application/vnd.github+json")
         .json(&serde_json::json!({
-            "content": "# Agent Mail Archive\n\nDeployed via mcp-agent-mail",
+            "content": "# Agent Mail Archive\n\nDeployed via mouchak-mail",
             "encoding": "utf-8"
         }))
         .send()
@@ -1700,7 +1700,7 @@ async fn create_initial_commit(token: &str, owner: &str, repo: &str) -> anyhow::
     let tree_response = client
         .post(&tree_url)
         .header("Authorization", format!("Bearer {}", token))
-        .header("User-Agent", "mcp-agent-mail")
+        .header("User-Agent", "mouchak-mail")
         .header("Accept", "application/vnd.github+json")
         .json(&serde_json::json!({
             "tree": [{
@@ -1726,7 +1726,7 @@ async fn create_initial_commit(token: &str, owner: &str, repo: &str) -> anyhow::
     let commit_response = client
         .post(&commit_url)
         .header("Authorization", format!("Bearer {}", token))
-        .header("User-Agent", "mcp-agent-mail")
+        .header("User-Agent", "mouchak-mail")
         .header("Accept", "application/vnd.github+json")
         .json(&serde_json::json!({
             "message": "Initial commit",
@@ -1746,7 +1746,7 @@ async fn create_initial_commit(token: &str, owner: &str, repo: &str) -> anyhow::
     client
         .post(&ref_url)
         .header("Authorization", format!("Bearer {}", token))
-        .header("User-Agent", "mcp-agent-mail")
+        .header("User-Agent", "mouchak-mail")
         .header("Accept", "application/vnd.github+json")
         .json(&serde_json::json!({
             "ref": "refs/heads/main",
@@ -1780,7 +1780,7 @@ async fn push_file_to_branch(
     let file_check = client
         .get(&file_url)
         .header("Authorization", format!("Bearer {}", token))
-        .header("User-Agent", "mcp-agent-mail")
+        .header("User-Agent", "mouchak-mail")
         .header("Accept", "application/vnd.github+json")
         .send()
         .await?;
@@ -1810,7 +1810,7 @@ async fn push_file_to_branch(
     let put_response = client
         .put(&put_url)
         .header("Authorization", format!("Bearer {}", token))
-        .header("User-Agent", "mcp-agent-mail")
+        .header("User-Agent", "mouchak-mail")
         .header("Accept", "application/vnd.github+json")
         .json(&payload)
         .send()
@@ -1844,7 +1844,7 @@ async fn push_file_to_branch_binary(
     let file_check = client
         .get(&file_url)
         .header("Authorization", format!("Bearer {}", token))
-        .header("User-Agent", "mcp-agent-mail")
+        .header("User-Agent", "mouchak-mail")
         .header("Accept", "application/vnd.github+json")
         .send()
         .await?;
@@ -1874,7 +1874,7 @@ async fn push_file_to_branch_binary(
     let put_response = client
         .put(&put_url)
         .header("Authorization", format!("Bearer {}", token))
-        .header("User-Agent", "mcp-agent-mail")
+        .header("User-Agent", "mouchak-mail")
         .header("Accept", "application/vnd.github+json")
         .json(&payload)
         .send()
@@ -1904,7 +1904,7 @@ async fn enable_github_pages(
     let check_response = client
         .get(&pages_url)
         .header("Authorization", format!("Bearer {}", token))
-        .header("User-Agent", "mcp-agent-mail")
+        .header("User-Agent", "mouchak-mail")
         .header("Accept", "application/vnd.github+json")
         .send()
         .await?;
@@ -1915,7 +1915,7 @@ async fn enable_github_pages(
             let update_response = client
                 .put(&pages_url)
                 .header("Authorization", format!("Bearer {}", token))
-                .header("User-Agent", "mcp-agent-mail")
+                .header("User-Agent", "mouchak-mail")
                 .header("Accept", "application/vnd.github+json")
                 .json(&serde_json::json!({
                     "cname": domain
@@ -1947,7 +1947,7 @@ async fn enable_github_pages(
     let enable_response = client
         .post(&pages_url)
         .header("Authorization", format!("Bearer {}", token))
-        .header("User-Agent", "mcp-agent-mail")
+        .header("User-Agent", "mouchak-mail")
         .header("Accept", "application/vnd.github+json")
         .json(&payload)
         .send()
@@ -1972,7 +1972,7 @@ fn handle_config_command(cmd: ConfigCommands) -> anyhow::Result<()> {
         ConfigCommands::SetPort { port } => {
             let home =
                 std::env::var("HOME").map_err(|_| anyhow::anyhow!("HOME env var not set"))?;
-            let config_dir = PathBuf::from(&home).join(".mcp-agent-mail");
+            let config_dir = PathBuf::from(&home).join(".mouchak-mail");
             let config_path = config_dir.join("config.toml");
 
             std::fs::create_dir_all(&config_dir)?;
@@ -2028,7 +2028,7 @@ fn handle_robot_status(format: &str) -> u8 {
     let mut exit_code = 0;
 
     // 1. Database Check
-    let db_path = std::path::Path::new("data/mcp_agent_mail.db");
+    let db_path = std::path::Path::new("data/mouchak_mail.db");
     checks.insert(
         "database".to_string(),
         CheckResult {
@@ -2083,7 +2083,7 @@ fn handle_robot_status(format: &str) -> u8 {
 
     let output = RobotStatusOutput {
         schema_version: ROBOT_HELP_SCHEMA_VERSION.to_string(),
-        tool: "mcp-agent-mail".to_string(),
+        tool: "mouchak-mail".to_string(),
         version: env!("CARGO_PKG_VERSION").to_string(),
         timestamp: chrono::Utc::now().to_rfc3339(),
         status,
@@ -2306,7 +2306,7 @@ async fn handle_guard_check(
 
     // Get active file reservations from MCP API with timeout
     let url =
-        std::env::var("MCP_AGENT_MAIL_URL").unwrap_or_else(|_| "http://localhost:8765".into());
+        std::env::var("MOUCHAK_MAIL_URL").unwrap_or_else(|_| "http://localhost:8765".into());
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
         .build()
@@ -2526,7 +2526,7 @@ async fn main() -> anyhow::Result<()> {
         Some(Commands::Products(args)) => handle_products(args).await?,
         Some(Commands::Guard(args)) => handle_guard(args).await?,
         Some(Commands::Mail(args)) => handle_mail(args).await?,
-        Some(Commands::Version) => println!("mcp-agent-mail v{}", env!("CARGO_PKG_VERSION")),
+        Some(Commands::Version) => println!("mouchak-mail v{}", env!("CARGO_PKG_VERSION")),
         None => {
             Cli::command().print_help()?;
         }
@@ -2539,7 +2539,7 @@ async fn main() -> anyhow::Result<()> {
 
 async fn handle_summarize(args: SummarizeArgs) -> anyhow::Result<()> {
     let url =
-        std::env::var("MCP_AGENT_MAIL_URL").unwrap_or_else(|_| "http://localhost:8765".into());
+        std::env::var("MOUCHAK_MAIL_URL").unwrap_or_else(|_| "http://localhost:8765".into());
     let client = reqwest::Client::new();
 
     // Parse thread IDs (comma-separated)
@@ -2603,10 +2603,10 @@ async fn handle_archive_save(
         .compression_method(zip::CompressionMethod::Deflated);
 
     // Add database file
-    let db_path = std::path::Path::new("data/mcp_agent_mail.db");
+    let db_path = std::path::Path::new("data/mouchak_mail.db");
     if db_path.exists() {
         let content = fs::read(db_path)?;
-        zip.start_file("mcp_agent_mail.db", options)?;
+        zip.start_file("mouchak_mail.db", options)?;
         zip.write_all(&content)?;
         println!("✓ Added database to archive");
     } else {
@@ -2729,8 +2729,8 @@ fn handle_archive_restore(file: &str, yes: bool) -> anyhow::Result<()> {
     let mut archive = zip::ZipArchive::new(file)?;
 
     // Restore database
-    if let Ok(mut db_file) = archive.by_name("mcp_agent_mail.db") {
-        let db_path = std::path::Path::new("data/mcp_agent_mail.db");
+    if let Ok(mut db_file) = archive.by_name("mouchak_mail.db") {
+        let db_path = std::path::Path::new("data/mouchak_mail.db");
         fs::create_dir_all("data")?;
         let mut content = Vec::new();
         use std::io::Read;
@@ -2792,7 +2792,7 @@ async fn handle_archive_clear_and_reset(
     }
 
     // Remove database
-    let db_path = std::path::Path::new("data/mcp_agent_mail.db");
+    let db_path = std::path::Path::new("data/mouchak_mail.db");
     if db_path.exists() {
         fs::remove_file(db_path)?;
         println!("✓ Removed database");
@@ -3143,12 +3143,12 @@ async fn handle_mail_status() -> anyhow::Result<()> {
     println!("===========");
 
     // resolved project_key for a directory
-    let project_slug = std::env::var("MCP_AGENT_MAIL_PROJECT_SLUG")
-        .unwrap_or_else(|_| "mcp-agent-mail-rs".to_string());
+    let project_slug = std::env::var("MOUCHAK_MAIL_PROJECT_SLUG")
+        .unwrap_or_else(|_| "mouchak-mail-rs".to_string());
     println!("Project: {}", project_slug);
 
     // registration status - check if we're registered with Agent Mail
-    let agent_registered = std::env::var("MCP_AGENT_MAIL_URL").is_ok();
+    let agent_registered = std::env::var("MOUCHAK_MAIL_URL").is_ok();
     println!(
         "Agent Registration: {}",
         if agent_registered {
@@ -3159,7 +3159,7 @@ async fn handle_mail_status() -> anyhow::Result<()> {
     );
 
     // active file reservations - query MCP API
-    if let Ok(url) = std::env::var("MCP_AGENT_MAIL_URL") {
+    if let Ok(url) = std::env::var("MOUCHAK_MAIL_URL") {
         let client = reqwest::Client::new();
 
         // Check file reservations
@@ -3200,7 +3200,7 @@ async fn handle_mail_status() -> anyhow::Result<()> {
     }
 
     // product linkage - check if project is linked to products
-    if let Ok(url) = std::env::var("MCP_AGENT_MAIL_URL") {
+    if let Ok(url) = std::env::var("MOUCHAK_MAIL_URL") {
         let client = reqwest::Client::new();
 
         match client
@@ -3319,7 +3319,7 @@ mod guard_pattern_tests {
 }
 
 // =============================================================================
-// Tests for robot-* flag handlers (TDD - mcp-agent-mail-rs-vgs4)
+// Tests for robot-* flag handlers (TDD - mouchak-mail-rs-vgs4)
 // =============================================================================
 
 #[cfg(test)]
@@ -3389,7 +3389,7 @@ mod robot_handler_tests {
 
         let output = RobotStatusOutput {
             schema_version: "1.0.0".to_string(),
-            tool: "mcp-agent-mail".to_string(),
+            tool: "mouchak-mail".to_string(),
             version: "0.3.0".to_string(),
             timestamp: "2024-12-22T00:00:00Z".to_string(),
             status: "healthy".to_string(),
@@ -3432,7 +3432,7 @@ mod robot_handler_tests {
 
         let healthy_output = RobotStatusOutput {
             schema_version: "1.0.0".to_string(),
-            tool: "mcp-agent-mail".to_string(),
+            tool: "mouchak-mail".to_string(),
             version: "0.3.0".to_string(),
             timestamp: "2024-12-22T00:00:00Z".to_string(),
             status: "healthy".to_string(),
@@ -3456,7 +3456,7 @@ mod robot_handler_tests {
 
         let degraded_output = RobotStatusOutput {
             schema_version: "1.0.0".to_string(),
-            tool: "mcp-agent-mail".to_string(),
+            tool: "mouchak-mail".to_string(),
             version: "0.3.0".to_string(),
             timestamp: "2024-12-22T00:00:00Z".to_string(),
             status: "degraded".to_string(),
@@ -3477,7 +3477,7 @@ mod robot_handler_tests {
             target: "--robot-examples".to_string(),
             target_type: "flag".to_string(),
             examples: vec![Example {
-                invocation: "mcp-agent-mail --robot-examples serve".to_string(),
+                invocation: "mouchak-mail --robot-examples serve".to_string(),
                 description: "Examples for serve command".to_string(),
             }],
         };
@@ -3586,7 +3586,7 @@ mod robot_handler_tests {
 }
 
 // =============================================================================
-// Tests for GitHub Pages deployment (TDD - mcp-agent-mail-rs-xpau)
+// Tests for GitHub Pages deployment (TDD - mouchak-mail-rs-xpau)
 // =============================================================================
 
 #[cfg(test)]

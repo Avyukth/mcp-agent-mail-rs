@@ -50,7 +50,7 @@ fn test_robot_help_output_schema_version_constant() {
 fn test_robot_help_output_minimal() {
     let output = RobotHelpOutput {
         schema_version: ROBOT_HELP_SCHEMA_VERSION.to_string(),
-        tool: "mcp-agent-mail".to_string(),
+        tool: "mouchak-mail".to_string(),
         version: "0.1.0".to_string(),
         description: "Gmail for coding agents".to_string(),
         commands: vec![],
@@ -60,7 +60,7 @@ fn test_robot_help_output_minimal() {
     let json = serde_json::to_value(&output).expect("serialization should succeed");
 
     assert_eq!(json["schema_version"], "1.0.0");
-    assert_eq!(json["tool"], "mcp-agent-mail");
+    assert_eq!(json["tool"], "mouchak-mail");
     assert_eq!(json["version"], "0.1.0");
     assert_eq!(json["description"], "Gmail for coding agents");
     assert!(json["commands"].as_array().unwrap().is_empty());
@@ -76,7 +76,7 @@ fn test_robot_help_output_with_commands() {
 
     let output = RobotHelpOutput {
         schema_version: ROBOT_HELP_SCHEMA_VERSION.to_string(),
-        tool: "mcp-agent-mail".to_string(),
+        tool: "mouchak-mail".to_string(),
         version: "0.1.0".to_string(),
         description: "Gmail for coding agents".to_string(),
         commands: vec![CommandSchema {
@@ -125,7 +125,7 @@ fn test_robot_help_output_with_commands() {
 fn test_robot_help_output_with_robot_flags() {
     let output = RobotHelpOutput {
         schema_version: ROBOT_HELP_SCHEMA_VERSION.to_string(),
-        tool: "mcp-agent-mail".to_string(),
+        tool: "mouchak-mail".to_string(),
         version: "0.1.0".to_string(),
         description: "Gmail for coding agents".to_string(),
         commands: vec![],
@@ -177,7 +177,7 @@ fn test_robot_help_output_with_robot_flags() {
 fn test_robot_help_output_deserialization() {
     let json = json!({
         "schema_version": "1.0.0",
-        "tool": "mcp-agent-mail",
+        "tool": "mouchak-mail",
         "version": "0.2.0",
         "description": "Test tool",
         "commands": [
@@ -193,7 +193,7 @@ fn test_robot_help_output_deserialization() {
                         "param_type": "String",
                         "default": "http://localhost:8765",
                         "required": false,
-                        "env_var": "MCP_AGENT_MAIL_URL"
+                        "env_var": "MOUCHAK_MAIL_URL"
                     }
                 ],
                 "exit_codes": {
@@ -216,7 +216,7 @@ fn test_robot_help_output_deserialization() {
         serde_json::from_value(json).expect("deserialization should succeed");
 
     assert_eq!(output.schema_version, "1.0.0");
-    assert_eq!(output.tool, "mcp-agent-mail");
+    assert_eq!(output.tool, "mouchak-mail");
     assert_eq!(output.version, "0.2.0");
     assert_eq!(output.commands.len(), 1);
     assert_eq!(output.commands[0].name, "health");
@@ -347,7 +347,7 @@ fn test_backward_compatibility_legacy_robot_help_still_works() {
 }
 
 // =============================================================================
-// Tests for robot-* flag schema validation (TDD RED phase - mcp-agent-mail-rs-vgs4)
+// Tests for robot-* flag schema validation (TDD RED phase - mouchak-mail-rs-vgs4)
 // =============================================================================
 
 #[test]
@@ -355,7 +355,7 @@ fn test_robot_help_output_has_required_schema_version() {
     // Schema version must be "1.0.0" for the current API
     let output = RobotHelpOutput {
         schema_version: ROBOT_HELP_SCHEMA_VERSION.to_string(),
-        tool: "mcp-agent-mail".to_string(),
+        tool: "mouchak-mail".to_string(),
         version: "0.3.0".to_string(),
         description: "Gmail for coding agents".to_string(),
         commands: vec![],
@@ -375,7 +375,7 @@ fn test_robot_help_output_valid_json_with_all_robot_flags() {
     // A valid RobotHelpOutput should include all three robot-* flags
     let output = RobotHelpOutput {
         schema_version: ROBOT_HELP_SCHEMA_VERSION.to_string(),
-        tool: "mcp-agent-mail".to_string(),
+        tool: "mouchak-mail".to_string(),
         version: "0.3.0".to_string(),
         description: "Gmail for coding agents".to_string(),
         commands: vec![],
@@ -385,7 +385,7 @@ fn test_robot_help_output_valid_json_with_all_robot_flags() {
                 description: "AI-optimized capability discovery".to_string(),
                 output_format: "json".to_string(),
                 examples: vec![Example {
-                    invocation: "mcp-agent-mail --robot-help".to_string(),
+                    invocation: "mouchak-mail --robot-help".to_string(),
                     description: "Show all capabilities as JSON".to_string(),
                 }],
             },
@@ -424,7 +424,7 @@ fn test_robot_examples_must_be_self_documenting() {
     // The robot_flags output should include examples for itself
     let output = RobotHelpOutput {
         schema_version: ROBOT_HELP_SCHEMA_VERSION.to_string(),
-        tool: "mcp-agent-mail".to_string(),
+        tool: "mouchak-mail".to_string(),
         version: "0.3.0".to_string(),
         description: "Gmail for coding agents".to_string(),
         commands: vec![],
@@ -434,11 +434,11 @@ fn test_robot_examples_must_be_self_documenting() {
             output_format: "json".to_string(),
             examples: vec![
                 Example {
-                    invocation: "mcp-agent-mail --robot-examples serve".to_string(),
+                    invocation: "mouchak-mail --robot-examples serve".to_string(),
                     description: "Examples for serve command".to_string(),
                 },
                 Example {
-                    invocation: "mcp-agent-mail --robot-examples --robot-examples".to_string(),
+                    invocation: "mouchak-mail --robot-examples --robot-examples".to_string(),
                     description: "Self-documenting: show this very output".to_string(),
                 },
             ],

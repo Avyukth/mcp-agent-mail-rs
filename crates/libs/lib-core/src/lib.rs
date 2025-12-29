@@ -1,8 +1,8 @@
-//! # lib-core: Core Business Logic for MCP Agent Mail
+//! # lib-core: Core Business Logic for Mouchak Mail
 //!
-//! `lib-core` contains the core domain logic and data access for the MCP Agent Mail application.
+//! `lib-core` contains the core domain logic and data access for the Mouchak Mail application.
 //!
-//! This crate provides the core business logic layer for the MCP Agent Mail system,
+//! This crate provides the core business logic layer for the Mouchak Mail system,
 //! following the BMC (Backend Model Controller) pattern for consistent data access.
 //!
 //! ## Architecture

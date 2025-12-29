@@ -1,7 +1,7 @@
 //! # Model Layer - BMC Pattern Implementation
 //!
 //! This module contains all Backend Model Controllers (BMCs) and their
-//! associated data structures for the MCP Agent Mail system.
+//! associated data structures for the Mouchak Mail system.
 //!
 //! ## BMC Pattern
 //!

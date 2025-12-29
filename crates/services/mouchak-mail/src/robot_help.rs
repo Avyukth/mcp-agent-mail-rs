@@ -63,10 +63,10 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             default: None,
             examples: vec![
                 example(
-                    "mcp-agent-mail --robot-help",
+                    "mouchak-mail --robot-help",
                     "Show all capabilities as JSON",
                 ),
-                example("mcp-agent-mail --robot-help --format yaml", "YAML output"),
+                example("mouchak-mail --robot-help --format yaml", "YAML output"),
             ],
         },
     );
@@ -80,11 +80,11 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             default: None,
             examples: vec![
                 example(
-                    "mcp-agent-mail --robot-examples serve",
+                    "mouchak-mail --robot-examples serve",
                     "Examples for serve command",
                 ),
                 example(
-                    "mcp-agent-mail --robot-examples --port",
+                    "mouchak-mail --robot-examples --port",
                     "Examples for --port flag",
                 ),
             ],
@@ -100,11 +100,11 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             default: None,
             examples: vec![
                 example(
-                    "mcp-agent-mail --robot-status",
+                    "mouchak-mail --robot-status",
                     "Show status in JSON format",
                 ),
                 example(
-                    "mcp-agent-mail --robot-status --format yaml",
+                    "mouchak-mail --robot-status --format yaml",
                     "YAML status output",
                 ),
             ],
@@ -120,11 +120,11 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             default: Some("json"),
             examples: vec![
                 example(
-                    "mcp-agent-mail --robot-status --format yaml",
+                    "mouchak-mail --robot-status --format yaml",
                     "YAML status output",
                 ),
                 example(
-                    "mcp-agent-mail schema --format markdown",
+                    "mouchak-mail schema --format markdown",
                     "Markdown schema docs",
                 ),
             ],
@@ -140,11 +140,11 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             default: Some("pretty"),
             examples: vec![
                 example(
-                    "mcp-agent-mail serve --log-format json",
+                    "mouchak-mail serve --log-format json",
                     "Structured JSON logs",
                 ),
                 example(
-                    "mcp-agent-mail serve --log-format pretty",
+                    "mouchak-mail serve --log-format pretty",
                     "Human-readable logs",
                 ),
             ],
@@ -160,13 +160,13 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![
-                example("mcp-agent-mail serve http", "Start HTTP REST API server"),
+                example("mouchak-mail serve http", "Start HTTP REST API server"),
                 example(
-                    "mcp-agent-mail serve mcp --transport stdio",
+                    "mouchak-mail serve mcp --transport stdio",
                     "Start MCP stdio server",
                 ),
                 example(
-                    "mcp-agent-mail serve mcp --transport sse --port 3000",
+                    "mouchak-mail serve mcp --transport sse --port 3000",
                     "Start MCP SSE server",
                 ),
             ],
@@ -182,10 +182,10 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             default: None,
             examples: vec![
                 example(
-                    "mcp-agent-mail serve http --port 8765",
+                    "mouchak-mail serve http --port 8765",
                     "Start on custom port",
                 ),
-                example("mcp-agent-mail serve http --no-ui", "Headless API server"),
+                example("mouchak-mail serve http --no-ui", "Headless API server"),
             ],
         },
     );
@@ -199,11 +199,11 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             default: None,
             examples: vec![
                 example(
-                    "mcp-agent-mail serve mcp --transport stdio",
+                    "mouchak-mail serve mcp --transport stdio",
                     "For Claude Desktop",
                 ),
                 example(
-                    "mcp-agent-mail serve mcp --transport sse",
+                    "mouchak-mail serve mcp --transport sse",
                     "For web clients",
                 ),
             ],
@@ -218,9 +218,9 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![
-                example("mcp-agent-mail health", "Check localhost:8765"),
+                example("mouchak-mail health", "Check localhost:8765"),
                 example(
-                    "mcp-agent-mail health --url http://prod.example.com",
+                    "mouchak-mail health --url http://prod.example.com",
                     "Check remote server",
                 ),
             ],
@@ -235,8 +235,8 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![
-                example("mcp-agent-mail config set-port 9000", "Set custom port"),
-                example("mcp-agent-mail config show-port", "Show current port"),
+                example("mouchak-mail config set-port 9000", "Set custom port"),
+                example("mouchak-mail config show-port", "Show current port"),
             ],
         },
     );
@@ -249,7 +249,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: Some("u16"),
             default: None,
             examples: vec![example(
-                "mcp-agent-mail config set-port 3000",
+                "mouchak-mail config set-port 3000",
                 "Set port to 3000",
             )],
         },
@@ -263,7 +263,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![example(
-                "mcp-agent-mail config show-port",
+                "mouchak-mail config show-port",
                 "Display current port",
             )],
         },
@@ -277,9 +277,9 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![
-                example("mcp-agent-mail schema", "Export all tool schemas as JSON"),
+                example("mouchak-mail schema", "Export all tool schemas as JSON"),
                 example(
-                    "mcp-agent-mail schema --format markdown --output docs/tools.md",
+                    "mouchak-mail schema --format markdown --output docs/tools.md",
                     "Generate markdown docs",
                 ),
             ],
@@ -293,7 +293,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             target_type: "subcommand",
             param_type: None,
             default: None,
-            examples: vec![example("mcp-agent-mail tools", "List all 45 MCP tools")],
+            examples: vec![example("mouchak-mail tools", "List all 45 MCP tools")],
         },
     );
 
@@ -305,7 +305,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![example(
-                "mcp-agent-mail install alias",
+                "mouchak-mail install alias",
                 "Install 'am' shell alias",
             )],
         },
@@ -319,7 +319,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![example(
-                "mcp-agent-mail install alias",
+                "mouchak-mail install alias",
                 "Create 'am' command alias",
             )],
         },
@@ -333,9 +333,9 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![
-                example("mcp-agent-mail service status", "Check service status"),
-                example("mcp-agent-mail service start", "Start background service"),
-                example("mcp-agent-mail service stop", "Stop background service"),
+                example("mouchak-mail service status", "Check service status"),
+                example("mouchak-mail service start", "Start background service"),
+                example("mouchak-mail service stop", "Stop background service"),
             ],
         },
     );
@@ -348,7 +348,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![example(
-                "mcp-agent-mail service status --port 8765",
+                "mouchak-mail service status --port 8765",
                 "Check specific port",
             )],
         },
@@ -362,7 +362,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![example(
-                "mcp-agent-mail service start --port 8765",
+                "mouchak-mail service start --port 8765",
                 "Start on specific port",
             )],
         },
@@ -376,7 +376,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![example(
-                "mcp-agent-mail service stop --port 8765",
+                "mouchak-mail service stop --port 8765",
                 "Stop specific instance",
             )],
         },
@@ -390,7 +390,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![example(
-                "mcp-agent-mail service restart --port 8765",
+                "mouchak-mail service restart --port 8765",
                 "Restart with new config",
             )],
         },
@@ -404,9 +404,9 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![
-                example("mcp-agent-mail share keypair", "Generate signing keypair"),
+                example("mouchak-mail share keypair", "Generate signing keypair"),
                 example(
-                    "mcp-agent-mail share verify --manifest manifest.json",
+                    "mouchak-mail share verify --manifest manifest.json",
                     "Verify signed manifest",
                 ),
             ],
@@ -421,9 +421,9 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![
-                example("mcp-agent-mail share keypair", "Create new keypair"),
+                example("mouchak-mail share keypair", "Create new keypair"),
                 example(
-                    "mcp-agent-mail share keypair --output keys.json",
+                    "mouchak-mail share keypair --output keys.json",
                     "Save to file",
                 ),
             ],
@@ -438,7 +438,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![example(
-                "mcp-agent-mail share verify --manifest export.json",
+                "mouchak-mail share verify --manifest export.json",
                 "Verify manifest signature",
             )],
         },
@@ -452,7 +452,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![example(
-                "mcp-agent-mail share encrypt --project myproj --passphrase",
+                "mouchak-mail share encrypt --project myproj --passphrase",
                 "Encrypt project data",
             )],
         },
@@ -466,7 +466,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![example(
-                "mcp-agent-mail share decrypt --input data.age",
+                "mouchak-mail share decrypt --input data.age",
                 "Decrypt with passphrase",
             )],
         },
@@ -481,11 +481,11 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             default: None,
             examples: vec![
                 example(
-                    "mcp-agent-mail share deploy github-pages --repo my-archive --bundle export.zip",
+                    "mouchak-mail share deploy github-pages --repo my-archive --bundle export.zip",
                     "Deploy to GitHub Pages",
                 ),
                 example(
-                    "mcp-agent-mail share deploy github-pages --repo my-archive --bundle export.zip --private",
+                    "mouchak-mail share deploy github-pages --repo my-archive --bundle export.zip --private",
                     "Deploy to private GitHub Pages",
                 ),
             ],
@@ -501,19 +501,19 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             default: None,
             examples: vec![
                 example(
-                    "mcp-agent-mail share deploy github-pages --repo agent-archive --bundle data/export.zip",
+                    "mouchak-mail share deploy github-pages --repo agent-archive --bundle data/export.zip",
                     "Basic deployment (uses GITHUB_TOKEN env var)",
                 ),
                 example(
-                    "mcp-agent-mail share deploy github-pages --repo my-archive --owner myorg --bundle export.zip",
+                    "mouchak-mail share deploy github-pages --repo my-archive --owner myorg --bundle export.zip",
                     "Deploy to organization repo",
                 ),
                 example(
-                    "mcp-agent-mail share deploy github-pages --repo archive --bundle export.zip --custom-domain archive.example.com",
+                    "mouchak-mail share deploy github-pages --repo archive --bundle export.zip --custom-domain archive.example.com",
                     "Deploy with custom domain",
                 ),
                 example(
-                    "mcp-agent-mail share deploy github-pages --repo archive --bundle export.zip --private --token ghp_xxx",
+                    "mouchak-mail share deploy github-pages --repo archive --bundle export.zip --private --token ghp_xxx",
                     "Private repo with explicit token",
                 ),
             ],
@@ -529,12 +529,12 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             default: None,
             examples: vec![
                 example(
-                    "mcp-agent-mail archive save --label backup-2024",
+                    "mouchak-mail archive save --label backup-2024",
                     "Create timestamped backup",
                 ),
-                example("mcp-agent-mail archive list", "List available archives"),
+                example("mouchak-mail archive list", "List available archives"),
                 example(
-                    "mcp-agent-mail archive restore archive.zip",
+                    "mouchak-mail archive restore archive.zip",
                     "Restore from backup",
                 ),
             ],
@@ -549,9 +549,9 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![
-                example("mcp-agent-mail archive save", "Create timestamped archive"),
+                example("mouchak-mail archive save", "Create timestamped archive"),
                 example(
-                    "mcp-agent-mail archive save --include-git",
+                    "mouchak-mail archive save --include-git",
                     "Include git history",
                 ),
             ],
@@ -566,8 +566,8 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![
-                example("mcp-agent-mail archive list", "Show all archives"),
-                example("mcp-agent-mail archive list --json", "JSON format output"),
+                example("mouchak-mail archive list", "Show all archives"),
+                example("mouchak-mail archive list --json", "JSON format output"),
             ],
         },
     );
@@ -581,11 +581,11 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             default: None,
             examples: vec![
                 example(
-                    "mcp-agent-mail archive restore backup.zip",
+                    "mouchak-mail archive restore backup.zip",
                     "Restore from file",
                 ),
                 example(
-                    "mcp-agent-mail archive restore backup.zip --yes",
+                    "mouchak-mail archive restore backup.zip --yes",
                     "Skip confirmation",
                 ),
             ],
@@ -600,7 +600,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![example(
-                "mcp-agent-mail archive clear-and-reset --archive",
+                "mouchak-mail archive clear-and-reset --archive",
                 "Backup then clear",
             )],
         },
@@ -615,11 +615,11 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             default: None,
             examples: vec![
                 example(
-                    "mcp-agent-mail summarize --project myproj --thread-id task-123",
+                    "mouchak-mail summarize --project myproj --thread-id task-123",
                     "Summarize single thread",
                 ),
                 example(
-                    "mcp-agent-mail summarize --project myproj --thread-id task-123,task-456",
+                    "mouchak-mail summarize --project myproj --thread-id task-123,task-456",
                     "Summarize multiple threads",
                 ),
             ],
@@ -634,7 +634,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![example(
-                "mcp-agent-mail version",
+                "mouchak-mail version",
                 "Display version and build info",
             )],
         },
@@ -649,11 +649,11 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             default: None,
             examples: vec![
                 example(
-                    "mcp-agent-mail products ensure --uid cross-platform --name 'Cross-Platform'",
+                    "mouchak-mail products ensure --uid cross-platform --name 'Cross-Platform'",
                     "Create product",
                 ),
                 example(
-                    "mcp-agent-mail products link --uid cross-platform --project /path/to/repo",
+                    "mouchak-mail products link --uid cross-platform --project /path/to/repo",
                     "Link project to product",
                 ),
             ],
@@ -668,7 +668,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![example(
-                "mcp-agent-mail products ensure --uid my-product --name 'My Product'",
+                "mouchak-mail products ensure --uid my-product --name 'My Product'",
                 "Create new product",
             )],
         },
@@ -682,7 +682,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![example(
-                "mcp-agent-mail products link --uid my-product --project /repo/path",
+                "mouchak-mail products link --uid my-product --project /repo/path",
                 "Add project to product",
             )],
         },
@@ -696,7 +696,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![example(
-                "mcp-agent-mail products unlink --uid my-product --project /repo/path",
+                "mouchak-mail products unlink --uid my-product --project /repo/path",
                 "Remove project link",
             )],
         },
@@ -710,7 +710,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![example(
-                "mcp-agent-mail products status --uid my-product",
+                "mouchak-mail products status --uid my-product",
                 "Show product details",
             )],
         },
@@ -724,7 +724,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![example(
-                "mcp-agent-mail products search --uid my-product --query 'error'",
+                "mouchak-mail products search --uid my-product --query 'error'",
                 "Search product messages",
             )],
         },
@@ -738,7 +738,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![example(
-                "mcp-agent-mail products inbox --uid my-product",
+                "mouchak-mail products inbox --uid my-product",
                 "Show product inbox",
             )],
         },
@@ -752,7 +752,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![example(
-                "mcp-agent-mail products summarize-thread --uid my-product --thread-id task-123",
+                "mouchak-mail products summarize-thread --uid my-product --thread-id task-123",
                 "Cross-project summary",
             )],
         },
@@ -766,9 +766,9 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![
-                example("mcp-agent-mail guard status", "Check guard status"),
+                example("mouchak-mail guard status", "Check guard status"),
                 example(
-                    "mcp-agent-mail guard check --stdin-nul",
+                    "mouchak-mail guard check --stdin-nul",
                     "Validate file reservations",
                 ),
             ],
@@ -783,7 +783,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![example(
-                "mcp-agent-mail guard status",
+                "mouchak-mail guard status",
                 "Display current settings",
             )],
         },
@@ -797,9 +797,9 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![
-                example("mcp-agent-mail guard check --stdin-nul", "Check from stdin"),
+                example("mouchak-mail guard check --stdin-nul", "Check from stdin"),
                 example(
-                    "mcp-agent-mail guard check --advisory",
+                    "mouchak-mail guard check --advisory",
                     "Warn instead of fail",
                 ),
             ],
@@ -814,7 +814,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![example(
-                "mcp-agent-mail mail status",
+                "mouchak-mail mail status",
                 "Show mail system status",
             )],
         },
@@ -828,7 +828,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![example(
-                "mcp-agent-mail mail status",
+                "mouchak-mail mail status",
                 "Display system health",
             )],
         },

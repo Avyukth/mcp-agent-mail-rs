@@ -1,4 +1,4 @@
-//! Production-grade error handling for MCP Agent Mail Server.
+//! Production-grade error handling for Mouchak Mail Server.
 //!
 //! Follows NIST SP 800-53 error handling guidelines:
 //! - Fail-secure: Never expose internal implementation details

@@ -1,4 +1,4 @@
-//! Input validation utilities for MCP Agent Mail.
+//! Input validation utilities for Mouchak Mail.
 //!
 //! This module provides validation functions for common input types:
 //!

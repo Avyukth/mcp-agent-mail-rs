@@ -78,7 +78,7 @@ pub fn Layout() -> impl IntoView {
                             <a href="/" class="flex items-center space-x-2.5 group">
                                 <i data-lucide="mail" class="icon-xl text-primary group-hover:text-primary/80 transition-all duration-200"></i>
                                 <span class="font-display font-semibold text-lg text-foreground group-hover:text-primary transition-all duration-200">
-                                    "MCP Agent Mail"
+                                    "Mouchak Mail"
                                 </span>
                             </a>
 
@@ -226,7 +226,7 @@ pub fn Layout() -> impl IntoView {
                     <div class="flex flex-col sm:flex-row justify-between items-center gap-4">
                         <div class="flex items-center space-x-2 text-sm text-muted-foreground">
                             <i data-lucide="mail" class="icon-sm text-primary"></i>
-                            <span class="font-display font-medium">"MCP Agent Mail"</span>
+                            <span class="font-display font-medium">"Mouchak Mail"</span>
                             <span class="text-border">"•"</span>
                             <span class="font-mono text-xs">"Rust/WASM"</span>
                         </div>
@@ -489,8 +489,8 @@ mod tests {
 
     #[test]
     fn test_brand_name() {
-        let brand_name = "MCP Agent Mail";
-        assert_eq!(brand_name, "MCP Agent Mail");
+        let brand_name = "Mouchak Mail";
+        assert_eq!(brand_name, "Mouchak Mail");
     }
 
     #[test]

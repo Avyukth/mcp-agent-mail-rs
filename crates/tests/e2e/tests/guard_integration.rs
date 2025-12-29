@@ -249,7 +249,7 @@ async fn release_reservation(
 
 /// Check if guard CLI is available
 fn guard_cli_available() -> bool {
-    Command::new("./target/debug/mcp-agent-mail")
+    Command::new("./target/debug/mouchak-mail")
         .arg("guard")
         .arg("--help")
         .output()
@@ -659,7 +659,7 @@ async fn test_guard_status_output() {
     }
 
     // Run guard status command
-    let output = Command::new("./target/debug/mcp-agent-mail")
+    let output = Command::new("./target/debug/mouchak-mail")
         .arg("guard")
         .arg("status")
         .output();

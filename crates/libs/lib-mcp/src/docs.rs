@@ -2,7 +2,7 @@ use crate::tools::ToolSchema;
 
 /// Generate Markdown documentation for tools
 pub fn generate_markdown_docs(schemas: &[ToolSchema]) -> String {
-    let mut md = String::from("# MCP Agent Mail - Tool Reference\n\n");
+    let mut md = String::from("# Mouchak Mail - Tool Reference\n\n");
     md.push_str(&format!("Total tools: {}\n\n", schemas.len()));
     md.push_str("## Table of Contents\n\n");
 

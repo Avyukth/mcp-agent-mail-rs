@@ -131,7 +131,7 @@ impl QualityGateResults {
 /// Used by agents to report task completion in a structured format.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CompletionReport {
-    /// Beads task ID (e.g., "mcp-agent-mail-rs-abc")
+    /// Beads task ID (e.g., "mouchak-mail-rs-abc")
     pub task_id: String,
     /// Human-readable task title
     pub task_title: String,
@@ -1059,7 +1059,7 @@ mod tests {
 
     #[test]
     fn test_completion_report_to_markdown() {
-        let mut report = CompletionReport::new("mcp-agent-mail-rs-xyz", "Add Feature X");
+        let mut report = CompletionReport::new("mouchak-mail-rs-xyz", "Add Feature X");
         report.commit_id = "abc123def".to_string();
         report.branch = "feature/x".to_string();
         report.files_changed = vec!["src/lib.rs".to_string(), "Cargo.toml".to_string()];
@@ -1078,7 +1078,7 @@ mod tests {
         let md = report.to_markdown();
 
         assert!(md.contains("# Completion Report: Add Feature X"));
-        assert!(md.contains("**Task ID**: `mcp-agent-mail-rs-xyz`"));
+        assert!(md.contains("**Task ID**: `mouchak-mail-rs-xyz`"));
         assert!(md.contains("**Commit**: `abc123def`"));
         assert!(md.contains("**Branch**: `feature/x`"));
         assert!(md.contains("- `src/lib.rs`"));

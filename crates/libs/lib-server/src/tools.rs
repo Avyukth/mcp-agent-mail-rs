@@ -2651,20 +2651,20 @@ pub async fn install_precommit_guard(
     // Create the pre-commit hook script
     let hook_script = format!(
         r#"#!/bin/sh
-# MCP Agent Mail Pre-commit Guard
+# Mouchak Mail Pre-commit Guard
 # Installed for project: {}
 
 # Check for file reservation conflicts
 # This is an advisory check - can be bypassed with AGENT_MAIL_BYPASS=1
 
 if [ -n "$AGENT_MAIL_BYPASS" ]; then
-    echo "MCP Agent Mail: Bypass enabled, skipping reservation check"
+    echo "Mouchak Mail: Bypass enabled, skipping reservation check"
     exit 0
 fi
 
 # Calls API to check file reservation conflicts
 # See bd-577.9 for full implementation
-echo "MCP Agent Mail: Pre-commit guard active"
+echo "Mouchak Mail: Pre-commit guard active"
 exit 0
 "#,
         payload.project_slug
@@ -2720,7 +2720,7 @@ pub async fn uninstall_precommit_guard(
     if hook_path.exists() {
         // Check if it's our hook before removing
         let content = std::fs::read_to_string(&hook_path)?;
-        if content.contains("MCP Agent Mail Pre-commit Guard") {
+        if content.contains("Mouchak Mail Pre-commit Guard") {
             std::fs::remove_file(&hook_path)?;
             return Ok(Json(UninstallPrecommitGuardResponse {
                 uninstalled: true,
@@ -2730,7 +2730,7 @@ pub async fn uninstall_precommit_guard(
         } else {
             return Ok(Json(UninstallPrecommitGuardResponse {
                 uninstalled: false,
-                message: "Pre-commit hook exists but is not an MCP Agent Mail guard".to_string(),
+                message: "Pre-commit hook exists but is not an Mouchak Mail guard".to_string(),
             })
             .into_response());
         }

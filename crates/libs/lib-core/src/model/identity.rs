@@ -1,4 +1,4 @@
-//! Identity resolution for MCP Agent Mail.
+//! Identity resolution for Mouchak Mail.
 //!
 //! Provides stable identity for projects that survives:
 //! - Worktree changes (uses git common dir)

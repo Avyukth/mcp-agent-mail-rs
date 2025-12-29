@@ -1,4 +1,4 @@
-//! Privacy-safe project slug generation ported from Python mcp_agent_mail.
+//! Privacy-safe project slug generation ported from Python mouchak_mail.
 //!
 //! All modes now generate privacy-safe slugs that don't leak filesystem paths
 //! or usernames. The format is `{project-name}-{hash}` where hash is derived

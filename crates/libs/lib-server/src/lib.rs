@@ -212,7 +212,7 @@ pub async fn run(config: lib_common::config::AppConfig) -> std::result::Result<(
     let app = app.with_state(app_state);
 
     let addr = SocketAddr::from(([0, 0, 0, 0], config.server.port));
-    tracing::info!("MCP Agent Mail Server starting on {}", addr);
+    tracing::info!("Mouchak Mail Server starting on {}", addr);
     tracing::info!("Health check: http://{}/health", addr);
 
     // Axum 0.8+ serve with ConnectInfo for localhost bypass
@@ -276,7 +276,7 @@ fn get_request_body_limit() -> usize {
 }
 
 async fn root_handler() -> &'static str {
-    "MCP Agent Mail Server is running!"
+    "Mouchak Mail Server is running!"
 }
 
 #[derive(serde::Serialize, ToSchema)]

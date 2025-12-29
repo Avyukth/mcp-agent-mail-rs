@@ -98,7 +98,7 @@ impl EscalationConfig {
 /// Project identity resolution mode for slug generation.
 ///
 /// Controls how project slugs are computed to ensure privacy-safe identifiers.
-/// See Python reference: `_compute_project_slug()` in mcp_agent_mail/app.py
+/// See Python reference: `_compute_project_slug()` in mouchak_mail/app.py
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize, Serialize, Default)]
 #[serde(rename_all = "kebab-case")]
 pub enum ProjectIdentityMode {
@@ -257,10 +257,10 @@ impl AppConfig {
             .add_source(File::with_name("config/default").required(false))
             .add_source(File::with_name(&format!("config/{}", run_mode)).required(false));
 
-        // Add user config file from ~/.mcp-agent-mail/config.toml
+        // Add user config file from ~/.mouchak-mail/config.toml
         if let Ok(home) = env::var("HOME") {
             let path = std::path::Path::new(&home)
-                .join(".mcp-agent-mail")
+                .join(".mouchak-mail")
                 .join("config.toml");
             builder = builder.add_source(File::from(path).required(false));
         }

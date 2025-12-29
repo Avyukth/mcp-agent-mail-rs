@@ -1,6 +1,6 @@
 //! Project management for multi-agent workspaces.
 //!
-//! Projects are the top-level organizational unit in MCP Agent Mail.
+//! Projects are the top-level organizational unit in Mouchak Mail.
 //! Each project contains agents, messages, and configuration for a
 //! collaborative AI coding workspace.
 //!

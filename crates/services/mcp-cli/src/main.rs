@@ -169,11 +169,11 @@ fn check_hook_status(name: &str) {
     let path = std::path::Path::new(".git").join("hooks").join(name);
     if path.exists() {
         // We could check if it's OUR hook by reading content, but simple existence is start.
-        // Python output: "/path/to/repo/.git/hooks/pre-commit (mcp-agent-mail)"
+        // Python output: "/path/to/repo/.git/hooks/pre-commit (mouchak-mail)"
         // We'll print path.
         // We need absolute path?
         let abs_path = std::fs::canonicalize(&path).unwrap_or(path);
-        println!("  {}: {} (mcp-agent-mail)", name, abs_path.display());
+        println!("  {}: {} (mouchak-mail)", name, abs_path.display());
     } else {
         println!("  {}: not installed", name);
     }
@@ -317,7 +317,7 @@ async fn handle_projects_command(
             println!("Project: {} ({})", p.human_key, p.slug);
             println!("ID: {}", p.id);
             println!("Created: {}", p.created_at);
-            println!("Link: mcp-agent-mail://project/{}", p.slug);
+            println!("Link: mouchak-mail://project/{}", p.slug);
         }
         ProjectsCommands::Adopt { from, to, dry_run } => {
             let src =
@@ -529,10 +529,10 @@ async fn handle_archive_save(
         .compression_method(zip::CompressionMethod::Deflated);
 
     // Add database file
-    let db_path = std::path::Path::new("data/mcp_agent_mail.db");
+    let db_path = std::path::Path::new("data/mouchak_mail.db");
     if db_path.exists() {
         let content = fs::read(db_path)?;
-        zip.start_file("mcp_agent_mail.db", options)?;
+        zip.start_file("mouchak_mail.db", options)?;
         zip.write_all(&content)?;
         println!("✓ Added database to archive");
     } else {
@@ -655,8 +655,8 @@ fn handle_archive_restore(file: &str, yes: bool) -> Result<()> {
     let mut archive = zip::ZipArchive::new(file)?;
 
     // Restore database
-    if let Ok(mut db_file) = archive.by_name("mcp_agent_mail.db") {
-        let db_path = std::path::Path::new("data/mcp_agent_mail.db");
+    if let Ok(mut db_file) = archive.by_name("mouchak_mail.db") {
+        let db_path = std::path::Path::new("data/mouchak_mail.db");
         fs::create_dir_all("data")?;
         let mut content = Vec::new();
         use std::io::Read;
@@ -716,7 +716,7 @@ async fn handle_archive_clear_and_reset(
     }
 
     // Remove database
-    let db_path = std::path::Path::new("data/mcp_agent_mail.db");
+    let db_path = std::path::Path::new("data/mouchak_mail.db");
     if db_path.exists() {
         fs::remove_file(db_path)?;
         println!("✓ Removed database");

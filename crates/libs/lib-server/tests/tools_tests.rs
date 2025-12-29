@@ -2450,7 +2450,7 @@ mod precommit_guard_tests {
         std::fs::create_dir_all(&hooks_dir).unwrap();
         std::fs::write(
             hooks_dir.join("pre-commit"),
-            "#!/bin/bash\n# MCP Agent Mail Pre-commit Guard\necho 'checking'",
+            "#!/bin/bash\n# Mouchak Mail Pre-commit Guard\necho 'checking'",
         )
         .unwrap();
 

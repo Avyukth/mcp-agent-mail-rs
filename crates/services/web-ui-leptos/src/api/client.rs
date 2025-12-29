@@ -1,4 +1,4 @@
-//! HTTP client for MCP Agent Mail API.
+//! HTTP client for Mouchak Mail API.
 
 use gloo_net::http::Request;
 use serde::{Deserialize, Serialize};

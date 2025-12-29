@@ -1,4 +1,4 @@
-//! WASM entry point for MCP Agent Mail Leptos frontend.
+//! WASM entry point for Mouchak Mail Leptos frontend.
 
 use web_ui_leptos::App;
 

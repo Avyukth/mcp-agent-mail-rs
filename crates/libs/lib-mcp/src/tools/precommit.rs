@@ -22,15 +22,15 @@ pub async fn install_precommit_guard_impl(
 
     let hook_script = format!(
         r#"#!/bin/sh
-# MCP Agent Mail Pre-commit Guard
+# Mouchak Mail Pre-commit Guard
 # Installed for project: {}
 
 if [ -n "$AGENT_MAIL_BYPASS" ]; then
-    echo "MCP Agent Mail: Bypass enabled, skipping reservation check"
+    echo "Mouchak Mail: Bypass enabled, skipping reservation check"
     exit 0
 fi
 
-echo "MCP Agent Mail: Pre-commit guard active"
+echo "Mouchak Mail: Pre-commit guard active"
 exit 0
 "#,
         params.project_slug
@@ -77,7 +77,7 @@ pub async fn uninstall_precommit_guard_impl(
         let content = std::fs::read_to_string(&hook_path)
             .map_err(|e| McpError::internal_error(format!("Failed to read hook: {}", e), None))?;
 
-        if content.contains("MCP Agent Mail Pre-commit Guard") {
+        if content.contains("Mouchak Mail Pre-commit Guard") {
             std::fs::remove_file(&hook_path).map_err(|e| {
                 McpError::internal_error(format!("Failed to remove hook: {}", e), None)
             })?;

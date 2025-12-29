@@ -8,7 +8,7 @@
 //! # Architecture
 //!
 //! All data is stored in two places:
-//! 1. **SQLite database** (`data/mcp_agent_mail.db`) - Primary storage for queries
+//! 1. **SQLite database** (`data/mouchak_mail.db`) - Primary storage for queries
 //! 2. **Git repository** - Audit log for entity changes (via `git_store` submodule)
 //!
 //! # Database Path Resolution
@@ -49,9 +49,9 @@ use std::path::PathBuf;
 ///
 /// Resolution order:
 /// 1. `DATABASE_PATH` env var (absolute path)
-/// 2. `CARGO_WORKSPACE_DIR` env var + "data/mcp_agent_mail.db"
+/// 2. `CARGO_WORKSPACE_DIR` env var + "data/mouchak_mail.db"
 /// 3. Walk up directories to find workspace root (contains Cargo.toml with [workspace])
-/// 4. Fall back to CWD + "data/mcp_agent_mail.db"
+/// 4. Fall back to CWD + "data/mouchak_mail.db"
 fn resolve_db_path() -> PathBuf {
     // 1. Check for explicit DATABASE_PATH
     if let Ok(path) = std::env::var("DATABASE_PATH") {
@@ -64,7 +64,7 @@ fn resolve_db_path() -> PathBuf {
     if let Ok(workspace_dir) = std::env::var("CARGO_WORKSPACE_DIR") {
         let p = PathBuf::from(workspace_dir)
             .join("data")
-            .join("mcp_agent_mail.db");
+            .join("mouchak_mail.db");
         tracing::info!("Using CARGO_WORKSPACE_DIR: {}", p.display());
         return p;
     }
@@ -78,7 +78,7 @@ fn resolve_db_path() -> PathBuf {
                 // Check if this is the workspace root
                 if let Ok(contents) = std::fs::read_to_string(&cargo_toml) {
                     if contents.contains("[workspace]") {
-                        let p = dir.join("data").join("mcp_agent_mail.db");
+                        let p = dir.join("data").join("mouchak_mail.db");
                         tracing::info!("Found workspace root, using: {}", p.display());
                         return p;
                     }
@@ -91,13 +91,13 @@ fn resolve_db_path() -> PathBuf {
         }
 
         // 4. Fall back to CWD
-        let p = cwd.join("data").join("mcp_agent_mail.db");
+        let p = cwd.join("data").join("mouchak_mail.db");
         tracing::warn!("No workspace root found, using CWD: {}", p.display());
         return p;
     }
 
     // Ultimate fallback
-    PathBuf::from("data/mcp_agent_mail.db")
+    PathBuf::from("data/mouchak_mail.db")
 }
 
 /// Type alias for database connections.

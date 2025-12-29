@@ -6,7 +6,7 @@ use predicates::prelude::*;
 
 #[test]
 fn test_products_subcommand_help() {
-    let mut cmd = Command::cargo_bin("mcp-agent-mail").unwrap();
+    let mut cmd = Command::cargo_bin("mouchak-mail").unwrap();
     cmd.arg("products")
         .arg("--help")
         .assert()
@@ -16,7 +16,7 @@ fn test_products_subcommand_help() {
 
 #[test]
 fn test_products_ensure() {
-    let mut cmd = Command::cargo_bin("mcp-agent-mail").unwrap();
+    let mut cmd = Command::cargo_bin("mouchak-mail").unwrap();
     cmd.arg("products")
         .arg("ensure")
         .assert()
@@ -26,7 +26,7 @@ fn test_products_ensure() {
 
 #[test]
 fn test_products_link() {
-    let mut cmd = Command::cargo_bin("mcp-agent-mail").unwrap();
+    let mut cmd = Command::cargo_bin("mouchak-mail").unwrap();
     cmd.arg("products")
         .arg("link")
         .assert()

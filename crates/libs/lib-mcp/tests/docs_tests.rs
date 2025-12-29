@@ -6,7 +6,7 @@ fn test_generate_markdown_docs_empty_schemas() {
     let schemas: Vec<ToolSchema> = vec![];
     let result = generate_markdown_docs(&schemas);
 
-    assert!(result.contains("# MCP Agent Mail - Tool Reference"));
+    assert!(result.contains("# Mouchak Mail - Tool Reference"));
     assert!(result.contains("Total tools: 0"));
     assert!(result.contains("## Table of Contents"));
 }
@@ -21,7 +21,7 @@ fn test_generate_markdown_docs_single_tool_no_params() {
 
     let result = generate_markdown_docs(&schemas);
 
-    assert!(result.contains("# MCP Agent Mail - Tool Reference"));
+    assert!(result.contains("# Mouchak Mail - Tool Reference"));
     assert!(result.contains("Total tools: 1"));
     assert!(result.contains("- [test_tool](#test-tool)"));
     assert!(result.contains("## test_tool"));

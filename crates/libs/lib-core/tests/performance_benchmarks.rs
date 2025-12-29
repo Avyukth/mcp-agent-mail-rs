@@ -1,4 +1,4 @@
-//! Performance Benchmark Tests (mcp-agent-mail-rs-uu10)
+//! Performance Benchmark Tests (mouchak-mail-rs-uu10)
 //!
 //! Tests for export scaling, database efficiency, and performance requirements.
 //!

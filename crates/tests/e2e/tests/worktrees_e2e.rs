@@ -40,7 +40,7 @@ fn setup_test_env() -> TempDir {
 
 /// Run CLI command with isolated data directory
 fn run_cli_with_data_dir(temp_dir: &TempDir) -> Command {
-    let mut cmd = Command::cargo_bin("mcp-agent-mail").unwrap();
+    let mut cmd = Command::cargo_bin("mouchak-mail").unwrap();
     cmd.current_dir(temp_dir.path());
     cmd
 }

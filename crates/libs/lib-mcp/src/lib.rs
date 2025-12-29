@@ -20,7 +20,7 @@ pub async fn run_stdio(config: AppConfig) -> Result<()> {
 
     // For now, assuming tracing is set up by the caller.
 
-    tracing::info!("Starting MCP Agent Mail server (stdio mode)...");
+    tracing::info!("Starting Mouchak Mail server (stdio mode)...");
 
     // Initialize the service with worktrees config
     let service = AgentMailService::new_with_config(config).await?;
@@ -48,7 +48,7 @@ pub async fn run_sse(config: AppConfig) -> Result<()> {
 
     let addr: SocketAddr = format!("0.0.0.0:{}", config.mcp.port).parse()?;
     tracing::info!(
-        "Starting MCP Agent Mail server (HTTP/SSE mode) on http://{}",
+        "Starting Mouchak Mail server (HTTP/SSE mode) on http://{}",
         addr
     );
 
