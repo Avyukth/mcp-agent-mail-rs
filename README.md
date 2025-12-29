@@ -63,23 +63,23 @@ flowchart TB
         MCP[/"MCP Clients<br/>(Claude, Cline, VS Code)"/]
         REST[/"REST Clients<br/>(curl, Postman, Apps)"/]
         WebUI[/"Web UI<br/>(SvelteKit + TypeScript)"/]
-        CLI[/"CLI<br/>(mcp-cli)"/]
+        CLI[/"CLI<br/>(mouchak-mail-cli)"/]
     end
 
     subgraph Transport["Transport Layer"]
-        STDIO["MCP STDIO<br/>(mcp-stdio)"]
+        STDIO["MCP STDIO<br/>(mouchak-mail-stdio)"]
         SSE["MCP SSE<br/>(rmcp)"]
         HTTP["REST API<br/>(Axum 0.8)"]
     end
 
-    subgraph App["Application Layer (lib-server)"]
+    subgraph App["Application Layer (mouchak-mail-server)"]
         MW["Middleware Stack"]
         Handlers["Route Handlers"]
         Tools["MCP Tool Router<br/>(45+ tools)"]
         Embed["Embedded Assets<br/>(rust-embed)"]
     end
 
-    subgraph Business["Business Layer (lib-core)"]
+    subgraph Business["Business Layer (mouchak-mail-core)"]
         BMC["Backend Model Controllers"]
         MM["ModelManager"]
         Types["Strong Newtypes<br/>(ProjectId, AgentId)"]
@@ -142,7 +142,7 @@ The BMC pattern separates concerns for each entity with stateless controllers an
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Strong Newtypes (lib-core/types.rs)           │
+│                    Strong Newtypes (mouchak-mail-core/types.rs)           │
 ├─────────────────────────────────────────────────────────────────┤
 │  ProjectId(i64)    │ Compile-time safe project ID               │
 │  AgentId(i64)      │ Compile-time safe agent ID                 │
@@ -436,25 +436,25 @@ Add to `~/.config/claude/claude_desktop_config.json`:
 mouchak-mail/
 ├── crates/
 │   ├── libs/
-│   │   ├── lib-core/             # Domain logic, BMC pattern, storage
+│   │   ├── mouchak-mail-core/             # Domain logic, BMC pattern, storage
 │   │   │   ├── src/model/        # 15+ entities (Agent, Message, Project, etc.)
 │   │   │   ├── src/store/        # Database (libsql) + Git (git2) storage
 │   │   │   ├── src/types.rs      # Strong newtypes (ProjectId, AgentId, etc.)
 │   │   │   └── src/utils/        # Validation, pathspec matching
-│   │   ├── lib-common/           # Config, errors, tracing
-│   │   ├── lib-server/           # Axum REST API, middleware, OpenAPI
+│   │   ├── mouchak-mail-common/           # Config, errors, tracing
+│   │   ├── mouchak-mail-server/           # Axum REST API, middleware, OpenAPI
 │   │   │   ├── src/api.rs        # 70+ REST endpoints
 │   │   │   ├── src/auth.rs       # Bearer/JWT authentication
 │   │   │   ├── src/ratelimit.rs  # Rate limiting (governor)
 │   │   │   └── src/embedded.rs   # rust-embed for SvelteKit assets
-│   │   └── lib-mcp/              # MCP tool definitions
+│   │   └── mouchak-mail-mcp/              # MCP tool definitions
 │   │       ├── src/lib.rs        # MouchakMailService with #[tool_router]
 │   │       ├── src/tools/        # Tool modules (45+ tools)
 │   │       └── src/params.rs     # Auto-generated schemas (JsonSchema)
 │   ├── services/
-│   │   ├── mcp-server/           # REST API server binary
-│   │   ├── mcp-stdio/            # MCP protocol server (stdio + SSE)
-│   │   ├── mcp-cli/              # CLI for testing
+│   │   ├── mouchak-mail-http/           # REST API server binary
+│   │   ├── mouchak-mail-stdio/            # MCP protocol server (stdio + SSE)
+│   │   ├── mouchak-mail-cli/              # CLI for testing
 │   │   ├── mouchak-mail/       # Unified CLI binary (with embedded UI)
 │   │   ├── web-ui/               # SvelteKit frontend (TypeScript)
 │   │   │   ├── src/routes/       # SvelteKit routes (inbox, projects, agents)

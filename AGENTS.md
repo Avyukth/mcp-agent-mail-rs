@@ -1238,8 +1238,8 @@ Context: [1-2 sentences about what's done and what's next]
 mouchak-mail/
 ├── crates/
 │   ├── libs/                    # Library crates
-│   │   ├── lib-common/          # Config (12-factor), utilities
-│   │   ├── lib-core/            # Domain logic (BMC pattern)
+│   │   ├── mouchak-mail-common/          # Config (12-factor), utilities
+│   │   ├── mouchak-mail-core/            # Domain logic (BMC pattern)
 │   │   │   ├── model/           # Entity + BMC controllers
 │   │   │   │   ├── agent.rs     # AgentBmc
 │   │   │   │   ├── message.rs   # MessageBmc
@@ -1247,17 +1247,17 @@ mouchak-mail/
 │   │   │   │   └── ...
 │   │   │   ├── store/           # Database, Git archive
 │   │   │   └── error.rs         # Domain errors (thiserror)
-│   │   ├── lib-mcp/             # MCP tools (45)
+│   │   ├── mouchak-mail-mcp/             # MCP tools (45)
 │   │   │   └── tools.rs         # MouchakMailService + JSON schemas
-│   │   └── lib-server/          # HTTP layer (Axum 0.8)
+│   │   └── mouchak-mail-server/          # HTTP layer (Axum 0.8)
 │   │       ├── api/             # REST handlers
 │   │       ├── auth.rs          # Bearer/JWT auth
 │   │       └── ratelimit.rs     # Token bucket (100 req/min)
 │   └── services/                # Binary crates
 │       ├── mouchak-mail/      # Unified CLI (serve, migrate)
-│       ├── mcp-server/          # HTTP server (REST + MCP SSE)
-│       ├── mcp-stdio/           # STDIO MCP (Claude Desktop)
-│       ├── mcp-cli/             # Testing CLI
+│       ├── mouchak-mail-http/          # HTTP server (REST + MCP SSE)
+│       ├── mouchak-mail-stdio/           # STDIO MCP (Claude Desktop)
+│       ├── mouchak-mail-cli/             # Testing CLI
 │       └── web-ui-leptos/       # Leptos WASM frontend
 ├── migrations/                  # SQL migrations (auto-run)
 ├── benches/                     # Performance benchmarks
@@ -1275,7 +1275,7 @@ mouchak-mail/
 | `make test` | Run all tests |
 | `make lint` | Run clippy |
 | `cargo run -p mouchak-mail --release -- serve` | Production server |
-| `cargo run -p mcp-stdio -- serve` | MCP STDIO mode |
+| `cargo run -p mouchak-mail-stdio -- serve` | MCP STDIO mode |
 
 ### Environment Variables
 
@@ -1384,7 +1384,7 @@ curl -X POST http://localhost:8765/api/file_reservations/paths \
   -d '{
     "project_slug":"mouchak-mail",
     "agent_name":"agent-'$AGENT_ID'",
-    "patterns":["crates/libs/lib-core/**","crates/services/mouchak-mail/**"],
+    "patterns":["crates/libs/mouchak-mail-core/**","crates/services/mouchak-mail/**"],
     "ttl_seconds":3600,
     "exclusive":true
   }'
@@ -1498,7 +1498,7 @@ git push origin dev
 cargo check --all-targets
 cargo clippy --all-targets -- -D warnings
 cargo fmt --check
-cargo test -p lib-core --test integration -- --test-threads=1
+cargo test -p mouchak-mail-core --test integration -- --test-threads=1
 pmat analyze tdg --fail-on-violation --min-grade B
 ```
 
@@ -1583,7 +1583,7 @@ cargo build --workspace --release
 cargo build --workspace --profile release-server
 
 # Run development server
-cargo run -p mcp-server
+cargo run -p mouchak-mail-http
 
 # Run production server
 cargo run -p mouchak-mail --release -- serve
@@ -1593,13 +1593,13 @@ cargo run -p mouchak-mail --release -- serve
 
 ```bash
 # Integration tests (MUST use --test-threads=1 for DB isolation)
-cargo test -p lib-core --test integration -- --test-threads=1
+cargo test -p mouchak-mail-core --test integration -- --test-threads=1
 
 # Specific BMC tests
-cargo test -p lib-core message_bmc
+cargo test -p mouchak-mail-core message_bmc
 
 # MCP integration tests
-cargo test -p lib-server mcp_integration
+cargo test -p mouchak-mail-server mcp_integration
 
 # E2E tests
 cargo test -p e2e
@@ -1637,7 +1637,7 @@ cargo fmt
 cargo check --all-targets
 cargo clippy --all-targets -- -D warnings
 cargo fmt --check
-cargo test -p lib-core --test integration -- --test-threads=1
+cargo test -p mouchak-mail-core --test integration -- --test-threads=1
 pmat analyze tdg --fail-on-violation --min-grade B
 ```
 
@@ -1647,7 +1647,7 @@ pmat analyze tdg --fail-on-violation --min-grade B
 
 #### Backend Model Controller (BMC) Pattern
 
-All business logic in `lib-core` follows the stateless BMC pattern:
+All business logic in `mouchak-mail-core` follows the stateless BMC pattern:
 
 ```rust
 // Stateless controller
@@ -1707,7 +1707,7 @@ fn send(project: String, agent: String)  // Easy to swap args
 #### Axum 0.8 (HTTP Layer)
 
 - Use `State<AppState>` for shared state
-- Handlers in `lib-server/api/`
+- Handlers in `mouchak-mail-server/api/`
 - All routes mirror MCP tools
 
 #### rmcp (MCP Protocol)
@@ -2035,7 +2035,7 @@ cd .sandboxes/worker-<task-id>
 cargo check --all-targets
 cargo clippy --all-targets -- -D warnings
 cargo fmt --check
-cargo test -p lib-core --test integration -- --test-threads=1
+cargo test -p mouchak-mail-core --test integration -- --test-threads=1
 
 # 4. Commit changes
 git add -A
