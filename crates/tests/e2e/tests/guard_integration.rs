@@ -501,36 +501,38 @@ async fn test_prepush_blocks_pending_reviews() {
         Ok(r) if r.status().is_success() => {
             // Message sent, now check pending reviews exist
             let pending_resp = client
-                .post(format!("{}/api/message/pending_acks", config.api_url))
-                .json(&json!({
-                    "project_slug": project.slug,
-                    "agent_name": "ReviewerAgent"
-                }))
+                .get(format!(
+                    "{}/api/messages/pending-reviews?project={}&sender=WorkerAgent",
+                    config.api_url, project.slug
+                ))
                 .send()
                 .await;
 
             match pending_resp {
                 Ok(r) if r.status().is_success() => {
                     let body = r.text().await.unwrap_or_default();
-                    let is_valid_array = body.trim().starts_with('[')
-                        && body.trim().ends_with(']')
-                        && body.trim() != "[]";
+                    // Response is {"pending_reviews": [...], "total_count": N}
+                    let has_pending = serde_json::from_str::<serde_json::Value>(&body)
+                        .ok()
+                        .and_then(|v| v.get("pending_reviews")?.as_array().cloned())
+                        .map(|arr| !arr.is_empty())
+                        .unwrap_or(false);
                     assert!(
-                        is_valid_array,
-                        "Should have pending reviews (non-empty JSON array), got: {}",
+                        has_pending,
+                        "Should have pending reviews (non-empty pending_reviews array), got: {}",
                         body
                     );
-                    println!("✓ Pre-push would block: pending reviews exist for ReviewerAgent");
+                    println!("✓ Pre-push would block: pending reviews exist for WorkerAgent");
                 }
                 Ok(r) => {
                     // 404 or other response - endpoint may not exist
                     println!(
-                        "⚠ Pending acks endpoint returned {}, skipping blocking test",
+                        "⚠ Pending reviews endpoint returned {}, skipping blocking test",
                         r.status()
                     );
                 }
                 Err(e) => {
-                    println!("⚠ Pending acks request failed: {}", e);
+                    println!("⚠ Pending reviews request failed: {}", e);
                 }
             }
         }
