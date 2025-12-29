@@ -376,9 +376,9 @@ impl MouchakMailService {
         let uri = url::Url::parse(&uri_str)
             .map_err(|e| McpError::invalid_params(format!("Invalid URI: {}", e), None))?;
 
-        if uri.scheme() != "agent-mail" && uri.scheme() != "resource" {
+        if uri.scheme() != "mouchak-mail" && uri.scheme() != "resource" {
             return Err(McpError::invalid_params(
-                "URI scheme must be 'agent-mail' or 'resource'".to_string(),
+                "URI scheme must be 'mouchak-mail' or 'resource'".to_string(),
                 None,
             ));
         }

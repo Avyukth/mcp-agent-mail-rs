@@ -44,7 +44,7 @@ fn parse_resource_uri(
         .map(|v| v == "true" || v == "1")
         .unwrap_or(false);
 
-    let (project_slug, resource_type, resource_id) = if uri.scheme() == "agent-mail" {
+    let (project_slug, resource_type, resource_id) = if uri.scheme() == "mouchak-mail" {
         let host = uri.host_str().ok_or(McpError::invalid_params(
             "URI missing host (project slug)".to_string(),
             None,
@@ -247,9 +247,9 @@ pub async fn read_resource_impl(
     let uri = url::Url::parse(&uri_str)
         .map_err(|e| McpError::invalid_params(format!("Invalid URI: {}", e), None))?;
 
-    if uri.scheme() != "agent-mail" && uri.scheme() != "resource" {
+    if uri.scheme() != "mouchak-mail" && uri.scheme() != "resource" {
         return Err(McpError::invalid_params(
-            "URI scheme must be 'agent-mail' or 'resource'".to_string(),
+            "URI scheme must be 'mouchak-mail' or 'resource'".to_string(),
             None,
         ));
     }
