@@ -1,4 +1,4 @@
-# deny.toml - Cargo Deny Configuration for MCP Agent Mail
+# deny.toml - Cargo Deny Configuration for Mouchak Mail
 # https://embarkstudios.github.io/cargo-deny/
 
 [graph]

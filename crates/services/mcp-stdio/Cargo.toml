@@ -2,7 +2,7 @@
 name = "mcp-stdio"
 version = "0.2.3"
 edition = "2024"
-description = "MCP stdio server for Agent Mail - Claude Desktop and Antigravity integration"
+description = "MCP stdio server for Mouchak Mail - Claude Desktop and Antigravity integration"
 repository = "https://github.com/Avyukth/mouchak-mail"
 license = "MIT"
 
