@@ -420,7 +420,7 @@ Add to `~/.config/claude/claude_desktop_config.json`:
 ```json
 {
   "mcpServers": {
-    "agent-mail": {
+    "mouchak-mail": {
       "command": "/path/to/mouchak-mail",
       "args": ["serve", "mcp", "--transport", "stdio"]
     }

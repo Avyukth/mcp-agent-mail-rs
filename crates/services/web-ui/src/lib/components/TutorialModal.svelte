@@ -17,7 +17,7 @@
 		tips: string[];
 	}
 
-	const STORAGE_KEY = 'agent-mail-tutorial-seen';
+	const STORAGE_KEY = 'mouchak-mail-tutorial-seen';
 
 	const steps: TutorialStep[] = [
 		{
