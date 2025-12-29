@@ -2,8 +2,8 @@
 name = "web-ui-leptos"
 version = "0.2.3"
 edition = "2024"
-description = "Web UI for MCP Agent Mail"
-repository = "https://github.com/Avyukth/mcp-agent-mail-rs"
+description = "Web UI for Mouchak Mail"
+repository = "https://github.com/Avyukth/mouchak-mail"
 license = "MIT"
 
 [lib]

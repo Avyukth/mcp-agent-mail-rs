@@ -4399,46 +4399,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "mcp-agent-mail"
-version = "0.2.3"
-dependencies = [
- "anyhow",
- "assert_cmd",
- "base64 0.22.1",
- "chrono",
- "clap",
- "lib-common",
- "lib-core",
- "lib-mcp",
- "lib-server",
- "once_cell",
- "predicates",
- "reqwest",
- "serde",
- "serde_json",
- "serde_yaml",
- "tempfile",
- "tokio",
- "toml 0.9.10+spec-1.1.0",
- "tracing",
- "tracing-subscriber",
- "walkdir",
- "zip 4.6.1",
-]
-
-[[package]]
-name = "mcp-agent-mail-benches"
-version = "0.2.3"
-dependencies = [
- "anyhow",
- "chrono",
- "reqwest",
- "serde",
- "serde_json",
- "tokio",
-]
-
-[[package]]
 name = "mcp-cli"
 version = "0.2.3"
 dependencies = [
@@ -4592,6 +4552,46 @@ dependencies = [
  "log",
  "wasi",
  "windows-sys 0.61.2",
+]
+
+[[package]]
+name = "mouchak-mail"
+version = "0.2.3"
+dependencies = [
+ "anyhow",
+ "assert_cmd",
+ "base64 0.22.1",
+ "chrono",
+ "clap",
+ "lib-common",
+ "lib-core",
+ "lib-mcp",
+ "lib-server",
+ "once_cell",
+ "predicates",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "serde_yaml",
+ "tempfile",
+ "tokio",
+ "toml 0.9.10+spec-1.1.0",
+ "tracing",
+ "tracing-subscriber",
+ "walkdir",
+ "zip 4.6.1",
+]
+
+[[package]]
+name = "mouchak-mail-benches"
+version = "0.2.3"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "reqwest",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]

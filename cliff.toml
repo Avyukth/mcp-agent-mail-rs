@@ -10,7 +10,7 @@
 header = """
 # Changelog
 
-All notable changes to MCP Agent Mail will be documented in this file.
+All notable changes to Mouchak Mail will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
@@ -63,12 +63,12 @@ sort_commits = "newest"
 
 # Skip commits from bots
 commit_preprocessors = [
-    { pattern = '\(#([0-9]+)\)', replace = "([#${1}](https://github.com/Avyukth/mcp-agent-mail-rs/pull/${1}))" },
+    { pattern = '\(#([0-9]+)\)', replace = "([#${1}](https://github.com/Avyukth/mouchak-mail/pull/${1}))" },
 ]
 
 # Link patterns for GitHub
 link_parsers = [
-    { pattern = "#(\\d+)", href = "https://github.com/Avyukth/mcp-agent-mail-rs/issues/$1" },
+    { pattern = "#(\\d+)", href = "https://github.com/Avyukth/mouchak-mail/issues/$1" },
     { pattern = "RFC(\\d+)", text = "ietf-rfc$1", href = "https://datatracker.ietf.org/doc/html/rfc$1" },
 ]
 

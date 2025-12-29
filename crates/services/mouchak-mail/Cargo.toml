@@ -1,9 +1,9 @@
 [package]
-name = "mcp-agent-mail"
+name = "mouchak-mail"
 version = "0.2.3"
 edition = "2024"
 description = "Gmail for coding agents - MCP-compliant mail server"
-repository = "https://github.com/Avyukth/mcp-agent-mail-rs"
+repository = "https://github.com/Avyukth/mouchak-mail"
 license = "MIT"
 keywords = ["mcp", "ai", "agents", "mail", "coordination"]
 categories = ["command-line-utilities", "web-programming"]

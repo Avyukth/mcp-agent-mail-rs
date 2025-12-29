@@ -7,7 +7,7 @@ members = [
     "crates/services/mcp-server",
     "crates/services/mcp-cli",
     "crates/services/mcp-stdio",
-    "crates/services/mcp-agent-mail",
+    "crates/services/mouchak-mail",
     "crates/services/web-ui-leptos",
     "crates/libs/lib-mcp",
     "crates/tests/e2e",
@@ -15,11 +15,11 @@ members = [
 
 # Root package for benchmarks
 [package]
-name = "mcp-agent-mail-benches"
+name = "mouchak-mail-benches"
 version = "0.2.3"
 edition = "2024"
 publish = false
-repository = "https://github.com/Avyukth/mcp-agent-mail-rs"
+repository = "https://github.com/Avyukth/mouchak-mail"
 license = "MIT"
 autobenches = false
 
