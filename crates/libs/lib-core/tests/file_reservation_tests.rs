@@ -534,9 +534,9 @@ async fn test_guard_detects_reservation_conflict() {
     async_with_vars(
         [
             ("WORKTREES_ENABLED", Some("1")),
-            ("AGENT_MAIL_PROJECT", Some(project_slug.as_str())),
-            ("AGENT_MAIL_BYPASS", None::<&str>),
-            ("AGENT_MAIL_GUARD_MODE", None::<&str>),
+            ("MOUCHAK_MAIL_PROJECT", Some(project_slug.as_str())),
+            ("MOUCHAK_MAIL_BYPASS", None::<&str>),
+            ("MOUCHAK_MAIL_GUARD_MODE", None::<&str>),
         ],
         async {
             // Agent 2 tries to commit src/main.rs - should detect conflict
@@ -595,9 +595,9 @@ async fn test_guard_allows_own_reservations() {
     async_with_vars(
         [
             ("WORKTREES_ENABLED", Some("1")),
-            ("AGENT_MAIL_PROJECT", Some(project_slug.as_str())),
-            ("AGENT_MAIL_BYPASS", None::<&str>),
-            ("AGENT_MAIL_GUARD_MODE", None::<&str>),
+            ("MOUCHAK_MAIL_PROJECT", Some(project_slug.as_str())),
+            ("MOUCHAK_MAIL_BYPASS", None::<&str>),
+            ("MOUCHAK_MAIL_GUARD_MODE", None::<&str>),
         ],
         async {
             // Same agent commits src/main.rs - should be allowed (own reservation)
@@ -649,9 +649,9 @@ async fn test_guard_ignores_expired_reservations() {
     async_with_vars(
         [
             ("WORKTREES_ENABLED", Some("1")),
-            ("AGENT_MAIL_PROJECT", Some(project_slug.as_str())),
-            ("AGENT_MAIL_BYPASS", None::<&str>),
-            ("AGENT_MAIL_GUARD_MODE", None::<&str>),
+            ("MOUCHAK_MAIL_PROJECT", Some(project_slug.as_str())),
+            ("MOUCHAK_MAIL_BYPASS", None::<&str>),
+            ("MOUCHAK_MAIL_GUARD_MODE", None::<&str>),
         ],
         async {
             // Agent 2 tries to commit - should be allowed (reservation expired)

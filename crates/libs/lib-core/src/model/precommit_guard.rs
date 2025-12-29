@@ -31,8 +31,8 @@ impl GuardMode {
     /// Parse guard mode from environment variables.
     ///
     /// Checks in order:
-    /// 1. `AGENT_MAIL_BYPASS=1` → Bypass mode
-    /// 2. `AGENT_MAIL_GUARD_MODE=warn|advisory|adv` → Warn mode
+    /// 1. `MOUCHAK_MAIL_BYPASS=1` → Bypass mode
+    /// 2. `MOUCHAK_MAIL_GUARD_MODE=warn|advisory|adv` → Warn mode
     /// 3. Otherwise → Enforce mode (default)
     ///
     /// # Example
@@ -40,18 +40,18 @@ impl GuardMode {
     /// ```
     /// # use lib_core::model::precommit_guard::GuardMode;
     /// // With no env vars set, defaults to Enforce
-    /// // With AGENT_MAIL_BYPASS=1, returns Bypass
-    /// // With AGENT_MAIL_GUARD_MODE=warn, returns Warn
+    /// // With MOUCHAK_MAIL_BYPASS=1, returns Bypass
+    /// // With MOUCHAK_MAIL_GUARD_MODE=warn, returns Warn
     /// ```
     pub fn from_env() -> Self {
         // Check bypass first (highest priority)
-        if parse_bool_env("AGENT_MAIL_BYPASS") {
-            info!("Pre-commit guard bypass enabled via AGENT_MAIL_BYPASS=1");
+        if parse_bool_env("MOUCHAK_MAIL_BYPASS") {
+            info!("Pre-commit guard bypass enabled via MOUCHAK_MAIL_BYPASS=1");
             return Self::Bypass;
         }
 
         // Check guard mode
-        if let Ok(mode) = std::env::var("AGENT_MAIL_GUARD_MODE") {
+        if let Ok(mode) = std::env::var("MOUCHAK_MAIL_GUARD_MODE") {
             match mode.to_lowercase().trim() {
                 "warn" | "advisory" | "adv" => {
                     debug!(mode = %mode, "Pre-commit guard in advisory mode");
@@ -63,7 +63,7 @@ impl GuardMode {
                 other => {
                     warn!(
                         mode = %other,
-                        "Unknown AGENT_MAIL_GUARD_MODE value, defaulting to enforce"
+                        "Unknown MOUCHAK_MAIL_GUARD_MODE value, defaulting to enforce"
                     );
                 }
             }
@@ -219,9 +219,9 @@ if ! check_gate; then
 fi
 
 # Bypass mode: Skip all checks
-case "${{AGENT_MAIL_BYPASS:-0}}" in
+case "${{MOUCHAK_MAIL_BYPASS:-0}}" in
     1|true|TRUE|yes|YES|y|Y|t|T)
-        echo "[pre-push] bypass enabled via AGENT_MAIL_BYPASS=1" >&2
+        echo "[pre-push] bypass enabled via MOUCHAK_MAIL_BYPASS=1" >&2
         exit 0
         ;;
 esac
@@ -261,7 +261,7 @@ if command -v curl >/dev/null 2>&1; then
             echo "[pre-push] Push blocked by Mouchak Mail guard:" >&2
             echo "$response" >&2
             # Check advisory mode
-            case "${{AGENT_MAIL_GUARD_MODE:-block}}" in
+            case "${{MOUCHAK_MAIL_GUARD_MODE:-block}}" in
                 warn|WARN|advisory|ADVISORY|adv|ADV)
                     echo "[pre-push] Advisory mode - allowing push despite conflicts" >&2
                     exit 0
@@ -349,7 +349,7 @@ impl PrecommitGuardBmc {
         );
 
         // Get project slug from environment or detect from git
-        let project_slug = match std::env::var("AGENT_MAIL_PROJECT") {
+        let project_slug = match std::env::var("MOUCHAK_MAIL_PROJECT") {
             Ok(slug) if !slug.is_empty() => slug,
             _ => {
                 // Try to detect from current directory name
@@ -495,9 +495,9 @@ if ! check_gate; then
 fi
 
 # Bypass mode: Skip all checks
-case "${AGENT_MAIL_BYPASS:-0}" in
+case "${MOUCHAK_MAIL_BYPASS:-0}" in
     1|true|TRUE|yes|YES|y|Y|t|T)
-        echo "[pre-commit] bypass enabled via AGENT_MAIL_BYPASS=1" >&2
+        echo "[pre-commit] bypass enabled via MOUCHAK_MAIL_BYPASS=1" >&2
         exit 0
         ;;
 esac
@@ -525,7 +525,7 @@ else
 fi
 
 # Get guard mode (enforce, warn, or advisory)
-GUARD_MODE="${AGENT_MAIL_GUARD_MODE:-enforce}"
+GUARD_MODE="${MOUCHAK_MAIL_GUARD_MODE:-enforce}"
 
 # Get staged files
 STAGED_FILES=$(git diff --cached --name-only 2>/dev/null)
@@ -627,7 +627,7 @@ if [ -n "$CONFLICTS" ]; then
         *)
             echo "Mode: enforce - Blocking commit" >&2
             echo "" >&2
-            echo "To bypass: export AGENT_MAIL_BYPASS=1" >&2
+            echo "To bypass: export MOUCHAK_MAIL_BYPASS=1" >&2
             echo "Or coordinate with the reserving agent" >&2
             echo "========================================" >&2
             exit 1
@@ -974,7 +974,7 @@ mod tests {
     #[test]
     #[serial]
     fn test_guard_mode_from_env_defaults_to_enforce() {
-        temp_env::with_vars_unset(["AGENT_MAIL_BYPASS", "AGENT_MAIL_GUARD_MODE"], || {
+        temp_env::with_vars_unset(["MOUCHAK_MAIL_BYPASS", "MOUCHAK_MAIL_GUARD_MODE"], || {
             assert_eq!(GuardMode::from_env(), GuardMode::Enforce);
         });
     }
@@ -986,14 +986,14 @@ mod tests {
         for val in truthy {
             temp_env::with_vars(
                 [
-                    ("AGENT_MAIL_BYPASS", Some(val)),
-                    ("AGENT_MAIL_GUARD_MODE", None::<&str>),
+                    ("MOUCHAK_MAIL_BYPASS", Some(val)),
+                    ("MOUCHAK_MAIL_GUARD_MODE", None::<&str>),
                 ],
                 || {
                     assert_eq!(
                         GuardMode::from_env(),
                         GuardMode::Bypass,
-                        "Expected Bypass for AGENT_MAIL_BYPASS={}",
+                        "Expected Bypass for MOUCHAK_MAIL_BYPASS={}",
                         val
                     );
                 },
@@ -1004,11 +1004,11 @@ mod tests {
     #[test]
     #[serial]
     fn test_guard_mode_from_env_bypass_takes_priority() {
-        // Even with AGENT_MAIL_GUARD_MODE=warn, bypass should win
+        // Even with MOUCHAK_MAIL_GUARD_MODE=warn, bypass should win
         temp_env::with_vars(
             [
-                ("AGENT_MAIL_BYPASS", Some("1")),
-                ("AGENT_MAIL_GUARD_MODE", Some("warn")),
+                ("MOUCHAK_MAIL_BYPASS", Some("1")),
+                ("MOUCHAK_MAIL_GUARD_MODE", Some("warn")),
             ],
             || {
                 assert_eq!(GuardMode::from_env(), GuardMode::Bypass);
@@ -1023,14 +1023,14 @@ mod tests {
         for val in warn_values {
             temp_env::with_vars(
                 [
-                    ("AGENT_MAIL_BYPASS", None::<&str>),
-                    ("AGENT_MAIL_GUARD_MODE", Some(val)),
+                    ("MOUCHAK_MAIL_BYPASS", None::<&str>),
+                    ("MOUCHAK_MAIL_GUARD_MODE", Some(val)),
                 ],
                 || {
                     assert_eq!(
                         GuardMode::from_env(),
                         GuardMode::Warn,
-                        "Expected Warn for AGENT_MAIL_GUARD_MODE={}",
+                        "Expected Warn for MOUCHAK_MAIL_GUARD_MODE={}",
                         val
                     );
                 },
@@ -1045,14 +1045,14 @@ mod tests {
         for val in enforce_values {
             temp_env::with_vars(
                 [
-                    ("AGENT_MAIL_BYPASS", None::<&str>),
-                    ("AGENT_MAIL_GUARD_MODE", Some(val)),
+                    ("MOUCHAK_MAIL_BYPASS", None::<&str>),
+                    ("MOUCHAK_MAIL_GUARD_MODE", Some(val)),
                 ],
                 || {
                     assert_eq!(
                         GuardMode::from_env(),
                         GuardMode::Enforce,
-                        "Expected Enforce for AGENT_MAIL_GUARD_MODE={}",
+                        "Expected Enforce for MOUCHAK_MAIL_GUARD_MODE={}",
                         val
                     );
                 },
@@ -1065,8 +1065,8 @@ mod tests {
     fn test_guard_mode_from_env_unknown_defaults_to_enforce() {
         temp_env::with_vars(
             [
-                ("AGENT_MAIL_BYPASS", None::<&str>),
-                ("AGENT_MAIL_GUARD_MODE", Some("unknown_value")),
+                ("MOUCHAK_MAIL_BYPASS", None::<&str>),
+                ("MOUCHAK_MAIL_GUARD_MODE", Some("unknown_value")),
             ],
             || {
                 assert_eq!(GuardMode::from_env(), GuardMode::Enforce);
@@ -1080,7 +1080,7 @@ mod tests {
         temp_env::with_vars(
             [
                 ("WORKTREES_ENABLED", Some("1")),
-                ("AGENT_MAIL_BYPASS", Some("1")),
+                ("MOUCHAK_MAIL_BYPASS", Some("1")),
             ],
             || {
                 let rt = tokio::runtime::Runtime::new().unwrap();
@@ -1234,8 +1234,8 @@ mod tests {
 
         // Verify bypass mode handling
         assert!(
-            script.contains("AGENT_MAIL_BYPASS"),
-            "Script should check AGENT_MAIL_BYPASS"
+            script.contains("MOUCHAK_MAIL_BYPASS"),
+            "Script should check MOUCHAK_MAIL_BYPASS"
         );
 
         // Verify stdin reading for ref tuples
@@ -1258,7 +1258,7 @@ mod tests {
 
         // Verify advisory mode handling
         assert!(
-            script.contains("AGENT_MAIL_GUARD_MODE"),
+            script.contains("MOUCHAK_MAIL_GUARD_MODE"),
             "Script should check advisory mode"
         );
     }

@@ -13,21 +13,21 @@
 #   ]
 #
 # Environment variables:
-#   AGENT_MAIL_PROJECT   - Project key (absolute path)
-#   AGENT_MAIL_AGENT     - Agent name
-#   AGENT_MAIL_URL       - Server URL (default: http://127.0.0.1:8765/mcp/)
-#   AGENT_MAIL_TOKEN     - Bearer token
-#   AGENT_MAIL_INTERVAL  - Minimum seconds between checks (default: 120)
+#   MOUCHAK_MAIL_PROJECT   - Project key (absolute path)
+#   MOUCHAK_MAIL_AGENT     - Agent name
+#   MOUCHAK_MAIL_URL       - Server URL (default: http://127.0.0.1:8765/mcp/)
+#   MOUCHAK_MAIL_TOKEN     - Bearer token
+#   MOUCHAK_MAIL_INTERVAL  - Minimum seconds between checks (default: 120)
 
 # Don't use set -e because grep returns 1 when no match
 set -uo pipefail
 
 # Configuration with defaults
-PROJECT="${AGENT_MAIL_PROJECT:-}"
-AGENT="${AGENT_MAIL_AGENT:-}"
-URL="${AGENT_MAIL_URL:-http://127.0.0.1:8765/mcp/}"
-TOKEN="${AGENT_MAIL_TOKEN:-}"
-INTERVAL="${AGENT_MAIL_INTERVAL:-120}"
+PROJECT="${MOUCHAK_MAIL_PROJECT:-}"
+AGENT="${MOUCHAK_MAIL_AGENT:-}"
+URL="${MOUCHAK_MAIL_URL:-http://127.0.0.1:8765/mcp/}"
+TOKEN="${MOUCHAK_MAIL_TOKEN:-}"
+INTERVAL="${MOUCHAK_MAIL_INTERVAL:-120}"
 
 # Require project and agent
 if [[ -z "${PROJECT}" || -z "${AGENT}" ]]; then

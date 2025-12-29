@@ -25,7 +25,7 @@ pub async fn install_precommit_guard_impl(
 # Mouchak Mail Pre-commit Guard
 # Installed for project: {}
 
-if [ -n "$AGENT_MAIL_BYPASS" ]; then
+if [ -n "$MOUCHAK_MAIL_BYPASS" ]; then
     echo "Mouchak Mail: Bypass enabled, skipping reservation check"
     exit 0
 fi

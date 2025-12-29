@@ -6,7 +6,7 @@ use tokio::io::{stdin, stdout};
 pub mod docs;
 pub mod tools;
 pub use tools::{
-    AgentMailService, InvokeMacroParams, ListMacrosParams, RegisterMacroParams,
+    InvokeMacroParams, ListMacrosParams, MouchakMailService, RegisterMacroParams,
     UnregisterMacroParams,
 };
 
@@ -23,7 +23,7 @@ pub async fn run_stdio(config: AppConfig) -> Result<()> {
     tracing::info!("Starting Mouchak Mail server (stdio mode)...");
 
     // Initialize the service with worktrees config
-    let service = AgentMailService::new_with_config(config).await?;
+    let service = MouchakMailService::new_with_config(config).await?;
 
     // Run over stdio
     let transport = (stdin(), stdout());
@@ -58,13 +58,13 @@ pub async fn run_sse(config: AppConfig) -> Result<()> {
     // Configure the HTTP server
     let server_config = StreamableHttpServerConfig::default();
 
-    // Create a service factory that creates a new AgentMailService for each connection
+    // Create a service factory that creates a new MouchakMailService for each connection
     let service_factory = move || {
-        // Note: AgentMailService::new() is async but the factory needs to be sync
+        // Note: MouchakMailService::new() is async but the factory needs to be sync
         // We'll use a blocking approach here for simplicity, or handle via tokio::spawn if structure allows
         let rt = tokio::runtime::Handle::current();
         rt.block_on(async {
-            AgentMailService::new_with_config(config.clone())
+            MouchakMailService::new_with_config(config.clone())
                 .await
                 .map_err(|e| std::io::Error::other(e.to_string()))
         })

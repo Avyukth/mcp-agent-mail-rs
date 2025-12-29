@@ -136,11 +136,11 @@ fn test_robot_help_output_with_robot_flags() {
                 output_format: "json".to_string(),
                 examples: vec![
                     Example {
-                        invocation: "am --robot-help".to_string(),
+                        invocation: "mouchak-mail --robot-help".to_string(),
                         description: "Show all capabilities as JSON".to_string(),
                     },
                     Example {
-                        invocation: "am --robot-help --format yaml".to_string(),
+                        invocation: "mouchak-mail --robot-help --format yaml".to_string(),
                         description: "Show capabilities as YAML".to_string(),
                     },
                 ],
@@ -150,7 +150,7 @@ fn test_robot_help_output_with_robot_flags() {
                 description: "Show usage examples for flags/subcommands".to_string(),
                 output_format: "json".to_string(),
                 examples: vec![Example {
-                    invocation: "am --robot-examples serve http".to_string(),
+                    invocation: "mouchak-mail --robot-examples serve http".to_string(),
                     description: "Examples for serve http subcommand".to_string(),
                 }],
             },
@@ -169,7 +169,7 @@ fn test_robot_help_output_with_robot_flags() {
 
     let examples = flag1["examples"].as_array().unwrap();
     assert_eq!(examples.len(), 2);
-    assert_eq!(examples[0]["invocation"], "am --robot-help");
+    assert_eq!(examples[0]["invocation"], "mouchak-mail --robot-help");
     assert_eq!(examples[0]["description"], "Show all capabilities as JSON");
 }
 
@@ -308,13 +308,13 @@ fn test_command_schema_nested_subcommands() {
 #[test]
 fn test_example_serialization() {
     let example = Example {
-        invocation: "am serve http --port 9000".to_string(),
+        invocation: "mouchak-mail serve http --port 9000".to_string(),
         description: "Start server on custom port".to_string(),
     };
 
     let json = serde_json::to_value(&example).expect("serialization should succeed");
 
-    assert_eq!(json["invocation"], "am serve http --port 9000");
+    assert_eq!(json["invocation"], "mouchak-mail serve http --port 9000");
     assert_eq!(json["description"], "Start server on custom port");
 }
 

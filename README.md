@@ -448,7 +448,7 @@ mouchak-mail/
 │   │   │   ├── src/ratelimit.rs  # Rate limiting (governor)
 │   │   │   └── src/embedded.rs   # rust-embed for SvelteKit assets
 │   │   └── lib-mcp/              # MCP tool definitions
-│   │       ├── src/lib.rs        # AgentMailService with #[tool_router]
+│   │       ├── src/lib.rs        # MouchakMailService with #[tool_router]
 │   │       ├── src/tools/        # Tool modules (45+ tools)
 │   │       └── src/params.rs     # Auto-generated schemas (JsonSchema)
 │   ├── services/

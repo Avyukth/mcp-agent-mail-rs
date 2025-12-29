@@ -461,8 +461,8 @@ fn test_cli_with_git_identity_enabled() {
 fn test_cli_with_bypass_mode() {
     let temp_dir = setup_test_env();
 
-    // Run with AGENT_MAIL_BYPASS=1
-    run_cli_with_env(&temp_dir, "AGENT_MAIL_BYPASS", "1")
+    // Run with MOUCHAK_MAIL_BYPASS=1
+    run_cli_with_env(&temp_dir, "MOUCHAK_MAIL_BYPASS", "1")
         .args(["tools"])
         .assert()
         .success();

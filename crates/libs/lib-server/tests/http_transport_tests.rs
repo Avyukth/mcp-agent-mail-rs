@@ -8,7 +8,7 @@
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use lib_common::config::AppConfig;
-use lib_mcp::tools::AgentMailService;
+use lib_mcp::tools::MouchakMailService;
 use serde_json::json;
 use std::sync::Arc;
 use tower::ServiceExt;
@@ -18,21 +18,21 @@ use rmcp::transport::streamable_http_server::{
     tower::{StreamableHttpServerConfig, StreamableHttpService},
 };
 
-/// Create MCP service with AgentMailService
-fn create_test_mcp_service() -> StreamableHttpService<AgentMailService> {
+/// Create MCP service with MouchakMailService
+fn create_test_mcp_service() -> StreamableHttpService<MouchakMailService> {
     let session_manager = Arc::new(LocalSessionManager::default());
     let config = StreamableHttpServerConfig::default();
 
     // Use std::thread::scope to ensure the thread is joined (UBS: spawn without join fix)
-    let service_factory = || -> Result<AgentMailService, std::io::Error> {
+    let service_factory = || -> Result<MouchakMailService, std::io::Error> {
         let result = std::thread::scope(|scope| {
             scope
                 .spawn(|| {
                     let rt = tokio::runtime::Runtime::new().unwrap();
-                    rt.block_on(async { AgentMailService::new().await })
+                    rt.block_on(async { MouchakMailService::new().await })
                 })
                 .join()
-                .expect("AgentMailService thread panicked")
+                .expect("MouchakMailService thread panicked")
         });
 
         result.map_err(|e| std::io::Error::other(e.to_string()))

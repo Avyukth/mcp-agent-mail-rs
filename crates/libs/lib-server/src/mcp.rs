@@ -1,7 +1,7 @@
 //! MCP (Model Context Protocol) HTTP handler module
 //!
 //! This module provides the HTTP/SSE endpoint for MCP protocol at `/mcp`.
-//! It integrates lib-mcp's AgentMailService with Axum's routing system.
+//! It integrates lib-mcp's MouchakMailService with Axum's routing system.
 
 use axum::{
     Router,
@@ -10,7 +10,7 @@ use axum::{
     routing::any_service,
 };
 use lib_core::ModelManager;
-use lib_mcp::tools::AgentMailService;
+use lib_mcp::tools::MouchakMailService;
 use rmcp::transport::streamable_http_server::{
     session::local::LocalSessionManager,
     tower::{StreamableHttpServerConfig, StreamableHttpService},
@@ -24,8 +24,8 @@ use crate::AppState;
 ///
 /// This creates a tower-compatible service that handles MCP JSON-RPC 2.0 requests
 /// over HTTP/SSE. The service is stateful (using LocalSessionManager) and creates
-/// a new AgentMailService for each connection, sharing the ModelManager with main server.
-fn create_mcp_service(mm: ModelManager) -> StreamableHttpService<AgentMailService> {
+/// a new MouchakMailService for each connection, sharing the ModelManager with main server.
+fn create_mcp_service(mm: ModelManager) -> StreamableHttpService<MouchakMailService> {
     // Create session manager for stateful connections
     let session_manager = Arc::new(LocalSessionManager::default());
 
@@ -43,10 +43,13 @@ fn create_mcp_service(mm: ModelManager) -> StreamableHttpService<AgentMailServic
     // Wrap ModelManager in Arc for sharing across connections
     let mm = Arc::new(mm);
 
-    // Create a service factory that creates a new AgentMailService for each connection.
+    // Create a service factory that creates a new MouchakMailService for each connection.
     // Uses the shared ModelManager to avoid migration conflicts.
-    let service_factory = move || -> Result<AgentMailService, std::io::Error> {
-        Ok(AgentMailService::new_with_mm(mm.clone(), worktrees_enabled))
+    let service_factory = move || -> Result<MouchakMailService, std::io::Error> {
+        Ok(MouchakMailService::new_with_mm(
+            mm.clone(),
+            worktrees_enabled,
+        ))
     };
 
     // Create the StreamableHttpService (tower-compatible)

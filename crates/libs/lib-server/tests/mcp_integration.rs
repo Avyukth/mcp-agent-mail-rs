@@ -3,14 +3,14 @@
 //! Tests the MCP (Model Context Protocol) HTTP endpoint at `/mcp`.
 //! MCP uses JSON-RPC 2.0 over HTTP/SSE.
 //!
-//! These tests use lib_mcp::AgentMailService which implements the MCP ServerHandler trait.
+//! These tests use lib_mcp::MouchakMailService which implements the MCP ServerHandler trait.
 
 #![allow(clippy::unwrap_used, clippy::expect_used)]
 
 use axum::body::Body;
 use axum::http::{Request, StatusCode};
 use http_body_util::BodyExt;
-use lib_mcp::tools::AgentMailService;
+use lib_mcp::tools::MouchakMailService;
 use serde_json::{Value, json};
 use std::sync::Arc;
 use tower::ServiceExt;
@@ -20,23 +20,23 @@ use rmcp::transport::streamable_http_server::{
     tower::{StreamableHttpServerConfig, StreamableHttpService},
 };
 
-/// Create MCP service with AgentMailService
+/// Create MCP service with MouchakMailService
 /// Uses spawn_blocking to avoid runtime-in-runtime issues
-fn create_test_mcp_service() -> StreamableHttpService<AgentMailService> {
+fn create_test_mcp_service() -> StreamableHttpService<MouchakMailService> {
     let session_manager = Arc::new(LocalSessionManager::default());
     let config = StreamableHttpServerConfig::default();
 
-    // Use a sync factory that creates AgentMailService using a scoped thread
+    // Use a sync factory that creates MouchakMailService using a scoped thread
     // (std::thread::scope guarantees the thread is joined when scope exits)
-    let service_factory = || -> Result<AgentMailService, std::io::Error> {
+    let service_factory = || -> Result<MouchakMailService, std::io::Error> {
         let result = std::thread::scope(|scope| {
             scope
                 .spawn(|| {
                     let rt = tokio::runtime::Runtime::new().unwrap();
-                    rt.block_on(async { AgentMailService::new().await })
+                    rt.block_on(async { MouchakMailService::new().await })
                 })
                 .join()
-                .expect("AgentMailService thread panicked")
+                .expect("MouchakMailService thread panicked")
         });
 
         result.map_err(|e| std::io::Error::other(e.to_string()))
@@ -60,7 +60,7 @@ fn mcp_request(method: &str, params: Option<Value>, id: i32) -> Value {
 
 /// Helper to send POST request to MCP service
 async fn post_mcp(
-    service: &StreamableHttpService<AgentMailService>,
+    service: &StreamableHttpService<MouchakMailService>,
     body: Value,
 ) -> (StatusCode, String) {
     let request = Request::builder()

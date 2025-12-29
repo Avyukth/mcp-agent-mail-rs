@@ -15,7 +15,7 @@ use lib_core::model::{
     project::ProjectBmc,
 };
 use lib_mcp::tools::{
-    AgentMailService, EnsureProductParams, LinkProjectToProductParams, ProductInboxParams,
+    EnsureProductParams, LinkProjectToProductParams, MouchakMailService, ProductInboxParams,
     SearchMessagesProductParams, SummarizeThreadProductParams, ThreadIdInput,
     UnlinkProjectFromProductParams, products,
 };
@@ -414,7 +414,7 @@ async fn test_search_messages_product() -> anyhow::Result<()> {
     .await?;
 
     // Test search_messages_product
-    let service = AgentMailService::new_with_mm(mm.clone(), false);
+    let service = MouchakMailService::new_with_mm(mm.clone(), false);
     let result = service
         .search_messages_product_impl(Parameters(SearchMessagesProductParams {
             product_uid: product_uid.clone(),
@@ -533,7 +533,7 @@ async fn test_summarize_thread_product() -> anyhow::Result<()> {
     .await?;
 
     // Test summarize_thread_product
-    let service = AgentMailService::new_with_mm(mm.clone(), false);
+    let service = MouchakMailService::new_with_mm(mm.clone(), false);
     let result = service
         .summarize_thread_product_impl(Parameters(SummarizeThreadProductParams {
             product_uid: product_uid.clone(),
@@ -580,7 +580,7 @@ async fn test_search_messages_product_no_matches() -> anyhow::Result<()> {
     let project_id = ProjectBmc::create(&ctx, &mm, &project_slug, "No Match Project").await?;
     ProductBmc::link_project(&ctx, &mm, product.id, project_id.into()).await?;
 
-    let service = AgentMailService::new_with_mm(mm.clone(), false);
+    let service = MouchakMailService::new_with_mm(mm.clone(), false);
     let result = service
         .search_messages_product_impl(Parameters(SearchMessagesProductParams {
             product_uid,
@@ -616,7 +616,7 @@ async fn test_summarize_thread_product_not_found() -> anyhow::Result<()> {
     let project_id = ProjectBmc::create(&ctx, &mm, &project_slug, "No Thread Project").await?;
     ProductBmc::link_project(&ctx, &mm, product.id, project_id.into()).await?;
 
-    let service = AgentMailService::new_with_mm(mm.clone(), false);
+    let service = MouchakMailService::new_with_mm(mm.clone(), false);
     let result = service
         .summarize_thread_product_impl(Parameters(SummarizeThreadProductParams {
             product_uid,

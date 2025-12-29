@@ -879,7 +879,7 @@ The `resource://` scheme provides read-only access to data. Supports lazy loadin
 
 **Lazy Loading:** By default, inbox/outbox/thread resources omit `body_md` for token efficiency. Set `include_bodies=true` to include full message bodies.
 
-**Legacy Scheme:** `agent-mail://{project}/{resource}/{id}` still supported for backwards compatibility.
+**Legacy Scheme:** `mouchak-mail://{project}/{resource}/{id}` still supported for backwards compatibility.
 
 #### Pre-Commit Guard
 
@@ -890,8 +890,8 @@ The pre-commit guard prevents commits that conflict with file reservations. Inst
 | Variable | Values | Description |
 |----------|--------|-------------|
 | `AGENT_NAME` | string | Your agent identity for reservation checks |
-| `AGENT_MAIL_BYPASS` | `1` | Skip all guard checks (emergency only) |
-| `AGENT_MAIL_GUARD_MODE` | `enforce` (default) | Block conflicting commits |
+| `MOUCHAK_MAIL_BYPASS` | `1` | Skip all guard checks (emergency only) |
+| `MOUCHAK_MAIL_GUARD_MODE` | `enforce` (default) | Block conflicting commits |
 | | `warn` / `advisory` | Warn but allow commits |
 | `WORKTREES_ENABLED` | `1` | Enable worktree-aware features |
 | `GIT_IDENTITY_ENABLED` | `1` | Enable git identity features |
@@ -1248,7 +1248,7 @@ mouchak-mail/
 │   │   │   ├── store/           # Database, Git archive
 │   │   │   └── error.rs         # Domain errors (thiserror)
 │   │   ├── lib-mcp/             # MCP tools (45)
-│   │   │   └── tools.rs         # AgentMailService + JSON schemas
+│   │   │   └── tools.rs         # MouchakMailService + JSON schemas
 │   │   └── lib-server/          # HTTP layer (Axum 0.8)
 │   │       ├── api/             # REST handlers
 │   │       ├── auth.rs          # Bearer/JWT auth

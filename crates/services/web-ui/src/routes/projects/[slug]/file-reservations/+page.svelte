@@ -208,26 +208,6 @@
                                     >
                                         Created
                                     </th>
-                                    <th
-                                        class="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider"
-                                    >
-                                        Agent
-                                    </th>
-                                    <th
-                                        class="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider"
-                                    >
-                                        Path Pattern
-                                    </th>
-                                    <th
-                                        class="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider"
-                                    >
-                                        Type
-                                    </th>
-                                    <th
-                                        class="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider"
-                                    >
-                                        Created
-                                    </th>
                                 </tr>
                             </thead>
                                 <tbody

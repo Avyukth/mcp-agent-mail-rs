@@ -6,8 +6,8 @@
 //! - Case sensitivity differences (respects core.ignorecase)
 //!
 //! Identity is resolved in order:
-//! 1. Committed marker file (.agent-mail-identity in repo)
-//! 2. Private marker file (.agent-mail-identity.local)
+//! 1. Committed marker file (.mouchak-mail-identity in repo)
+//! 2. Private marker file (.mouchak-mail-identity.local)
 //! 3. Git remote fingerprint (origin URL hash)
 //! 4. Git common dir path hash
 //! 5. Directory path hash (fallback for non-git)
@@ -18,10 +18,10 @@ use std::process::Command;
 use tracing::debug;
 
 /// Marker file for committed project identity.
-pub const COMMITTED_MARKER: &str = ".agent-mail-identity";
+pub const COMMITTED_MARKER: &str = ".mouchak-mail-identity";
 
 /// Marker file for private/local project identity.
-pub const PRIVATE_MARKER: &str = ".agent-mail-identity.local";
+pub const PRIVATE_MARKER: &str = ".mouchak-mail-identity.local";
 
 /// Result of identity resolution with source information.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -43,9 +43,9 @@ pub struct ResolvedIdentity {
 /// Source of the resolved identity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum IdentitySource {
-    /// From committed .agent-mail-identity file.
+    /// From committed .mouchak-mail-identity file.
     CommittedMarker,
-    /// From private .agent-mail-identity.local file.
+    /// From private .mouchak-mail-identity.local file.
     PrivateMarker,
     /// From git remote URL fingerprint.
     RemoteFingerprint,

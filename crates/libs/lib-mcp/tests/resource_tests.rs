@@ -4,7 +4,7 @@ use lib_core::model::{
     message::{MessageBmc, MessageForCreate},
     project::ProjectBmc,
 };
-use lib_mcp::tools::AgentMailService;
+use lib_mcp::tools::MouchakMailService;
 use rmcp::model::ReadResourceRequestParam;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -57,15 +57,15 @@ async fn test_resources_gap_features() -> anyhow::Result<()> {
     .await?;
 
     // 2. Initialize Service with shared MM
-    let service = AgentMailService::new_with_mm(mm.clone(), false);
+    let service = MouchakMailService::new_with_mm(mm.clone(), false);
 
     // 3. Test list_resources
     let res = service.list_resources_impl(None).await?;
 
     // Validate Inboxes
-    let inbox_uri = format!("agent-mail://{}/inbox/{}", project_slug, agent_name);
-    let outbox_uri = format!("agent-mail://{}/outbox/{}", project_slug, agent_name);
-    let threads_uri = format!("agent-mail://{}/threads", project_slug);
+    let inbox_uri = format!("mouchak-mail://{}/inbox/{}", project_slug, agent_name);
+    let outbox_uri = format!("mouchak-mail://{}/outbox/{}", project_slug, agent_name);
+    let threads_uri = format!("mouchak-mail://{}/threads", project_slug);
 
     let has_inbox = res.resources.iter().any(|r| r.raw.uri == inbox_uri);
     let has_outbox = res.resources.iter().any(|r| r.raw.uri == outbox_uri);

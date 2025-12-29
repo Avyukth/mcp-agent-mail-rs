@@ -7,7 +7,7 @@
 
 use lib_common::config::AppConfig;
 use lib_core::model::ModelManager;
-use lib_mcp::tools::{AgentMailService, get_tool_schemas};
+use lib_mcp::tools::{MouchakMailService, get_tool_schemas};
 use std::sync::Arc;
 
 const BUILD_SLOT_TOOLS: &[&str] = &[
@@ -103,7 +103,7 @@ mod service_worktrees_config {
                 .await
                 .expect("Failed to create ModelManager"),
         );
-        let service = AgentMailService::new_with_mm(mm, false);
+        let service = MouchakMailService::new_with_mm(mm, false);
 
         assert!(
             !service.worktrees_enabled(),
@@ -118,7 +118,7 @@ mod service_worktrees_config {
                 .await
                 .expect("Failed to create ModelManager"),
         );
-        let service = AgentMailService::new_with_mm(mm, true);
+        let service = MouchakMailService::new_with_mm(mm, true);
 
         assert!(
             service.worktrees_enabled(),
@@ -132,40 +132,40 @@ mod tool_alias_resolution {
 
     #[test]
     fn fetch_inbox_resolves_to_list_inbox() {
-        let resolved = AgentMailService::resolve_tool_alias("fetch_inbox");
+        let resolved = MouchakMailService::resolve_tool_alias("fetch_inbox");
         assert_eq!(resolved, Some("list_inbox"));
     }
 
     #[test]
     fn check_inbox_resolves_to_list_inbox() {
-        let resolved = AgentMailService::resolve_tool_alias("check_inbox");
+        let resolved = MouchakMailService::resolve_tool_alias("check_inbox");
         assert_eq!(resolved, Some("list_inbox"));
     }
 
     #[test]
     fn release_file_reservations_resolves() {
-        let resolved = AgentMailService::resolve_tool_alias("release_file_reservations");
+        let resolved = MouchakMailService::resolve_tool_alias("release_file_reservations");
         assert_eq!(resolved, Some("release_reservation"));
     }
 
     #[test]
     fn renew_file_reservations_resolves() {
-        let resolved = AgentMailService::resolve_tool_alias("renew_file_reservations");
+        let resolved = MouchakMailService::resolve_tool_alias("renew_file_reservations");
         assert_eq!(resolved, Some("renew_file_reservation"));
     }
 
     #[test]
     fn list_project_agents_resolves() {
-        let resolved = AgentMailService::resolve_tool_alias("list_project_agents");
+        let resolved = MouchakMailService::resolve_tool_alias("list_project_agents");
         assert_eq!(resolved, Some("list_agents"));
     }
 
     #[test]
     fn unknown_tool_returns_none() {
-        let resolved = AgentMailService::resolve_tool_alias("send_message");
+        let resolved = MouchakMailService::resolve_tool_alias("send_message");
         assert_eq!(resolved, None);
 
-        let resolved = AgentMailService::resolve_tool_alias("nonexistent_tool");
+        let resolved = MouchakMailService::resolve_tool_alias("nonexistent_tool");
         assert_eq!(resolved, None);
     }
 }
@@ -180,7 +180,7 @@ mod server_handler_list_tools {
                 .await
                 .expect("Failed to create ModelManager"),
         );
-        let service = AgentMailService::new_with_mm(mm, false);
+        let service = MouchakMailService::new_with_mm(mm, false);
 
         let tools = service.list_tools_filtered();
         let tool_names: Vec<&str> = tools.iter().map(|t| &*t.name).collect();
@@ -202,7 +202,7 @@ mod server_handler_list_tools {
                 .await
                 .expect("Failed to create ModelManager"),
         );
-        let service = AgentMailService::new_with_mm(mm, true);
+        let service = MouchakMailService::new_with_mm(mm, true);
 
         let tools = service.list_tools_filtered();
         let tool_names: Vec<&str> = tools.iter().map(|t| &*t.name).collect();
@@ -228,7 +228,7 @@ mod build_slot_rejection {
                 .await
                 .expect("Failed to create ModelManager"),
         );
-        let service = AgentMailService::new_with_mm(mm, false);
+        let service = MouchakMailService::new_with_mm(mm, false);
 
         for build_slot_tool in BUILD_SLOT_TOOLS {
             let rejection = service.check_build_slot_rejection(build_slot_tool);
@@ -255,7 +255,7 @@ mod build_slot_rejection {
                 .await
                 .expect("Failed to create ModelManager"),
         );
-        let service = AgentMailService::new_with_mm(mm, true);
+        let service = MouchakMailService::new_with_mm(mm, true);
 
         for build_slot_tool in BUILD_SLOT_TOOLS {
             let rejection = service.check_build_slot_rejection(build_slot_tool);
@@ -275,8 +275,8 @@ mod build_slot_rejection {
                 .await
                 .expect("Failed to create ModelManager"),
         );
-        let service_disabled = AgentMailService::new_with_mm(mm.clone(), false);
-        let service_enabled = AgentMailService::new_with_mm(mm, true);
+        let service_disabled = MouchakMailService::new_with_mm(mm.clone(), false);
+        let service_enabled = MouchakMailService::new_with_mm(mm, true);
 
         let non_build_tools = ["send_message", "list_inbox", "register_agent"];
 

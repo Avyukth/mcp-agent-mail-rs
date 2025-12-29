@@ -2655,9 +2655,9 @@ pub async fn install_precommit_guard(
 # Installed for project: {}
 
 # Check for file reservation conflicts
-# This is an advisory check - can be bypassed with AGENT_MAIL_BYPASS=1
+# This is an advisory check - can be bypassed with MOUCHAK_MAIL_BYPASS=1
 
-if [ -n "$AGENT_MAIL_BYPASS" ]; then
+if [ -n "$MOUCHAK_MAIL_BYPASS" ]; then
     echo "Mouchak Mail: Bypass enabled, skipping reservation check"
     exit 0
 fi

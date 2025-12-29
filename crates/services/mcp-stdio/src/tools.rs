@@ -346,12 +346,12 @@ macro_rules! guard_unwrap {
 }
 
 #[derive(Clone)]
-pub struct AgentMailService {
+pub struct MouchakMailService {
     mm: Arc<ModelManager>,
     tool_router: ToolRouter<Self>,
 }
 
-impl AgentMailService {
+impl MouchakMailService {
     pub async fn new() -> Result<Self> {
         let mm = Arc::new(ModelManager::new().await?);
         let tool_router = Self::tool_router();
@@ -383,7 +383,7 @@ impl AgentMailService {
             ));
         }
 
-        // URI format: agent-mail://{project_slug}/{resource_type}/{optional_id}
+        // URI format: mouchak-mail://{project_slug}/{resource_type}/{optional_id}
         let project_slug = uri.host_str()
             .ok_or(McpError::invalid_params("URI missing host (project slug)".to_string(), None))?;
         
@@ -533,7 +533,7 @@ impl AgentMailService {
 }
 
 #[allow(clippy::manual_async_fn)]
-impl ServerHandler for AgentMailService {
+impl ServerHandler for MouchakMailService {
     fn list_tools(
         &self,
         _request: Option<PaginatedRequestParam>,
@@ -592,7 +592,7 @@ impl ServerHandler for AgentMailService {
                 // Agents list
                 resources.push(Resource {
                     raw: RawResource {
-                        uri: format!("agent-mail://{}/agents", slug),
+                        uri: format!("mouchak-mail://{}/agents", slug),
                         name: format!("Agents ({})", slug),
                         description: Some(format!("List of all agents in project '{}'", slug)),
                         mime_type: Some("application/json".to_string()),
@@ -607,7 +607,7 @@ impl ServerHandler for AgentMailService {
                 // File reservations
                 resources.push(Resource {
                     raw: RawResource {
-                        uri: format!("agent-mail://{}/file_reservations", slug),
+                        uri: format!("mouchak-mail://{}/file_reservations", slug),
                         name: format!("File Reservations ({})", slug),
                         description: Some(format!("Active file reservations in project '{}'", slug)),
                         mime_type: Some("application/json".to_string()),
@@ -1044,7 +1044,7 @@ pub struct ExportMailboxParams {
 // ============================================================================
 
 #[tool_router]
-impl AgentMailService {
+impl MouchakMailService {
     /// Ensure a project exists, creating it if necessary
     #[tool(description = "Create or get a project. Projects are workspaces that contain agents and their messages.")]
     async fn ensure_project(
@@ -2586,7 +2586,7 @@ mod tests {
     async fn test_middleware_enforcement() {
         let (mm, _temp) = create_test_mm().await;
         // Construct service
-        let service = AgentMailService::new_with_mm(mm.clone());
+        let service = MouchakMailService::new_with_mm(mm.clone());
         let ctx = Ctx::root_ctx();
 
         // Create project/agent
@@ -2651,7 +2651,7 @@ mod tests {
         use lib_core::model::product::ProductBmc;
         
         let (mm, _temp) = create_test_mm().await;
-        let service = AgentMailService::new_with_mm(mm.clone());
+        let service = MouchakMailService::new_with_mm(mm.clone());
         let ctx = Ctx::root_ctx();
 
         // 1. Create Projects
@@ -2682,7 +2682,7 @@ mod tests {
     
         let (mm, _temp) = create_test_mm().await;
         // Construct service
-        let service = AgentMailService::new_with_mm(mm.clone());
+        let service = MouchakMailService::new_with_mm(mm.clone());
         let ctx = Ctx::root_ctx();
 
         // Create project
@@ -2753,7 +2753,7 @@ mod tests {
 
         let (mm, _temp) = create_test_mm().await;
         // Construct service
-        let service = AgentMailService::new_with_mm(mm.clone());
+        let service = MouchakMailService::new_with_mm(mm.clone());
         let ctx = Ctx::root_ctx();
 
         // Create project
@@ -2781,7 +2781,7 @@ mod tests {
         MessageBmc::create(&ctx, &mm, msg_c).await.unwrap();
 
         // Call read_resource
-        let uri = "agent-mail://outbox-test/outbox/Sender".to_string();
+        let uri = "mouchak-mail://outbox-test/outbox/Sender".to_string();
         let params = ReadResourceRequestParam { uri };
         
         // Use refactored impl to avoid constructing context
@@ -2804,7 +2804,7 @@ mod tests {
 
         let (mm, _temp) = create_test_mm().await;
         // Construct service
-        let service = AgentMailService::new_with_mm(mm.clone());
+        let service = MouchakMailService::new_with_mm(mm.clone());
         let ctx = Ctx::root_ctx();
 
         // 1. Create Project and Agent

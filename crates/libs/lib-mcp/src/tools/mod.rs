@@ -340,15 +340,15 @@ macro_rules! guard_unwrap {
 }
 
 #[derive(Clone)]
-pub struct AgentMailService {
+pub struct MouchakMailService {
     mm: Arc<ModelManager>,
     tool_router: ToolRouter<Self>,
     /// Whether worktrees/build slot tools are enabled
     worktrees_enabled: bool,
 }
 
-impl AgentMailService {
-    /// Create a new AgentMailService with default configuration.
+impl MouchakMailService {
+    /// Create a new MouchakMailService with default configuration.
     ///
     /// Worktrees are disabled by default. Use `new_with_config()` to enable.
     pub async fn new() -> Result<Self> {
@@ -357,7 +357,7 @@ impl AgentMailService {
         Self::new_with_config(config).await
     }
 
-    /// Create a new AgentMailService with explicit worktrees configuration.
+    /// Create a new MouchakMailService with explicit worktrees configuration.
     ///
     /// When `worktrees_enabled` is true, build slot tools (acquire, release, renew)
     /// are registered and available. When false, they are hidden from the tool list
@@ -553,7 +553,7 @@ impl AgentMailService {
 }
 
 #[allow(clippy::manual_async_fn)]
-impl ServerHandler for AgentMailService {
+impl ServerHandler for MouchakMailService {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
             protocol_version: Default::default(),
@@ -568,7 +568,8 @@ impl ServerHandler for AgentMailService {
                 ..Default::default()
             },
             instructions: Some(
-                "Mouchak Mail MCP Server - Multi-agent messaging and coordination system".to_string(),
+                "Mouchak Mail MCP Server - Multi-agent messaging and coordination system"
+                    .to_string(),
             ),
         }
     }
@@ -669,7 +670,7 @@ impl ServerHandler for AgentMailService {
 // ============================================================================
 
 #[tool_router]
-impl AgentMailService {
+impl MouchakMailService {
     /// Ensure a project exists, creating it if necessary
     #[tool(
         description = "Create or get a project. Projects are workspaces that contain agents and their messages."
@@ -1432,7 +1433,7 @@ mod tests {
     async fn test_middleware_enforcement() {
         let (mm, _temp) = create_test_mm().await;
         // Construct service
-        let service = AgentMailService::new_with_mm(mm.clone(), false);
+        let service = MouchakMailService::new_with_mm(mm.clone(), false);
         let ctx = Ctx::root_ctx();
 
         // Create project/agent
@@ -1505,7 +1506,7 @@ mod tests {
         use lib_core::model::product::ProductBmc;
 
         let (mm, _temp) = create_test_mm().await;
-        let service = AgentMailService::new_with_mm(mm.clone(), false);
+        let service = MouchakMailService::new_with_mm(mm.clone(), false);
         let ctx = Ctx::root_ctx();
 
         // 1. Create Projects
@@ -1549,7 +1550,7 @@ mod tests {
 
         let (mm, _temp) = create_test_mm().await;
         // Construct service
-        let service = AgentMailService::new_with_mm(mm.clone(), false);
+        let service = MouchakMailService::new_with_mm(mm.clone(), false);
         let ctx = Ctx::root_ctx();
 
         // Create project
@@ -1659,7 +1660,7 @@ mod tests {
 
         let (mm, _temp) = create_test_mm().await;
         // Construct service
-        let service = AgentMailService::new_with_mm(mm.clone(), false);
+        let service = MouchakMailService::new_with_mm(mm.clone(), false);
         let ctx = Ctx::root_ctx();
 
         // Create project
@@ -1702,7 +1703,7 @@ mod tests {
         MessageBmc::create(&ctx, &mm, msg_c).await.unwrap();
 
         // Call read_resource
-        let uri = "agent-mail://outbox-test/outbox/Sender".to_string();
+        let uri = "mouchak-mail://outbox-test/outbox/Sender".to_string();
         let params = ReadResourceRequestParam { uri };
 
         // Use refactored impl to avoid constructing context
@@ -1725,7 +1726,7 @@ mod tests {
 
         let (mm, _temp) = create_test_mm().await;
         // Construct service
-        let service = AgentMailService::new_with_mm(mm.clone(), false);
+        let service = MouchakMailService::new_with_mm(mm.clone(), false);
         let ctx = Ctx::root_ctx();
 
         // 1. Create Project and Agent
@@ -1858,14 +1859,14 @@ mod tests {
         let (mm, _temp) = create_test_mm().await;
 
         // Test with worktrees enabled
-        let service_enabled = AgentMailService::new_with_mm(mm.clone(), true);
+        let service_enabled = MouchakMailService::new_with_mm(mm.clone(), true);
         assert!(
             service_enabled.worktrees_enabled(),
             "Service should report worktrees enabled"
         );
 
         // Test with worktrees disabled
-        let service_disabled = AgentMailService::new_with_mm(mm.clone(), false);
+        let service_disabled = MouchakMailService::new_with_mm(mm.clone(), false);
         assert!(
             !service_disabled.worktrees_enabled(),
             "Service should report worktrees disabled"
@@ -1881,7 +1882,7 @@ mod tests {
         use rmcp::handler::server::ServerHandler;
 
         let (mm, _temp) = create_test_mm().await;
-        let service = AgentMailService::new_with_mm(mm.clone(), false);
+        let service = MouchakMailService::new_with_mm(mm.clone(), false);
 
         let info = service.get_info();
 

@@ -181,7 +181,7 @@ fn check_hook_status(name: &str) {
 
 #[derive(Subcommand, Debug)]
 enum ProjectsCommands {
-    /// Write .agent-mail-project-id marker
+    /// Write .mouchak-mail-project-id marker
     MarkIdentity {
         /// Project slug to write
         project: String,
@@ -289,12 +289,12 @@ async fn handle_projects_command(
 ) -> Result<()> {
     match cmd {
         ProjectsCommands::MarkIdentity { project, commit } => {
-            let mut file = std::fs::File::create(".agent-mail-project-id")?;
+            let mut file = std::fs::File::create(".mouchak-mail-project-id")?;
             file.write_all(project.as_bytes())?;
-            println!("Wrote .agent-mail-project-id: {}", project);
+            println!("Wrote .mouchak-mail-project-id: {}", project);
             if commit {
                 std::process::Command::new("git")
-                    .args(["add", ".agent-mail-project-id"])
+                    .args(["add", ".mouchak-mail-project-id"])
                     .output()?;
                 std::process::Command::new("git")
                     .args(["commit", "-m", "chore: set project identity"])

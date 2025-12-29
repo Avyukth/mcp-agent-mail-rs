@@ -8,8 +8,8 @@ fn test_guard_mode_from_env() {
     // Default
     with_vars(
         [
-            ("AGENT_MAIL_GUARD_MODE", None::<&str>),
-            ("AGENT_MAIL_BYPASS", None::<&str>),
+            ("MOUCHAK_MAIL_GUARD_MODE", None::<&str>),
+            ("MOUCHAK_MAIL_BYPASS", None::<&str>),
         ],
         || {
             assert_eq!(GuardMode::from_env(), GuardMode::Enforce);
@@ -17,16 +17,16 @@ fn test_guard_mode_from_env() {
     );
 
     // Bypass
-    with_vars([("AGENT_MAIL_BYPASS", Some("1"))], || {
+    with_vars([("MOUCHAK_MAIL_BYPASS", Some("1"))], || {
         assert_eq!(GuardMode::from_env(), GuardMode::Bypass);
     });
 
     // Warn
-    with_vars([("AGENT_MAIL_GUARD_MODE", Some("warn"))], || {
+    with_vars([("MOUCHAK_MAIL_GUARD_MODE", Some("warn"))], || {
         assert_eq!(GuardMode::from_env(), GuardMode::Warn);
     });
 
-    with_vars([("AGENT_MAIL_GUARD_MODE", Some("advisory"))], || {
+    with_vars([("MOUCHAK_MAIL_GUARD_MODE", Some("advisory"))], || {
         assert_eq!(GuardMode::from_env(), GuardMode::Warn);
     });
 }
@@ -143,8 +143,8 @@ async fn test_guard_warn_mode() {
     async_with_vars(
         [
             ("WORKTREES_ENABLED", Some("1")),
-            ("AGENT_MAIL_PROJECT", Some(actual_slug.as_str())),
-            ("AGENT_MAIL_GUARD_MODE", Some("warn")), // WARN MODE
+            ("MOUCHAK_MAIL_PROJECT", Some(actual_slug.as_str())),
+            ("MOUCHAK_MAIL_GUARD_MODE", Some("warn")), // WARN MODE
         ],
         async {
             let result = PrecommitGuardBmc::check_reservations(
@@ -220,8 +220,8 @@ async fn test_guard_bypass_mode() {
     async_with_vars(
         [
             ("WORKTREES_ENABLED", Some("1")),
-            ("AGENT_MAIL_PROJECT", Some(actual_slug.as_str())),
-            ("AGENT_MAIL_BYPASS", Some("1")), // BYPASS MODE
+            ("MOUCHAK_MAIL_PROJECT", Some(actual_slug.as_str())),
+            ("MOUCHAK_MAIL_BYPASS", Some("1")), // BYPASS MODE
         ],
         async {
             let result = PrecommitGuardBmc::check_reservations(

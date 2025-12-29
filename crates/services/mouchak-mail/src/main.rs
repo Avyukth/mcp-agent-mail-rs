@@ -499,9 +499,8 @@ fn setup_tracing(json_logs: bool) -> anyhow::Result<()> {
         EnvFilter, Layer, fmt, layer::SubscriberExt, util::SubscriberInitExt,
     };
 
-    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| {
-        EnvFilter::new("info,tower_http=debug,axum=debug,mouchak_mail=debug")
-    });
+    let env_filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new("info,tower_http=debug,axum=debug,mouchak_mail=debug"));
 
     let layer = if json_logs {
         fmt::layer().json().with_writer(std::io::stderr).boxed()
@@ -723,8 +722,7 @@ fn other_am_alias_exists(rc_path: &PathBuf) -> bool {
         // Check for any 'alias am=' that isn't in our managed block
         for line in contents.lines() {
             let trimmed = line.trim();
-            if trimmed.starts_with("alias am=") && !contents.contains("# >>> Mouchak Mail alias")
-            {
+            if trimmed.starts_with("alias am=") && !contents.contains("# >>> Mouchak Mail alias") {
                 return true;
             }
         }
@@ -2168,10 +2166,10 @@ async fn handle_guard_status() -> anyhow::Result<()> {
         if worktrees_enabled { "true" } else { "false" }
     );
 
-    // AGENT_MAIL_GUARD_MODE
+    // MOUCHAK_MAIL_GUARD_MODE
     let guard_mode =
-        std::env::var("AGENT_MAIL_GUARD_MODE").unwrap_or_else(|_| "enforce".to_string());
-    println!("AGENT_MAIL_GUARD_MODE: {}", guard_mode);
+        std::env::var("MOUCHAK_MAIL_GUARD_MODE").unwrap_or_else(|_| "enforce".to_string());
+    println!("MOUCHAK_MAIL_GUARD_MODE: {}", guard_mode);
 
     // PROJECT_IDENTITY_MODE
     let identity_mode = std::env::var("PROJECT_IDENTITY_MODE")
@@ -2305,8 +2303,7 @@ async fn handle_guard_check(
     }
 
     // Get active file reservations from MCP API with timeout
-    let url =
-        std::env::var("MOUCHAK_MAIL_URL").unwrap_or_else(|_| "http://localhost:8765".into());
+    let url = std::env::var("MOUCHAK_MAIL_URL").unwrap_or_else(|_| "http://localhost:8765".into());
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(10))
         .build()
@@ -2538,8 +2535,7 @@ async fn main() -> anyhow::Result<()> {
 // --- Summarize Command Handler ---
 
 async fn handle_summarize(args: SummarizeArgs) -> anyhow::Result<()> {
-    let url =
-        std::env::var("MOUCHAK_MAIL_URL").unwrap_or_else(|_| "http://localhost:8765".into());
+    let url = std::env::var("MOUCHAK_MAIL_URL").unwrap_or_else(|_| "http://localhost:8765".into());
     let client = reqwest::Client::new();
 
     // Parse thread IDs (comma-separated)

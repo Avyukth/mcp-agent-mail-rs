@@ -5,7 +5,7 @@ use lib_core::model::{
     product::ProductBmc,
     project::ProjectBmc,
 };
-use lib_mcp::tools::AgentMailService;
+use lib_mcp::tools::MouchakMailService;
 use rmcp::model::ReadResourceRequestParam;
 use std::sync::Arc;
 use uuid::Uuid;
@@ -61,7 +61,7 @@ async fn test_mcp_resource_api_schemes() -> anyhow::Result<()> {
     let product_name = format!("Test Product {}", Uuid::new_v4());
     ProductBmc::ensure(&ctx, &mm, &product_uid, &product_name).await?;
 
-    let service = AgentMailService::new_with_mm(mm.clone(), false);
+    let service = MouchakMailService::new_with_mm(mm.clone(), false);
 
     // --- TEST 1: resource://inbox (Lazy Load - No bodies) ---
     let uri = format!("resource://inbox/{}?project={}", agent_name, project_slug);
@@ -135,8 +135,8 @@ async fn test_mcp_resource_api_schemes() -> anyhow::Result<()> {
         assert!(text.contains("repo-abs-path-to-repo"));
     }
 
-    // --- TEST 7: Legacy agent-mail:// scheme ---
-    let uri = format!("agent-mail://{}/inbox/{}", project_slug, agent_name);
+    // --- TEST 7: Legacy mouchak-mail:// scheme ---
+    let uri = format!("mouchak-mail://{}/inbox/{}", project_slug, agent_name);
     let res = service
         .read_resource_impl(ReadResourceRequestParam { uri })
         .await?;

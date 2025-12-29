@@ -372,7 +372,7 @@ pub async fn list_resources_impl(
 
         resources.push(Resource {
             raw: RawResource {
-                uri: format!("agent-mail://{}/agents", slug),
+                uri: format!("mouchak-mail://{}/agents", slug),
                 name: format!("Agents ({})", slug),
                 description: Some(format!("List of all agents in project '{}'", slug)),
                 mime_type: Some("application/json".to_string()),
@@ -391,7 +391,7 @@ pub async fn list_resources_impl(
         for agent in project_agents {
             resources.push(Resource {
                 raw: RawResource {
-                    uri: format!("agent-mail://{}/inbox/{}", slug, agent.name),
+                    uri: format!("mouchak-mail://{}/inbox/{}", slug, agent.name),
                     name: format!("Inbox: {} ({})", agent.name, slug),
                     description: Some(format!("Inbox for agent '{}'", agent.name)),
                     mime_type: Some("application/json".to_string()),
@@ -404,7 +404,7 @@ pub async fn list_resources_impl(
             });
             resources.push(Resource {
                 raw: RawResource {
-                    uri: format!("agent-mail://{}/outbox/{}", slug, agent.name),
+                    uri: format!("mouchak-mail://{}/outbox/{}", slug, agent.name),
                     name: format!("Outbox: {} ({})", agent.name, slug),
                     description: Some(format!("Outbox for agent '{}'", agent.name)),
                     mime_type: Some("application/json".to_string()),
@@ -446,7 +446,7 @@ pub async fn list_resources_impl(
 
         resources.push(Resource {
             raw: RawResource {
-                uri: format!("agent-mail://{}/threads", slug),
+                uri: format!("mouchak-mail://{}/threads", slug),
                 name: format!("Threads ({})", slug),
                 description: Some(format!(
                     "List of all conversation threads in project '{}'",
@@ -463,7 +463,7 @@ pub async fn list_resources_impl(
 
         resources.push(Resource {
             raw: RawResource {
-                uri: format!("agent-mail://{}/file_reservations", slug),
+                uri: format!("mouchak-mail://{}/file_reservations", slug),
                 name: format!("File Reservations ({})", slug),
                 description: Some(format!("Active file reservations in project '{}'", slug)),
                 mime_type: Some("application/json".to_string()),

@@ -10,7 +10,7 @@ INSTALL_BIN="${INSTALL_DIR}/${BIN_NAME}"
 INSTALL_SERVICE="/etc/systemd/system/${SERVICE_NAME}.service"
 CONFIG_DIR="/etc/${SERVICE_NAME}"
 DATA_DIR="/var/lib/${SERVICE_NAME}"
-USER_NAME="mcp"
+USER_NAME="mouchak"
 
 echo " Installing ${SERVICE_NAME}..."
 

@@ -62,10 +62,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![
-                example(
-                    "mouchak-mail --robot-help",
-                    "Show all capabilities as JSON",
-                ),
+                example("mouchak-mail --robot-help", "Show all capabilities as JSON"),
                 example("mouchak-mail --robot-help --format yaml", "YAML output"),
             ],
         },
@@ -99,10 +96,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             param_type: None,
             default: None,
             examples: vec![
-                example(
-                    "mouchak-mail --robot-status",
-                    "Show status in JSON format",
-                ),
+                example("mouchak-mail --robot-status", "Show status in JSON format"),
                 example(
                     "mouchak-mail --robot-status --format yaml",
                     "YAML status output",
@@ -202,10 +196,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
                     "mouchak-mail serve mcp --transport stdio",
                     "For Claude Desktop",
                 ),
-                example(
-                    "mouchak-mail serve mcp --transport sse",
-                    "For web clients",
-                ),
+                example("mouchak-mail serve mcp --transport sse", "For web clients"),
             ],
         },
     );
@@ -827,10 +818,7 @@ pub(crate) static EXAMPLE_REGISTRY: Lazy<HashMap<&'static str, ExampleEntry>> = 
             target_type: "subcommand",
             param_type: None,
             default: None,
-            examples: vec![example(
-                "mouchak-mail mail status",
-                "Display system health",
-            )],
+            examples: vec![example("mouchak-mail mail status", "Display system health")],
         },
     );
 
