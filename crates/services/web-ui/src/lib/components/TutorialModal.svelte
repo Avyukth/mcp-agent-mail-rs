@@ -17,11 +17,11 @@
 		tips: string[];
 	}
 
-	const STORAGE_KEY = 'agent-mail-tutorial-seen';
+	const STORAGE_KEY = 'mouchak-mail-tutorial-seen';
 
 	const steps: TutorialStep[] = [
 		{
-			title: 'Welcome to Agent Mail',
+			title: 'Welcome to Mouchak Mail',
 			description: 'Your multi-agent messaging hub for AI coding assistants.',
 			icon: Mail,
 			tips: [

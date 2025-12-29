@@ -10,7 +10,7 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-MCP_SERVER_NAME="mcp-agent-mail"
+MCP_SERVER_NAME="mouchak-mail"
 ANTIGRAVITY_CONFIG_DIR="$HOME/.antigravity"
 ANTIGRAVITY_CONFIG_FILE="$ANTIGRAVITY_CONFIG_DIR/mcp.json"
 
@@ -22,7 +22,7 @@ log_error() { echo -e "${RED}✗${NC} $1"; }
 print_header() {
     echo ""
     echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║${NC}     MCP Agent Mail - Antigravity Integration               ${BLUE}║${NC}"
+    echo -e "${BLUE}║${NC}     Mouchak Mail - Antigravity Integration               ${BLUE}║${NC}"
     echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -63,7 +63,7 @@ detect_antigravity() {
 }
 
 find_mcp_server() {
-    log_info "Locating MCP Agent Mail binary..."
+    log_info "Locating Mouchak Mail binary..."
 
     if [[ -n "${MCP_SERVER_PATH:-}" ]] && [[ -x "$MCP_SERVER_PATH" ]]; then
         log_success "Using provided MCP_SERVER_PATH: $MCP_SERVER_PATH"
@@ -76,29 +76,29 @@ find_mcp_server() {
         return 0
     fi
 
-    if command -v mcp-agent-mail &> /dev/null; then
-        MCP_SERVER_PATH=$(command -v mcp-agent-mail)
-        log_success "Found mcp-agent-mail: $MCP_SERVER_PATH"
+    if command -v mouchak-mail &> /dev/null; then
+        MCP_SERVER_PATH=$(command -v mouchak-mail)
+        log_success "Found mouchak-mail: $MCP_SERVER_PATH"
         return 0
     fi
 
     local target_paths=(
-        "$PROJECT_ROOT/target/release/mcp-agent-mail"
-        "$PROJECT_ROOT/target/debug/mcp-agent-mail"
+        "$PROJECT_ROOT/target/release/mouchak-mail"
+        "$PROJECT_ROOT/target/debug/mouchak-mail"
         "$HOME/.local/bin/am"
-        "$HOME/.cargo/bin/mcp-agent-mail"
+        "$HOME/.cargo/bin/mouchak-mail"
     )
 
     for path in "${target_paths[@]}"; do
         if [[ -x "$path" ]]; then
             MCP_SERVER_PATH="$path"
-            log_success "Found MCP Agent Mail: $MCP_SERVER_PATH"
+            log_success "Found Mouchak Mail: $MCP_SERVER_PATH"
             return 0
         fi
     done
 
-    log_error "MCP Agent Mail binary not found!"
-    echo "  Install with: cargo install --path crates/services/mcp-agent-mail"
+    log_error "Mouchak Mail binary not found!"
+    echo "  Install with: cargo install --path crates/services/mouchak-mail"
     exit 1
 }
 
@@ -167,7 +167,7 @@ print_summary() {
     echo ""
     echo "Next steps:"
     echo "  1. Run: antigravity --mcp-config $ANTIGRAVITY_CONFIG_FILE"
-    echo "  2. MCP Agent Mail tools should now be available"
+    echo "  2. Mouchak Mail tools should now be available"
     echo ""
 }
 
@@ -175,7 +175,7 @@ usage() {
     cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Configure Antigravity to use MCP Agent Mail via STDIO transport.
+Configure Antigravity to use Mouchak Mail via STDIO transport.
 
 Options:
   -h, --help            Show this help message

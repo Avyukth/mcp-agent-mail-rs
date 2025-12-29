@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Agent Workflow Benchmark Script
-# Tests realistic multi-step agent operations for MCP Agent Mail
+# Tests realistic multi-step agent operations for Mouchak Mail
 #
 # This script benchmarks ACTUAL AGENT WORKFLOWS, not just raw throughput.
 # It measures what matters for AI agents: end-to-end operation latency.

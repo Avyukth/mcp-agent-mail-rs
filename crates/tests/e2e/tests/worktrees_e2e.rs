@@ -40,7 +40,7 @@ fn setup_test_env() -> TempDir {
 
 /// Run CLI command with isolated data directory
 fn run_cli_with_data_dir(temp_dir: &TempDir) -> Command {
-    let mut cmd = Command::cargo_bin("mcp-agent-mail").unwrap();
+    let mut cmd = Command::cargo_bin("mouchak-mail").unwrap();
     cmd.current_dir(temp_dir.path());
     cmd
 }
@@ -461,8 +461,8 @@ fn test_cli_with_git_identity_enabled() {
 fn test_cli_with_bypass_mode() {
     let temp_dir = setup_test_env();
 
-    // Run with AGENT_MAIL_BYPASS=1
-    run_cli_with_env(&temp_dir, "AGENT_MAIL_BYPASS", "1")
+    // Run with MOUCHAK_MAIL_BYPASS=1
+    run_cli_with_env(&temp_dir, "MOUCHAK_MAIL_BYPASS", "1")
         .args(["tools"])
         .assert()
         .success();

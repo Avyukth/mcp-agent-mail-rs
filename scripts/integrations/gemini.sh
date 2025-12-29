@@ -9,9 +9,9 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
-MCP_SERVER_NAME="mcp-agent-mail"
-MCP_SERVER_PORT="${MCP_AGENT_MAIL_PORT:-8765}"
-MCP_SERVER_HOST="${MCP_AGENT_MAIL_HOST:-127.0.0.1}"
+MCP_SERVER_NAME="mouchak-mail"
+MCP_SERVER_PORT="${MOUCHAK_MAIL_PORT:-8765}"
+MCP_SERVER_HOST="${MOUCHAK_MAIL_HOST:-127.0.0.1}"
 
 GEMINI_CONFIG_DIR="$HOME/.gemini"
 GEMINI_MCP_CONFIG="$GEMINI_CONFIG_DIR/settings/mcp_settings.json"
@@ -24,7 +24,7 @@ log_error() { echo -e "${RED}✗${NC} $1"; }
 print_header() {
     echo ""
     echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║${NC}     MCP Agent Mail - Gemini CLI Integration                ${BLUE}║${NC}"
+    echo -e "${BLUE}║${NC}     Mouchak Mail - Gemini CLI Integration                ${BLUE}║${NC}"
     echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -60,10 +60,10 @@ detect_gemini() {
 }
 
 find_mcp_server() {
-    log_info "Locating MCP Agent Mail server..."
+    log_info "Locating Mouchak Mail server..."
 
     if curl -s "http://$MCP_SERVER_HOST:$MCP_SERVER_PORT/api/health" &> /dev/null; then
-        log_success "MCP Agent Mail server running on port $MCP_SERVER_PORT"
+        log_success "Mouchak Mail server running on port $MCP_SERVER_PORT"
         return 0
     fi
 
@@ -132,7 +132,7 @@ print_summary() {
     echo "  • Config: $GEMINI_MCP_CONFIG"
     echo ""
     echo "Next steps:"
-    echo "  1. Ensure MCP Agent Mail server is running:"
+    echo "  1. Ensure Mouchak Mail server is running:"
     echo "     am serve http --port $MCP_SERVER_PORT"
     echo "  2. Run Gemini CLI with MCP support"
     echo ""
@@ -142,7 +142,7 @@ usage() {
     cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Configure Gemini CLI to use MCP Agent Mail via HTTP transport.
+Configure Gemini CLI to use Mouchak Mail via HTTP transport.
 
 Options:
   -h, --help            Show this help message

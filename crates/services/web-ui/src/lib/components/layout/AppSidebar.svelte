@@ -91,7 +91,7 @@
 			<Sheet.Header class="border-b border-border p-4">
 				<Sheet.Title class="flex items-center gap-2 text-lg font-bold text-primary">
 					<Mail class="h-5 w-5" />
-					Agent Mail
+					Mouchak Mail
 				</Sheet.Title>
 				<Sheet.Description class="text-sm text-muted-foreground">
 					MCP Communication Hub
@@ -123,7 +123,7 @@
 	</Sheet.Root>
 	<div class="flex items-center gap-2">
 		<Mail class="h-5 w-5 text-primary" />
-		<span class="font-semibold text-primary">Agent Mail</span>
+		<span class="font-semibold text-primary">Mouchak Mail</span>
 	</div>
 </header>
 <!-- Mobile spacer for fixed header -->
@@ -139,7 +139,7 @@
 			<Mail class="h-4.5 w-4.5 text-white" />
 		</div>
 		<div class="flex flex-col">
-			<span class="text-sm font-bold text-foreground tracking-tight">Agent Mail</span>
+			<span class="text-sm font-bold text-foreground tracking-tight">Mouchak Mail</span>
 			<span class="text-[11px] text-muted-foreground font-medium">Command Center</span>
 		</div>
 	</div>

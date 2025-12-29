@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Unified Benchmark Script for MCP Agent Mail
+# Unified Benchmark Script for Mouchak Mail
 # Supports both Rust and Python implementations for head-to-head comparison
 # Aligned with docs/UNIFIED_BENCHMARKING_PLAN.md
 #
@@ -423,7 +423,7 @@ EOF
 # ============================================
 
 echo "=============================================="
-echo -e "${BOLD}MCP Agent Mail Benchmark - ${CYAN}${IMPL_UPPER}${NC}${BOLD} Implementation${NC}"
+echo -e "${BOLD}Mouchak Mail Benchmark - ${CYAN}${IMPL_UPPER}${NC}${BOLD} Implementation${NC}"
 echo "=============================================="
 echo "Target: ${HOST}"
 echo "Mode: ${MODE}"

@@ -1,4 +1,4 @@
-//! Full System Benchmark for MCP Agent Mail
+//! Full System Benchmark for Mouchak Mail
 //!
 //! Replicates the load testing scenarios from `scripts/benchmark_concurrent_agents.sh`.
 //! Supports multi-phase testing: Health, Readiness, MCP Tool Calls, and Agent Conversation.
@@ -367,7 +367,7 @@ async fn main() -> Result<()> {
     };
 
     println!("==============================================");
-    println!("MCP Agent Mail Benchmark - {} Concurrent Agents", agents);
+    println!("Mouchak Mail Benchmark - {} Concurrent Agents", agents);
     println!("==============================================");
     println!("Target: {}", config.base_url);
     println!("Duration per test: {}s", duration);

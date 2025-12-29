@@ -1,0 +1,23 @@
+[Unit]
+Description=Mouchak Mail Service
+After=network.target
+
+[Service]
+Type=simple
+User=mouchak
+Group=mouchak
+# Path to binary
+ExecStart=/usr/local/bin/mouchak-mail serve
+# Directory where 'data' folder is located/mounted relative to CWD if implied,
+# OR we should set working directory.
+WorkingDirectory=/var/lib/mouchak-mail
+# Environment variables
+EnvironmentFile=/etc/default/mouchak-mail
+# Restart on failure
+Restart=on-failure
+RestartSec=5
+# Limits
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

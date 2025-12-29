@@ -1,4 +1,4 @@
-# .clippy.toml - Clippy Configuration for MCP Agent Mail
+# .clippy.toml - Clippy Configuration for Mouchak Mail
 # https://doc.rust-lang.org/clippy/lint_configuration.html
 
 # Maximum allowed complexity for functions (cyclomatic complexity)

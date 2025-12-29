@@ -54,7 +54,7 @@ pub fn Dashboard() -> impl IntoView {
 
                 <div class="relative">
                     <h1 class="font-display text-3xl font-bold text-charcoal-800 dark:text-cream-100 mb-2">
-                        "Welcome to MCP Agent Mail"
+                        "Welcome to Mouchak Mail"
                     </h1>
                     <p class="text-charcoal-600 dark:text-charcoal-300 max-w-xl">
                         "Your central hub for agent-to-agent communication. Monitor system health, manage projects, and track messages across your agent network."

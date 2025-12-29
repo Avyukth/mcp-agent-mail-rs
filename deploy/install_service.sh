@@ -2,11 +2,11 @@
 set -e
 
 # Configuration
-BINARY_PATH="./target/release/mcp-agent-mail"
-INSTALL_PATH="/usr/local/bin/mcp-agent-mail"
-USER="mcp-agent"
-SERVICE_NAME="mcp-agent-mail"
-DATA_DIR="/var/lib/mcp-agent-mail"
+BINARY_PATH="./target/release/mouchak-mail"
+INSTALL_PATH="/usr/local/bin/mouchak-mail"
+USER="mouchak"
+SERVICE_NAME="mouchak-mail"
+DATA_DIR="/var/lib/mouchak-mail"
 
 # Check root
 if [ "$EUID" -ne 0 ]; then 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# continue.sh - Configure Continue.dev to use MCP Agent Mail
-# Part of mcp-agent-mail-rs integration scripts
+# continue.sh - Configure Continue.dev to use Mouchak Mail
+# Part of mouchak-mail integration scripts
 
 set -euo pipefail
 
@@ -14,7 +14,7 @@ NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-MCP_SERVER_NAME="mcp-agent-mail"
+MCP_SERVER_NAME="mouchak-mail"
 
 # Continue.dev stores config in ~/.continue/config.json
 CONTINUE_CONFIG="$HOME/.continue/config.json"
@@ -27,7 +27,7 @@ log_error() { echo -e "${RED}✗${NC} $1"; }
 print_header() {
     echo ""
     echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║${NC}     MCP Agent Mail - Continue.dev Integration             ${BLUE}║${NC}"
+    echo -e "${BLUE}║${NC}     Mouchak Mail - Continue.dev Integration             ${BLUE}║${NC}"
     echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -180,10 +180,10 @@ print_summary() {
     echo "Next steps:"
     echo "  1. Restart VSCode to load the new configuration"
     echo "  2. Open Continue.dev panel (Cmd+L / Ctrl+L)"
-    echo "  3. MCP Agent Mail tools will be available"
-    echo "  4. Try: '@mcp-agent-mail register me as an agent'"
+    echo "  3. Mouchak Mail tools will be available"
+    echo "  4. Try: '@mouchak-mail register me as an agent'"
     echo ""
-    echo "Continue.dev + Agent Mail capabilities:"
+    echo "Continue.dev + Mouchak Mail capabilities:"
     echo "  • Context-aware agent registration"
     echo "  • Message-based coordination between agents"
     echo "  • File reservation to prevent conflicts"
@@ -199,7 +199,7 @@ usage() {
     cat <<EOF
 Usage: $(basename "$0") [OPTIONS]
 
-Configure Continue.dev to use MCP Agent Mail via stdio transport.
+Configure Continue.dev to use Mouchak Mail via stdio transport.
 
 Options:
   -h, --help            Show this help message

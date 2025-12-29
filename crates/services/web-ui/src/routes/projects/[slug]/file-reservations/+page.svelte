@@ -71,7 +71,7 @@
 </script>
 
 <svelte:head>
-    <title>File Reservations - {projectSlug} | MCP Agent Mail</title>
+    <title>File Reservations - {projectSlug} | Mouchak Mail</title>
 </svelte:head>
 
 <div class="pt-4 md:pt-6 pb-4 md:pb-6 space-y-6">
@@ -187,26 +187,6 @@
                                         class="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider"
                                     >
                                         ID
-                                    </th>
-                                    <th
-                                        class="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider"
-                                    >
-                                        Agent
-                                    </th>
-                                    <th
-                                        class="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider"
-                                    >
-                                        Path Pattern
-                                    </th>
-                                    <th
-                                        class="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider"
-                                    >
-                                        Type
-                                    </th>
-                                    <th
-                                        class="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider"
-                                    >
-                                        Created
                                     </th>
                                     <th
                                         class="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider"

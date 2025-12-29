@@ -1,47 +1,47 @@
 # Changelog
 
-All notable changes to MCP Agent Mail will be documented in this file.
+All notable changes to Mouchak Mail will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.2.3](https://github.com/Avyukth/mcp-agent-mail-rs/compare/v0.2.2...v0.2.3) (2025-12-29)
+## [0.2.3](https://github.com/Avyukth/mouchak-mail-rs/compare/v0.2.2...v0.2.3) (2025-12-29)
 
 
 ### Features
 
-* **web-ui:** fix unread badge on Mail nav with backend sync ([de4aebb](https://github.com/Avyukth/mcp-agent-mail-rs/commit/de4aebb473c34a12861253b3393ac089d9b5d78d))
+* **web-ui:** fix unread badge on Mail nav with backend sync ([de4aebb](https://github.com/Avyukth/mouchak-mail-rs/commit/de4aebb473c34a12861253b3393ac089d9b5d78d))
 
 
 ### Bug Fixes
 
-* **e2e:** fix guard_integration tests with proper agent registration and API response parsing ([de12bf6](https://github.com/Avyukth/mcp-agent-mail-rs/commit/de12bf63775f5141b7b0c936d45c6f30035cc9ab))
-* **web-ui:** update sidebar and layout components ([552bd31](https://github.com/Avyukth/mcp-agent-mail-rs/commit/552bd31eec4ab8a01873b86c62d344eaa03229c0))
+* **e2e:** fix guard_integration tests with proper agent registration and API response parsing ([de12bf6](https://github.com/Avyukth/mouchak-mail-rs/commit/de12bf63775f5141b7b0c936d45c6f30035cc9ab))
+* **web-ui:** update sidebar and layout components ([552bd31](https://github.com/Avyukth/mouchak-mail-rs/commit/552bd31eec4ab8a01873b86c62d344eaa03229c0))
 
-## [0.2.2](https://github.com/Avyukth/mcp-agent-mail-rs/compare/v0.2.1...v0.2.2) (2025-12-28)
+## [0.2.2](https://github.com/Avyukth/mouchak-mail-rs/compare/v0.2.1...v0.2.2) (2025-12-28)
 
 
 ### Features
 
-* **e2e:** add auth & rate limiting E2E tests ([06dafe6](https://github.com/Avyukth/mcp-agent-mail-rs/commit/06dafe6e287126a764875e67dbf5f7bc9bee9258))
-* **kani:** add complete formal verification proofs for AgentId and MessageId ([9b4a482](https://github.com/Avyukth/mcp-agent-mail-rs/commit/9b4a4829ad65b5eb1dd686b89e103f90cc0ad1ee))
-* **lib-core:** add Kani formal verification proof harnesses ([ee1d470](https://github.com/Avyukth/mcp-agent-mail-rs/commit/ee1d470bd228f486395dd190a78156b23afa2d0e))
+* **e2e:** add auth & rate limiting E2E tests ([06dafe6](https://github.com/Avyukth/mouchak-mail-rs/commit/06dafe6e287126a764875e67dbf5f7bc9bee9258))
+* **kani:** add complete formal verification proofs for AgentId and MessageId ([9b4a482](https://github.com/Avyukth/mouchak-mail-rs/commit/9b4a4829ad65b5eb1dd686b89e103f90cc0ad1ee))
+* **lib-core:** add Kani formal verification proof harnesses ([ee1d470](https://github.com/Avyukth/mouchak-mail-rs/commit/ee1d470bd228f486395dd190a78156b23afa2d0e))
 
 
 ### Bug Fixes
 
-* resolve clippy warnings and update quality-gate ([3fd8e6b](https://github.com/Avyukth/mcp-agent-mail-rs/commit/3fd8e6bb55f820d6d3e204a44c751f5647b7d2fa))
-* **tests:** address PR [#16](https://github.com/Avyukth/mcp-agent-mail-rs/issues/16) bot review findings ([dc5ff00](https://github.com/Avyukth/mcp-agent-mail-rs/commit/dc5ff00beb9c55c872b34bf4b0f6c9d1ca45cc43))
+* resolve clippy warnings and update quality-gate ([3fd8e6b](https://github.com/Avyukth/mouchak-mail-rs/commit/3fd8e6bb55f820d6d3e204a44c751f5647b7d2fa))
+* **tests:** address PR [#16](https://github.com/Avyukth/mouchak-mail-rs/issues/16) bot review findings ([dc5ff00](https://github.com/Avyukth/mouchak-mail-rs/commit/dc5ff00beb9c55c872b34bf4b0f6c9d1ca45cc43))
 
-## [0.2.1](https://github.com/Avyukth/mcp-agent-mail-rs/compare/v0.2.0...v0.2.1) (2025-12-27)
+## [0.2.1](https://github.com/Avyukth/mouchak-mail-rs/compare/v0.2.0...v0.2.1) (2025-12-27)
 
 
 ### Bug Fixes
 
-* **beads,ci:** remove tracked beads data files and fix release workflow ([79f70ce](https://github.com/Avyukth/mcp-agent-mail-rs/commit/79f70ce7a20a1dee122d14b01ca247ecb6fe98c8))
-* **beads,ci:** remove tracked beads data files and fix release workflow ([98b958c](https://github.com/Avyukth/mcp-agent-mail-rs/commit/98b958c744f9efcb4ab3076c4e7ab005eab58958))
+* **beads,ci:** remove tracked beads data files and fix release workflow ([79f70ce](https://github.com/Avyukth/mouchak-mail-rs/commit/79f70ce7a20a1dee122d14b01ca247ecb6fe98c8))
+* **beads,ci:** remove tracked beads data files and fix release workflow ([98b958c](https://github.com/Avyukth/mouchak-mail-rs/commit/98b958c744f9efcb4ab3076c4e7ab005eab58958))
 
-## [0.2.0](https://github.com/Avyukth/mcp-agent-mail-rs/compare/v0.1.0...v0.2.0) (2025-12-27)
+## [0.2.0](https://github.com/Avyukth/mouchak-mail-rs/compare/v0.1.0...v0.2.0) (2025-12-27)
 
 
 ### ⚠ BREAKING CHANGES
@@ -50,29 +50,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### security
 
-* **lib-core:** make Dir mode privacy-safe by default ([e26eafe](https://github.com/Avyukth/mcp-agent-mail-rs/commit/e26eafe84c0aaf55e9809a3b3459d27c33169ce2))
+* **lib-core:** make Dir mode privacy-safe by default ([e26eafe](https://github.com/Avyukth/mouchak-mail-rs/commit/e26eafe84c0aaf55e9809a3b3459d27c33169ce2))
 
 
 ### Features
 
-* **mistake-detection:** add Unix username detection for agent names ([0b9cfc4](https://github.com/Avyukth/mcp-agent-mail-rs/commit/0b9cfc4e1295b404b158768a8b883b31de48ac86))
-* **security:** privacy-safe project slug generation ([3c13d9b](https://github.com/Avyukth/mcp-agent-mail-rs/commit/3c13d9b45b00268b1438b3971185f6e3b21ced45))
+* **mistake-detection:** add Unix username detection for agent names ([0b9cfc4](https://github.com/Avyukth/mouchak-mail-rs/commit/0b9cfc4e1295b404b158768a8b883b31de48ac86))
+* **security:** privacy-safe project slug generation ([3c13d9b](https://github.com/Avyukth/mouchak-mail-rs/commit/3c13d9b45b00268b1438b3971185f6e3b21ced45))
 
 
 ### Bug Fixes
 
-* address PR [#8](https://github.com/Avyukth/mcp-agent-mail-rs/issues/8) review feedback from Greptile and CodeRabbit ([b2695dc](https://github.com/Avyukth/mcp-agent-mail-rs/commit/b2695dc12f445227cd99550523a6f5736b7cf4f4))
-* **archive-browser:** implement path-based commit filtering ([1e05336](https://github.com/Avyukth/mcp-agent-mail-rs/commit/1e0533652b7357b7551139c924514aac645485c8))
-* **beads:** remove issue data negation for sync-branch mode ([53c1a8e](https://github.com/Avyukth/mcp-agent-mail-rs/commit/53c1a8e58f54a20f1cf405fcccb753570bb1e785))
-* **ci:** address cargo-audit and clippy warnings for PR [#9](https://github.com/Avyukth/mcp-agent-mail-rs/issues/9) ([30e65c7](https://github.com/Avyukth/mcp-agent-mail-rs/commit/30e65c77d12c2ce497370feacc56b4e66b27a420))
-* **mcp-agent-mail:** change unreachable pub to pub(crate) ([b9156e3](https://github.com/Avyukth/mcp-agent-mail-rs/commit/b9156e32e97b5ca8a33ddfdf83c197efa60a4dc3))
-* **mcp-stdio:** use McpConfig::from_env() for project identity settings ([16e1a23](https://github.com/Avyukth/mcp-agent-mail-rs/commit/16e1a23c4cbee7775fa627aa8fb0a081bc41c247))
-* **mistake-detection:** integrate Unix username detection into register_agent ([b9c0e9a](https://github.com/Avyukth/mcp-agent-mail-rs/commit/b9c0e9a06b120a692b0ada28d91e958dce62f666))
-* replace placeholder code with actual implementations ([0c6b716](https://github.com/Avyukth/mcp-agent-mail-rs/commit/0c6b71673d4fda1d7c32d62a1f04aa96451e37b2))
-* **scripts:** update integration scripts to use am alias and correct CLI args ([ed68bdf](https://github.com/Avyukth/mcp-agent-mail-rs/commit/ed68bdf92db5d08a6a1e9ef43279c108f4974a8e))
-* **scripts:** use correct MCP config format for Claude Code ([be0cd55](https://github.com/Avyukth/mcp-agent-mail-rs/commit/be0cd55659c0b79852f1397657eb1d1c400b2876))
-* **tests:** use generic username in project_identity test ([1c89c51](https://github.com/Avyukth/mcp-agent-mail-rs/commit/1c89c51bbf0d67c3be59fd76246259f429e84d27))
-* **tests:** use pub(crate) for test utilities to fix unreachable_pub warnings ([26bbbba](https://github.com/Avyukth/mcp-agent-mail-rs/commit/26bbbbafa17f503a67bc57943a9711aea088645f))
+* address PR [#8](https://github.com/Avyukth/mouchak-mail-rs/issues/8) review feedback from Greptile and CodeRabbit ([b2695dc](https://github.com/Avyukth/mouchak-mail-rs/commit/b2695dc12f445227cd99550523a6f5736b7cf4f4))
+* **archive-browser:** implement path-based commit filtering ([1e05336](https://github.com/Avyukth/mouchak-mail-rs/commit/1e0533652b7357b7551139c924514aac645485c8))
+* **beads:** remove issue data negation for sync-branch mode ([53c1a8e](https://github.com/Avyukth/mouchak-mail-rs/commit/53c1a8e58f54a20f1cf405fcccb753570bb1e785))
+* **ci:** address cargo-audit and clippy warnings for PR [#9](https://github.com/Avyukth/mouchak-mail-rs/issues/9) ([30e65c7](https://github.com/Avyukth/mouchak-mail-rs/commit/30e65c77d12c2ce497370feacc56b4e66b27a420))
+* **mouchak-mail:** change unreachable pub to pub(crate) ([b9156e3](https://github.com/Avyukth/mouchak-mail-rs/commit/b9156e32e97b5ca8a33ddfdf83c197efa60a4dc3))
+* **mcp-stdio:** use McpConfig::from_env() for project identity settings ([16e1a23](https://github.com/Avyukth/mouchak-mail-rs/commit/16e1a23c4cbee7775fa627aa8fb0a081bc41c247))
+* **mistake-detection:** integrate Unix username detection into register_agent ([b9c0e9a](https://github.com/Avyukth/mouchak-mail-rs/commit/b9c0e9a06b120a692b0ada28d91e958dce62f666))
+* replace placeholder code with actual implementations ([0c6b716](https://github.com/Avyukth/mouchak-mail-rs/commit/0c6b71673d4fda1d7c32d62a1f04aa96451e37b2))
+* **scripts:** update integration scripts to use am alias and correct CLI args ([ed68bdf](https://github.com/Avyukth/mouchak-mail-rs/commit/ed68bdf92db5d08a6a1e9ef43279c108f4974a8e))
+* **scripts:** use correct MCP config format for Claude Code ([be0cd55](https://github.com/Avyukth/mouchak-mail-rs/commit/be0cd55659c0b79852f1397657eb1d1c400b2876))
+* **tests:** use generic username in project_identity test ([1c89c51](https://github.com/Avyukth/mouchak-mail-rs/commit/1c89c51bbf0d67c3be59fd76246259f429e84d27))
+* **tests:** use pub(crate) for test utilities to fix unreachable_pub warnings ([26bbbba](https://github.com/Avyukth/mouchak-mail-rs/commit/26bbbbafa17f503a67bc57943a9711aea088645f))
 
 ## [Unreleased]
 
@@ -204,7 +204,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **agents**: Consolidate ULTRA Pattern workflow - mandatory file reservations + worktrees + beads-sync by @Avyukth
 - **agents**: Add NTM-style beads-sync branching workflow by @Avyukth
 - **agents**: Add beads sync-branch configuration instructions by @Avyukth
-- **agents**: Update MCP Agent Mail section for Rust implementation by @Avyukth
+- **agents**: Update Mouchak Mail section for Rust implementation by @Avyukth
 - **AGENTS.md**: Document MCP Resource URIs (resource://) fully by @Avyukth
 - Record completion of GAP-l8l4 and GAP-4aqw by @Avyukth
 - **lib-core**: Complete file handle leak audit and stress tests (PORT-2.3) by @Avyukth
@@ -227,7 +227,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **lib-core**: Add rustdoc to ProjectBmc and FileReservationBmc by @Avyukth
 - **lib-core**: Add comprehensive rustdoc to AgentBmc and MessageBmc by @Avyukth
 - Add CHANGELOG.md following Keep a Changelog format by @Avyukth
-- Update MCP Agent Mail documentation with accurate 45-tool reference by @Avyukth
+- Update Mouchak Mail documentation with accurate 45-tool reference by @Avyukth
 - **AGENTS.md**: Align with universal template and current project state by @Avyukth
 - **README**: Add sidecar deployment documentation by @Avyukth
 - Comprehensive README update with accurate codebase analysis by @Avyukth
@@ -297,8 +297,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **mcp**: Auto-grant default capabilities on agent registration by @Avyukth
 - **web-ui**: Initialize shadcn-svelte with Indigo theme (SVELTE-003) by @Avyukth
 - **lib-mcp**: Complete NTM compatibility layer by @Avyukth
-- **share**: Add GitHub Pages deployment wizard (mcp-agent-mail-rs-xpau) by @Avyukth
-- **robot**: Add comprehensive tests for robot-* flags (mcp-agent-mail-rs-vgs4) by @Avyukth
+- **share**: Add GitHub Pages deployment wizard (mouchak-mail-rs-xpau) by @Avyukth
+- **robot**: Add comprehensive tests for robot-* flags (mouchak-mail-rs-vgs4) by @Avyukth
 - **mcp**: Expose search_messages_product and summarize_thread_product in tool schemas by @Avyukth
 - **mcp**: Add convenience macros (macro_start_session, macro_file_reservation_cycle, macro_contact_handshake) by @Avyukth
 - **cli**: Add guard check command for pre-commit integration by @Avyukth
@@ -306,7 +306,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **service**: Implement service manager commands (start, stop, status, restart) by @Avyukth
 - **cli**: Add summarize command with --per-thread-limit and --no-llm by @Avyukth
 - **cli**: Add --robot-examples flag for AI-optimized example discovery by @Avyukth
-- **robot-status**: Implement --robot-status flag (mcp-agent-mail-rs-hbzz) by @Avyukth
+- **robot-status**: Implement --robot-status flag (mouchak-mail-rs-hbzz) by @Avyukth
 - **tests**: Port Python E2E tests to Rust (62 tests) by @Avyukth
 - **export**: Enhance scrubber with comprehensive secret detection patterns by @Avyukth
 - **cli**: Add config set-port/show-port commands by @Avyukth
@@ -325,7 +325,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **lib-core**: Add time travel historical snapshot API (26 tests) by @Avyukth
 - **lib-core**: PORT-4.4 add identity resolution module with 13 tests by @Avyukth
 - **lib-core**: Add query locality and resource cleanup tests (19 tests) by @Avyukth
-- **mcp-agent-mail**: Add archive CLI commands for disaster recovery by @Avyukth
+- **mouchak-mail**: Add archive CLI commands for disaster recovery by @Avyukth
 - **export**: Add Ed25519 signing for export manifests by @Avyukth
 - **web-ui-leptos**: LEPTOS-014 Accessibility Audit Automation by @Avyukth
 - **web-ui-leptos**: LEPTOS-013 Visual Regression Test Suite by @Avyukth
@@ -344,7 +344,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **web-ui**: LEPTOS-001 & LEPTOS-002 - tailwind_fuse CVA + shadcn CSS tokens by @Avyukth
 - **orchestration**: ORCH-3 to ORCH-8 - MCP tools and BMC by @Avyukth
 - **lib-core**: ORCH-1 & ORCH-2 - OrchestrationState and CompletionReport by @Avyukth
-- **ui**: Add overseer composer component (GAP: mcp-agent-mail-rs-pq0w) by @Avyukth
+- **ui**: Add overseer composer component (GAP: mouchak-mail-rs-pq0w) by @Avyukth
 - **core**: Add newtypes and standardize Rust 2024 edition by @Avyukth
 - **web-ui-leptos**: Init unified inbox filters from query by @Avyukth
 - **core**: Implement Stale Lock Cleanup (PORT-2.2) by @Avyukth
@@ -354,7 +354,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **ratelimit**: Add per-tool rate limiting with category-based limits by @Avyukth
 - **cli**: Add service commands for stop/status/restart (PORT-6.2) by @Avyukth
 - **cli**: Add port validation before server start (PORT-6.3) by @Avyukth
-- **cli**: Add 'mcp-agent-mail install alias' command for 'am' alias by @Avyukth
+- **cli**: Add 'mouchak-mail install alias' command for 'am' alias by @Avyukth
 - **ratelimit**: Add per-tool rate limiting with category-based limits by @Avyukth
 - **ratelimit**: Add JWT identity extraction for per-user rate limiting by @Avyukth
 - **guard**: Support custom core.hooksPath in hook installation by @Avyukth
@@ -406,7 +406,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **mcp**: Add 4 P2 convenience workflow tools by @Avyukth
 - **mcp**: Add precommit guard MCP tools by @Avyukth
 - **Makefile**: Add sidecar build targets by @Avyukth
-- **mcp-agent-mail**: Add --with-ui/--no-ui CLI flags by @Avyukth
+- **mouchak-mail**: Add --with-ui/--no-ui CLI flags by @Avyukth
 - **lib-server**: Add conditional web UI fallback route by @Avyukth
 - **lib-server**: Add embedded assets and static file handler by @Avyukth
 - **lib-server**: Add with-web-ui feature flag for single-binary embedding by @Avyukth
@@ -416,16 +416,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **web-ui**: Add shadcn-style Select component and fix Leptos reactivity by @Avyukth
 - **hardening**: Implement export, openapi, docker, systemd (closes tgl, 577.16, jt8, 81g) by @Avyukth
 - **hardening**: Implement rate limiting and attachment handlers (577.13, 577.14) by @Avyukth
-- Implement real LLM thread summarization (closes mcp-agent-mail-rs-17d) by @Avyukth
+- Implement real LLM thread summarization (closes mouchak-mail-rs-17d) by @Avyukth
 - **auth**: Implement localhost bypass for bearer token auth by @Avyukth
 - **lib-server**: Implement real RBAC capabilities middleware by @Avyukth
-- Add CI/CD pipeline (GitHub Actions) (closes mcp-agent-mail-rs-577.15) by @Avyukth
+- Add CI/CD pipeline (GitHub Actions) (closes mouchak-mail-rs-577.15) by @Avyukth
 - Implement multi-agent simulation tasks (azc, y58, fw1, rkm, 4mw, if9, ctb) by @Avyukth
 - Complete 6 P1 tasks - tests, migrations, JWT auth by @Avyukth
 - Complete 5 P0 tasks - env docs, route aliases, MCP tools, integrations by @Avyukth
 - **installer**: Add curl one-liner installer script by @Avyukth
-- Unified CLI binary, hardening, and tests (closes mcp-agent-mail-rs-577) by @Avyukth
-- **cli**: Add unified mcp-agent-mail binary with library refactoring by @Avyukth
+- Unified CLI binary, hardening, and tests (closes mouchak-mail-rs-577) by @Avyukth
+- **cli**: Add unified mouchak-mail binary with library refactoring by @Avyukth
 - Merge video walkthrough automation changes by @Avyukth
 - Enable compose message in inbox and fix build by @Avyukth
 - Add systemd service, probar e2e test, and fix table scroll by @Avyukth
@@ -459,8 +459,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **web-ui**: Complete Phase 2 SvelteKit frontend pages by @Avyukth
 - **web-ui**: Initialize SvelteKit frontend with Tailwind by @Avyukth
 - **lib-core**: Add MessageBmc::search method using FTS5 by @Avyukth
-- Implement file_reservation_paths tool (closes mcp-agent-mail-rs-geo.2) by @Avyukth
-- Implement FileReservation model and BMC (closes mcp-agent-mail-rs-geo.1) by @Avyukth
+- Implement file_reservation_paths tool (closes mouchak-mail-rs-geo.2) by @Avyukth
+- Implement FileReservation model and BMC (closes mouchak-mail-rs-geo.1) by @Avyukth
 - Implement initial API endpoints and update to Libsql by @Avyukth
 - Initial Rust backend implementation (Phase 1 complete) by @Avyukth
 
@@ -488,17 +488,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **beads**: Resolve merge conflict from main by @Avyukth
 - **beads**: Enable sync-branch config by @Avyukth
 - **beads**: Reinitialize with mcpmail- prefix by @Avyukth
-- **beads**: Rename prefix from mcp-agent-mail-rs- to mcpmail- by @Avyukth
+- **beads**: Rename prefix from mouchak-mail-rs- to mcpmail- by @Avyukth
 - **beads**: Sync issues before prefix rename by @Avyukth
 - **beads**: Add deletions manifest from bd doctor --fix by @Avyukth
-- **beads**: Close mcp-agent-mail-rs-0em2 - NTM-003 complete by @Avyukth
+- **beads**: Close mouchak-mail-rs-0em2 - NTM-003 complete by @Avyukth
 - **beads**: Configure sync-branch in config.yaml by @Avyukth
 - **beads**: Demote RUSTSEC-2023-0071 to P4 backlog by @Avyukth
 - **beads**: Add review issues for capability auto-grant by @Avyukth
 - Compress AGENTS.md and update web-ui configs by @Avyukth
-- **beads**: Close mcp-agent-mail-rs-h4gi - REST API workflow verified by @Avyukth
-- **beads**: Close mcp-agent-mail-rs-kiit - MCP tools workflow verified by @Avyukth
-- **beads**: Close mcp-agent-mail-rs-6t99, add capability limitation note by @Avyukth
+- **beads**: Close mouchak-mail-rs-h4gi - REST API workflow verified by @Avyukth
+- **beads**: Close mouchak-mail-rs-kiit - MCP tools workflow verified by @Avyukth
+- **beads**: Close mouchak-mail-rs-6t99, add capability limitation note by @Avyukth
 - **beads**: Add no-code workflow test bead by @Avyukth
 - **beads**: Add test bead for agent workflow validation by @Avyukth
 - **beads**: Close SVELTE-003 - shadcn-svelte initialized by @Avyukth
@@ -507,29 +507,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ignore startlock files by @Avyukth
 - Add AGENTS copy.md to gitignore by @Avyukth
 - **beads**: Create SvelteKit transformation epic and tasks by @Avyukth
-- **beads**: Close mcp-agent-mail-rs-vgs4 - robot-* tests complete by @Avyukth
+- **beads**: Close mouchak-mail-rs-vgs4 - robot-* tests complete by @Avyukth
 - Sync pending changes by @Avyukth
 - **beads**: Sync issues.jsonl by @Avyukth
-- **beads**: Close mcp-agent-mail-rs-9ue (beads CLI worktree bug) by @Avyukth
-- **beads**: Close mcp-agent-mail-rs-4xic (robot-help flag complete) by @Avyukth
+- **beads**: Close mouchak-mail-rs-9ue (beads CLI worktree bug) by @Avyukth
+- **beads**: Close mouchak-mail-rs-4xic (robot-help flag complete) by @Avyukth
 - **beads**: Prioritize CLI tasks to P0 by @Avyukth
-- **beads**: Close mcp-agent-mail-rs-enrt (quota system already implemented) by @Avyukth
+- **beads**: Close mouchak-mail-rs-enrt (quota system already implemented) by @Avyukth
 - **beads**: Create Python-Rust parity epic with 7 tasks by @Avyukth
-- **beads**: Close mcp-agent-mail-rs-nbj2 (robot-help flag review) by @Avyukth
-- **beads**: Close mcp-agent-mail-rs-nv1b by @Avyukth
-- **beads**: Close mcp-agent-mail-rs-7wu archive browser task by @Avyukth
-- **beads**: Close mcp-agent-mail-rs-f6w - existing routes cover Python web UI by @Avyukth
-- **beads**: Close mcp-agent-mail-rs-7j4 file locks API endpoint task by @Avyukth
-- **beads**: Close mcp-agent-mail-rs-uu10 performance benchmark tests task by @Avyukth
-- **beads**: Close mcp-agent-mail-rs-hq8p mail viewer E2E tests task by @Avyukth
-- **beads**: Close mcp-agent-mail-rs-c3cr archive browser tests task by @Avyukth
+- **beads**: Close mouchak-mail-rs-nbj2 (robot-help flag review) by @Avyukth
+- **beads**: Close mouchak-mail-rs-nv1b by @Avyukth
+- **beads**: Close mouchak-mail-rs-7wu archive browser task by @Avyukth
+- **beads**: Close mouchak-mail-rs-f6w - existing routes cover Python web UI by @Avyukth
+- **beads**: Close mouchak-mail-rs-7j4 file locks API endpoint task by @Avyukth
+- **beads**: Close mouchak-mail-rs-uu10 performance benchmark tests task by @Avyukth
+- **beads**: Close mouchak-mail-rs-hq8p mail viewer E2E tests task by @Avyukth
+- **beads**: Close mouchak-mail-rs-c3cr archive browser tests task by @Avyukth
 - Sync beads state by @Avyukth
 - Sync beads state by @Avyukth
-- **beads**: Close mcp-agent-mail-rs-jfv time travel tests by @Avyukth
+- **beads**: Close mouchak-mail-rs-jfv time travel tests by @Avyukth
 - **beads**: Close 3 security header tasks (already implemented) by @Avyukth
 - **beads**: Close LEPTOS epic and all remaining tasks by @Avyukth
-- **beads**: Close mcp-agent-mail-rs-ncfl after panic hook implementation by @Avyukth
-- **beads**: Close LEPTOS-005 (mcp-agent-mail-rs-crlu) by @Avyukth
+- **beads**: Close mouchak-mail-rs-ncfl after panic hook implementation by @Avyukth
+- **beads**: Close LEPTOS-005 (mouchak-mail-rs-crlu) by @Avyukth
 - **beads**: Close ORCH-1 (r3a9) and ORCH-2 (q434) after review fix by @Avyukth
 - **beads**: Create 14 LEPTOS beads for UI parity work by @Avyukth
 - **beads**: Close GAP-l8l4 and GAP-4aqw after review validation by @Avyukth

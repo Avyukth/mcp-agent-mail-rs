@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# MCP Agent Mail - Quick Start Script
+# Mouchak Mail - Quick Start Script
 # Builds and runs the development servers
 
 set -e
@@ -14,7 +14,7 @@ GREEN='\033[0;32m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}🚀 MCP Agent Mail - Development Server${NC}"
+echo -e "${BLUE}🚀 Mouchak Mail - Development Server${NC}"
 echo ""
 
 # Check for dependencies
@@ -22,7 +22,7 @@ command -v cargo >/dev/null 2>&1 || { echo "cargo is required but not installed.
 command -v bun >/dev/null 2>&1 || { echo "bun is required but not installed. Aborting."; exit 1; }
 
 # Build if needed
-if [ ! -f "target/debug/mcp-server" ]; then
+if [ ! -f "target/debug/mouchak-mail-http" ]; then
     echo -e "${GREEN}Building Rust components...${NC}"
     cargo build --workspace
 fi
@@ -46,7 +46,7 @@ echo ""
 trap 'kill 0' EXIT
 
 # Start API server in background
-cargo run -p mcp-server 2>&1 | sed 's/^/[API] /' &
+cargo run -p mouchak-mail-http 2>&1 | sed 's/^/[API] /' &
 
 # Wait for API to be ready
 sleep 2

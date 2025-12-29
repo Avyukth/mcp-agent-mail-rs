@@ -39,7 +39,7 @@ fn setup_test_env() -> TempDir {
 
 /// Run CLI command with isolated data directory
 fn run_cli_with_data_dir(temp_dir: &TempDir) -> Command {
-    let mut cmd = Command::cargo_bin("mcp-agent-mail").unwrap();
+    let mut cmd = Command::cargo_bin("mouchak-mail").unwrap();
 
     // Set working directory to temp dir so data/ paths resolve there
     cmd.current_dir(temp_dir.path());
@@ -49,7 +49,7 @@ fn run_cli_with_data_dir(temp_dir: &TempDir) -> Command {
 
 /// Create a dummy database file for testing
 fn create_dummy_database(temp_dir: &TempDir) {
-    let db_path = temp_dir.path().join("data/mcp_agent_mail.db");
+    let db_path = temp_dir.path().join("data/mouchak_mail.db");
     fs::create_dir_all(db_path.parent().unwrap()).expect("Failed to create data dir");
     fs::write(&db_path, b"SQLite format 3\x00dummy test data").expect("Failed to create db");
 }
@@ -181,7 +181,7 @@ fn test_archive_save_includes_database() {
     let mut archive = zip::ZipArchive::new(file).expect("Failed to read zip");
 
     assert!(
-        archive.by_name("mcp_agent_mail.db").is_ok(),
+        archive.by_name("mouchak_mail.db").is_ok(),
         "Archive should contain database file"
     );
 }
@@ -363,7 +363,7 @@ fn test_archive_restore_success() {
         .expect("Archive file not found");
 
     // Delete the database to simulate data loss
-    let db_path = temp_dir.path().join("data/mcp_agent_mail.db");
+    let db_path = temp_dir.path().join("data/mouchak_mail.db");
     fs::remove_file(&db_path).expect("Failed to remove db");
     assert!(!db_path.exists(), "Database should be deleted");
 
@@ -449,7 +449,7 @@ fn test_archive_clear_and_reset_without_backup() {
     create_dummy_database(&temp_dir);
     create_dummy_git_storage(&temp_dir);
 
-    let db_path = temp_dir.path().join("data/mcp_agent_mail.db");
+    let db_path = temp_dir.path().join("data/mouchak_mail.db");
     let git_path = temp_dir.path().join("data/archive");
 
     assert!(db_path.exists(), "Database should exist before reset");
@@ -511,7 +511,7 @@ fn test_archive_roundtrip_data_integrity() {
     let temp_dir = setup_test_env();
 
     // Create database with specific content
-    let db_path = temp_dir.path().join("data/mcp_agent_mail.db");
+    let db_path = temp_dir.path().join("data/mouchak_mail.db");
     fs::create_dir_all(db_path.parent().unwrap()).expect("Failed to create data dir");
     let original_content = b"SQLite format 3\x00specific test data 12345";
     fs::write(&db_path, original_content).expect("Failed to create db");

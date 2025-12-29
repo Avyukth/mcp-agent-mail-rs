@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # generic-mcp.sh - Generic MCP client configuration for any MCP-compatible tool
-# Part of mcp-agent-mail-rs integration scripts
+# Part of mouchak-mail integration scripts
 
 set -euo pipefail
 
@@ -14,9 +14,9 @@ NC='\033[0m'
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
-MCP_SERVER_NAME="mcp-agent-mail"
-MCP_SERVER_PORT="${MCP_AGENT_MAIL_PORT:-8765}"
-MCP_SERVER_HOST="${MCP_AGENT_MAIL_HOST:-127.0.0.1}"
+MCP_SERVER_NAME="mouchak-mail"
+MCP_SERVER_PORT="${MOUCHAK_MAIL_PORT:-8765}"
+MCP_SERVER_HOST="${MOUCHAK_MAIL_HOST:-127.0.0.1}"
 TRANSPORT_MODE="stdio"
 
 log_info() { echo -e "${BLUE}ℹ${NC} $1"; }
@@ -27,7 +27,7 @@ log_error() { echo -e "${RED}✗${NC} $1"; }
 print_header() {
     echo ""
     echo -e "${BLUE}╔════════════════════════════════════════════════════════════╗${NC}"
-    echo -e "${BLUE}║${NC}     MCP Agent Mail - Generic MCP Client Setup             ${BLUE}║${NC}"
+    echo -e "${BLUE}║${NC}     Mouchak Mail - Generic MCP Client Setup             ${BLUE}║${NC}"
     echo -e "${BLUE}╚════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
@@ -48,12 +48,12 @@ find_mcp_binaries() {
     log_info "Locating MCP server binaries..."
 
     # Find stdio server
-    if command -v mcp-stdio-server &> /dev/null; then
-        MCP_STDIO_PATH=$(which mcp-stdio-server)
+    if command -v mouchak-mail-stdio &> /dev/null; then
+        MCP_STDIO_PATH=$(which mouchak-mail-stdio)
     else
         local stdio_paths=(
-            "$PROJECT_ROOT/target/release/mcp-stdio-server"
-            "$PROJECT_ROOT/target/debug/mcp-stdio-server"
+            "$PROJECT_ROOT/target/release/mouchak-mail-stdio"
+            "$PROJECT_ROOT/target/debug/mouchak-mail-stdio"
         )
         for path in "${stdio_paths[@]}"; do
             if [[ -x "$path" ]]; then
@@ -64,12 +64,12 @@ find_mcp_binaries() {
     fi
 
     # Find HTTP server
-    if command -v mcp-server &> /dev/null; then
-        MCP_HTTP_PATH=$(which mcp-server)
+    if command -v mouchak-mail-http &> /dev/null; then
+        MCP_HTTP_PATH=$(which mouchak-mail-http)
     else
         local http_paths=(
-            "$PROJECT_ROOT/target/release/mcp-server"
-            "$PROJECT_ROOT/target/debug/mcp-server"
+            "$PROJECT_ROOT/target/release/mouchak-mail-http"
+            "$PROJECT_ROOT/target/debug/mouchak-mail-http"
         )
         for path in "${http_paths[@]}"; do
             if [[ -x "$path" ]]; then
@@ -80,15 +80,15 @@ find_mcp_binaries() {
     fi
 
     if [[ -n "${MCP_STDIO_PATH:-}" ]]; then
-        log_success "Found mcp-stdio-server: $MCP_STDIO_PATH"
+        log_success "Found mouchak-mail-stdio: $MCP_STDIO_PATH"
     else
-        log_warn "mcp-stdio-server not found"
+        log_warn "mouchak-mail-stdio not found"
     fi
 
     if [[ -n "${MCP_HTTP_PATH:-}" ]]; then
-        log_success "Found mcp-server: $MCP_HTTP_PATH"
+        log_success "Found mouchak-mail-http: $MCP_HTTP_PATH"
     else
-        log_warn "mcp-server not found"
+        log_warn "mouchak-mail-http not found"
     fi
 
     if [[ -z "${MCP_STDIO_PATH:-}" ]] && [[ -z "${MCP_HTTP_PATH:-}" ]]; then
@@ -170,7 +170,7 @@ EOF
 create_config_examples() {
     log_info "Creating configuration examples..."
 
-    local config_dir="mcp-agent-mail-configs"
+    local config_dir="mouchak-mail-configs"
     mkdir -p "$config_dir"
 
     # Generate all transport modes
@@ -185,7 +185,7 @@ create_config_examples() {
 
     # Create README
     cat > "$config_dir/README.md" <<EOF
-# MCP Agent Mail Configuration Examples
+# Mouchak Mail Configuration Examples
 
 This directory contains example MCP server configurations for various transport modes.
 
@@ -250,8 +250,8 @@ $MCP_HTTP_PATH
 
 ## Environment Variables
 
-- \`MCP_AGENT_MAIL_PORT\` - Server port (default: $MCP_SERVER_PORT)
-- \`MCP_AGENT_MAIL_HOST\` - Server host (default: $MCP_SERVER_HOST)
+- \`MOUCHAK_MAIL_PORT\` - Server port (default: $MCP_SERVER_PORT)
+- \`MOUCHAK_MAIL_HOST\` - Server host (default: $MCP_SERVER_HOST)
 - \`RUST_LOG\` - Log level (debug, info, warn, error)
 
 ## Available MCP Tools
@@ -327,7 +327,7 @@ print_summary() {
     echo -e "${GREEN}║${NC}     Configuration Examples Created!                         ${GREEN}║${NC}"
     echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
     echo ""
-    echo "Configuration files created in: mcp-agent-mail-configs/"
+    echo "Configuration files created in: mouchak-mail-configs/"
     echo ""
 
     if [[ -n "${MCP_STDIO_PATH:-}" ]]; then
@@ -343,14 +343,14 @@ print_summary() {
     echo "Quick start for common clients:"
     echo ""
     echo "Claude Desktop (macOS):"
-    echo "  cp mcp-agent-mail-configs/stdio-config.json \\"
+    echo "  cp mouchak-mail-configs/stdio-config.json \\"
     echo "     ~/Library/Application\\ Support/Claude/claude_desktop_config.json"
     echo ""
     echo "Cursor:"
-    echo "  cp mcp-agent-mail-configs/stdio-config.json ~/.cursor/mcp_settings.json"
+    echo "  cp mouchak-mail-configs/stdio-config.json ~/.cursor/mcp_settings.json"
     echo ""
     echo "Custom client:"
-    echo "  See mcp-agent-mail-configs/README.md for detailed instructions"
+    echo "  See mouchak-mail-configs/README.md for detailed instructions"
     echo ""
     echo "Test the server:"
     if [[ -n "${MCP_HTTP_PATH:-}" ]]; then
@@ -380,7 +380,7 @@ Examples:
   $(basename "$0") --host 0.0.0.0            # Bind to all interfaces
 
 Output:
-  Creates mcp-agent-mail-configs/ directory with:
+  Creates mouchak-mail-configs/ directory with:
   - stdio-config.json (if mcp-stdio-server available)
   - http-config.json (if mcp-server available)
   - sse-config.json (if mcp-server available)

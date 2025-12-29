@@ -17,7 +17,7 @@ test.describe('Dashboard Page', () => {
 
 		// Check page title
 		await expect(page.getByRole('heading', { name: 'Dashboard' })).toBeVisible();
-		await expect(page.getByText('Welcome to MCP Agent Mail')).toBeVisible();
+		await expect(page.getByText('Welcome to Mouchak Mail')).toBeVisible();
 
 		// Check status cards are visible
 		await expect(page.getByText('Backend Status')).toBeVisible();

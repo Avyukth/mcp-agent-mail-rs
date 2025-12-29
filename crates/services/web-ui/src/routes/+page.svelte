@@ -138,7 +138,7 @@
 									{retrying ? 'Retrying...' : 'Retry Connection'}
 								</Button>
 								<a
-									href="https://github.com/Avyukth/mcp-agent-mail-rs#quick-start"
+									href="https://github.com/Avyukth/mouchak-mail#quick-start"
 									target="_blank"
 									rel="noopener noreferrer"
 									class="text-sm underline underline-offset-4 hover:no-underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded"

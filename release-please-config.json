@@ -7,7 +7,7 @@
   "bump-patch-for-minor-pre-major": true,
   "packages": {
     ".": {
-      "component": "mcp-agent-mail",
+      "component": "mouchak-mail",
       "changelog-path": "CHANGELOG.md"
     }
   },
