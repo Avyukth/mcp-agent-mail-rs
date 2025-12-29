@@ -106,7 +106,7 @@
 		<Card.Root class="shadow-lg border-primary/20">
 			<Card.Header class="pb-2">
 				<div class="flex items-start justify-between">
-					<Card.Title id="install-title" class="text-base">Install Agent Mail</Card.Title>
+					<Card.Title id="install-title" class="text-base">Install Mouchak Mail</Card.Title>
 					<Button
 						variant="ghost"
 						size="icon"
@@ -133,7 +133,7 @@
 					</ol>
 				{:else}
 					<p class="text-sm text-muted-foreground">
-						Install Agent Mail for quick access and offline support.
+						Install Mouchak Mail for quick access and offline support.
 					</p>
 					<Button onclick={handleInstall} class="w-full gap-2">
 						<Download class="h-4 w-4" />

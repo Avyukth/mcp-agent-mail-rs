@@ -1,5 +1,5 @@
 /**
- * TypeScript types for MCP Agent Mail API responses
+ * TypeScript types for Mouchak Mail API responses
  * Matches backend Rust types in lib-core
  */
 

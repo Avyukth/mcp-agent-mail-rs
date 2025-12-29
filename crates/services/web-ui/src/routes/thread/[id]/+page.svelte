@@ -167,7 +167,7 @@
 </script>
 
 <svelte:head>
-    <title>{thread?.subject ?? "Thread"} | MCP Agent Mail</title>
+    <title>{thread?.subject ?? "Thread"} | Mouchak Mail</title>
 </svelte:head>
 
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->

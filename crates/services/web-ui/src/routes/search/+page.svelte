@@ -194,7 +194,7 @@
 </script>
 
 <svelte:head>
-    <title>Search Messages | MCP Agent Mail</title>
+    <title>Search Messages | Mouchak Mail</title>
 </svelte:head>
 
 <div class="pt-4 md:pt-6 pb-4 md:pb-6 space-y-6">

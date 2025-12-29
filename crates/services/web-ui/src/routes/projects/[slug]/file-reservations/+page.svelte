@@ -71,7 +71,7 @@
 </script>
 
 <svelte:head>
-    <title>File Reservations - {projectSlug} | MCP Agent Mail</title>
+    <title>File Reservations - {projectSlug} | Mouchak Mail</title>
 </svelte:head>
 
 <div class="pt-4 md:pt-6 pb-4 md:pb-6 space-y-6">

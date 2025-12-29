@@ -126,7 +126,7 @@
 </script>
 
 <svelte:head>
-    <title>Attachments | MCP Agent Mail</title>
+    <title>Attachments | Mouchak Mail</title>
 </svelte:head>
 
 <div class="pt-4 md:pt-6 pb-4 md:pb-6 space-y-6">

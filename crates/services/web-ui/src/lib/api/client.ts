@@ -1,5 +1,5 @@
 /**
- * API Client for MCP Agent Mail backend
+ * API Client for Mouchak Mail backend
  * Expanded with all endpoints for SVELTE-008
  */
 

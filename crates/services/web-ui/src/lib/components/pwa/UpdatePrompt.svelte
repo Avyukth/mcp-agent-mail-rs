@@ -90,7 +90,7 @@
 			</Card.Header>
 			<Card.Content class="space-y-3">
 				<p class="text-sm opacity-90">
-					A new version of Agent Mail is available. Refresh to update.
+					A new version of Mouchak Mail is available. Refresh to update.
 				</p>
 				<Button
 					onclick={handleUpdate}
