@@ -20,12 +20,19 @@ pub struct EnsureProjectParams {
 }
 
 impl EnsureProjectParams {
-    /// Get the effective slug, preferring explicit slug, falling back to human_key.
+    /// Get the effective slug, preferring explicit slug, falling back to last path component of human_key.
+    /// This ensures privacy by not exposing full paths in the slug.
     pub fn effective_slug(&self) -> String {
-        self.slug
-            .clone()
-            .or_else(|| self.human_key.clone())
-            .unwrap_or_default()
+        self.slug.clone().or_else(|| {
+            self.human_key.as_ref().map(|hk| {
+                // Extract last path component for privacy (e.g., "/Users/me/project" -> "project")
+                std::path::Path::new(hk)
+                    .file_name()
+                    .and_then(|f| f.to_str())
+                    .unwrap_or(hk)
+                    .to_string()
+            })
+        }).unwrap_or_default()
     }
 
     /// Get the effective human_key, preferring explicit human_key, falling back to slug's last component.

@@ -84,5 +84,8 @@ pub fn mcp_routes(mm: ModelManager) -> Router<AppState> {
         }
     });
 
-    Router::new().route("/mcp", any_service(wrapped_service))
+    // Support both /mcp and /mcp/ for compatibility with clients like NTM
+    Router::new()
+        .route("/mcp", any_service(wrapped_service.clone()))
+        .route("/mcp/", any_service(wrapped_service))
 }
