@@ -11,10 +11,19 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, JsonSchema)]
 pub struct EnsureProjectParams {
-    /// The project slug (URL-safe identifier)
-    pub slug: String,
+    /// The project slug (URL-safe identifier). If not provided, derived from human_key.
+    #[serde(default)]
+    pub slug: Option<String>,
     /// Human-readable project name/key
     pub human_key: String,
+}
+
+impl EnsureProjectParams {
+    pub fn effective_slug(&self) -> String {
+        self.slug
+            .clone()
+            .unwrap_or_else(|| self.human_key.clone())
+    }
 }
 
 /// Parameters for list_projects tool (no parameters required)
