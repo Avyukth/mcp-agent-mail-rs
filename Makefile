@@ -1,7 +1,7 @@
 # Mouchak Mail - Makefile
 # Unified build and run commands for the Rust implementation
 
-.PHONY: all build build-release build-web build-web-leptos build-web-svelte dev run run-all clean test test-fast coverage audit quality-gate help export-static-data build-web-static deploy-github-pages full-deploy-github-pages push-github-pages
+.PHONY: all build build-release build-web build-web-leptos build-web-svelte dev run run-all clean test test-fast coverage audit quality-gate help export-static-data build-web-static deploy-github-pages full-deploy-github-pages push-github-pages commit push
 
 # Default target
 all: build
@@ -333,21 +333,41 @@ full-deploy-github-pages: build-release build-web-static deploy-github-pages
 # Git Hooks
 # ============================================================================
 
-## Install git hooks (via prek)
+## Install git hooks (cargo fmt + bd sync)
 install-hooks:
-	@echo "Installing git hooks via prek..."
-	@prek install
-	@echo "Hooks installed at .git/hooks/"
-	@ls -la .git/hooks/pre-commit
+	@echo "Installing pre-commit hook (fmt + bd)..."
+	@cp scripts/hooks/pre-commit .git/hooks/pre-commit
+	@chmod +x .git/hooks/pre-commit
+	@echo "✅ Hook installed at .git/hooks/pre-commit"
 
 ## Verify hook installation
 check-hooks:
 	@echo "Checking git hooks..."
 	@if [ -f .git/hooks/pre-commit ]; then \
 		echo "  pre-commit hook: installed"; \
+		head -5 .git/hooks/pre-commit; \
 	else \
 		echo "  pre-commit hook: NOT installed (run 'make install-hooks')"; \
 	fi
+
+# ============================================================================
+# Git Workflow
+# ============================================================================
+
+## Format and commit (usage: make commit m="commit message")
+commit:
+	@echo "✨ Formatting code..."
+	@cargo fmt --all
+	@echo "📝 Staging and committing..."
+	@git add -A
+	@git commit -m "$(m)"
+	@echo "✅ Committed: $(m)"
+
+## Format, commit and push (usage: make push m="commit message")
+push: commit
+	@echo "🚀 Pushing to origin..."
+	@git push
+	@echo "✅ Pushed to origin"
 
 # ============================================================================
 # Utilities
@@ -426,8 +446,12 @@ help:
 	@echo "  mutate-check   Run mutation testing with threshold check"
 	@echo ""
 	@echo "Git Hooks:"
-	@echo "  install-hooks  Install pre-commit hooks via cargo-husky"
+	@echo "  install-hooks  Install pre-commit hook (fmt + bd sync)"
 	@echo "  check-hooks    Verify hook installation"
+	@echo ""
+	@echo "Git Workflow:"
+	@echo "  commit         Format and commit (make commit m=\"message\")"
+	@echo "  push           Format, commit, and push (make push m=\"message\")"
 	@echo ""
 	@echo "Utilities:"
 	@echo "  tools        List all MCP tools"

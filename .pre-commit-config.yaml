@@ -3,7 +3,7 @@ repos:
     hooks:
       - id: fmt
         name: fmt
-        entry: cargo fmt -- --check
+        entry: cargo fmt --all
         language: system
         types: [rust]
         pass_filenames: false
