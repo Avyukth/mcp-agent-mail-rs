@@ -37,7 +37,8 @@ pub async fn ensure_project_impl(
             Ok(CallToolResult::success(vec![Content::text(msg)]))
         }
         Err(_) => {
-            let id = ProjectBmc::create(ctx, mm, &slug, &params.human_key)
+            let human_key = params.effective_human_key();
+            let id = ProjectBmc::create(ctx, mm, &slug, &human_key)
                 .await
                 .map_err(|e| McpError::internal_error(e.to_string(), None))?;
 

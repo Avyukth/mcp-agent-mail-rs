@@ -76,7 +76,7 @@ async fn test_ensure_project_creates_new() {
 
     let params = EnsureProjectParams {
         slug: Some("test-proj".to_string()),
-        human_key: "test-proj".to_string(),
+        human_key: Some("test-proj".to_string()),
     };
 
     let result = project::ensure_project_impl(&ctx, &mm, params).await;
@@ -101,7 +101,7 @@ async fn test_ensure_project_returns_existing() {
 
     let params = EnsureProjectParams {
         slug: Some("existing-proj".to_string()),
-        human_key: "existing-proj".to_string(),
+        human_key: Some("existing-proj".to_string()),
     };
 
     let result = project::ensure_project_impl(&ctx, &mm, params).await;
