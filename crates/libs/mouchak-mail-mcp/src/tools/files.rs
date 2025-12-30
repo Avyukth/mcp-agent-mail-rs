@@ -341,9 +341,11 @@ pub async fn release_file_reservations_by_path_impl(
         "project_slug": params.project_slug
     });
 
-    Ok(CallToolResult::success(vec![Content::text(
-        serde_json::to_string_pretty(&output).unwrap_or_default(),
-    )]))
+    let json_text = serde_json::to_string_pretty(&output).map_err(|e| {
+        McpError::internal_error(format!("Failed to serialize response: {}", e), None)
+    })?;
+
+    Ok(CallToolResult::success(vec![Content::text(json_text)]))
 }
 
 pub async fn renew_file_reservations_by_agent_impl(

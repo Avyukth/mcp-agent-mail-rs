@@ -126,9 +126,11 @@ pub async fn respond_contact_by_name_impl(
         "to_agent": params.to_agent
     });
 
-    Ok(CallToolResult::success(vec![Content::text(
-        serde_json::to_string_pretty(&output).unwrap_or_default(),
-    )]))
+    let json_text = serde_json::to_string_pretty(&output).map_err(|e| {
+        McpError::internal_error(format!("Failed to serialize response: {}", e), None)
+    })?;
+
+    Ok(CallToolResult::success(vec![Content::text(json_text)]))
 }
 
 /// List all contacts for an agent.
